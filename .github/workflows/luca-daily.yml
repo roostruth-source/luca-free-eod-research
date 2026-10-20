@@ -2,6 +2,7 @@ name: LUCA 무료 장마감 연구 (별도 사이트)
 on:
   workflow_dispatch:
   schedule:
+    # 한국시간 화~토 14:17, 미국 장마감 후 1회 (무료 예약은 지연/누락 가능)
     - cron: '17 5 * * 2-6'
 permissions:
   contents: write
@@ -49,6 +50,69 @@ jobs:
         run: |
           cd _luca_private
           python run_free_cloud.py once > ../luca-run.log 2>&1
+      - name: 왜 실패했는지 간단 진단 기록
+        if: always()
+        run: |
+          python - <<'PYDIAG'
+          import collections, json, pathlib, re
+          root=pathlib.Path('_luca_private/engine/local-data/standalone-workspaces')
+          paths=sorted(root.glob('luca-*'),key=lambda p:p.stat().st_mtime) if root.is_dir() else []
+          report=['LUCA 무료 장마감 연구판 / 진단 전용 / 매수 차단 / NOT_VALIDATED']
+          def load(p):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except (ValueError,OSError):return {}
+          def clean(value):
+              v=str(value)[:350]
+              v=re.sub(r'https?://[^\s]+','[URL 비공개]',v)
+              v=re.sub(r'(?:sk-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9_]+)','[토큰 비공개]',v)
+              return v.replace('\n',' ')
+          if not paths:
+              report.append('연구 실행 폴더가 생성되지 않았습니다.')
+          else:
+              home=paths[-1]
+              state=load(home/'state.json'); last=state.get('last_attempt',{})
+              supervisor=load(home/'supervisor-result.json')
+              report += [
+                '수집 최종 상태: '+clean(last.get('status','없음')),
+                '수집 직접 오류 종류: '+clean(last.get('error_type','없음')),
+                '수집 직접 오류: '+clean(last.get('reason','상세 실패 사유 없음')),
+                '관측 HTTP 403 횟수: '+clean(last.get('http_403_count','미확인')),
+                '네트워크 오류 수: '+clean(last.get('network_error_count','미확인')),
+                '시도한 종목 자료 수: '+clean(last.get('attempted','미확인')),
+                '선정된 라이트 대상 수: '+clean(last.get('selected_for_light','미확인')),
+                '감독기 종료 상태: '+clean(supervisor.get('status','없음')),
+                '감독기 자식 종료코드: '+clean(supervisor.get('exit_code','미확인')),
+              ]
+              attempts=sorted((home/'attempts').glob('*')) if (home/'attempts').exists() else []
+              if attempts:
+                  a=attempts[-1]
+                  journal=a/'network-events.jsonl'
+                  if journal.is_file():
+                      counts=collections.Counter(); codes=collections.Counter()
+                      for ln in journal.read_text(encoding='utf-8',errors='replace').splitlines():
+                          try:
+                              e=json.loads(ln);counts[str(e.get('event'))]+=1
+                              if e.get('status') is not None:codes[str(e['status'])]+=1
+                          except ValueError:counts['INVALID_JSON']+=1
+                      report.append('요청 이벤트: '+clean(dict(counts)))
+                      report.append('HTTP 응답 코드: '+clean(dict(codes)))
+                  stage=a/'stages.jsonl'
+                  if stage.is_file():
+                      events=[]
+                      for ln in stage.read_text(encoding='utf-8',errors='replace').splitlines():
+                          try:events.append(json.loads(ln).get('stage','?'))
+                          except ValueError:events.append('INVALID_STAGE')
+                      report.append('진행 단계: '+clean(events))
+                  integrity=load(a/'network-integrity.json')
+                  if integrity:report.append('요청 원본 무결성: '+clean(integrity.get('ok','미확인')))
+              for n in ['supervisor.log']:
+                  lp=home/n
+                  if lp.is_file():
+                      lines=lp.read_text(encoding='utf-8',errors='replace').splitlines()
+                      report.append('감독기 로그 마지막 3줄: '+clean(' | '.join(lines[-3:])))
+          pathlib.Path('luca-diagnostic.txt').write_text('\n'.join(report)+'\n',encoding='utf-8')
+          print('\n'.join(report))
+          PYDIAG
       - name: 성공/실패 상태를 아이폰 사이트에 반영
         if: always()
         shell: bash
@@ -83,7 +147,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: luca-last-run-log
-          path: luca-run.log
+          path: |
+            luca-run.log
+            luca-diagnostic.txt
           if-no-files-found: ignore
           retention-days: 7
       - name: 실제 수집 실패는 성공으로 처리하지 않음
