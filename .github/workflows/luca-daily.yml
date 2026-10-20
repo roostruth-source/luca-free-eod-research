@@ -1,0 +1,93 @@
+name: LUCA 무료 장마감 연구 (별도 사이트)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * 2-6'
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: 공개 연구 저장소 가져오기
+        uses: actions/checkout@v4
+      - name: Python 준비
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 업로드된 원본 ZIP 검증 및 별도 폴더에 압축 해제
+        run: |
+          python - <<'PY'
+          import hashlib, pathlib, zipfile
+          archive=pathlib.Path('LUCA_FREE_GITHUB_ZERO_COST_20261021.zip')
+          expected='27acd4582b82f8cf41790600b4353693b55d9cab915cea18601fb8a900354759'
+          if hashlib.sha256(archive.read_bytes()).hexdigest()!=expected:
+              raise SystemExit('ZIP 내용이 달라졌습니다. 안전 중단')
+          with zipfile.ZipFile(archive) as z:
+              if z.testzip() is not None:
+                  raise SystemExit('ZIP 파일 손상. 안전 중단')
+              for entry in z.namelist():
+                  p=pathlib.PurePosixPath(entry)
+                  if p.is_absolute() or '..' in p.parts:
+                      raise SystemExit('안전하지 않은 ZIP 경로: '+entry)
+              z.extractall('_luca_private')
+          pathlib.Path('_luca_private/docs').mkdir(exist_ok=True)
+          if pathlib.Path('status.json').exists():
+              pathlib.Path('_luca_private/docs/status.json').write_bytes(pathlib.Path('status.json').read_bytes())
+          if pathlib.Path('latest.html').exists():
+              pathlib.Path('_luca_private/docs/latest.html').write_bytes(pathlib.Path('latest.html').read_bytes())
+          print('실행 파일 준비 성공 · 실제 매수 불가')
+          PY
+      - name: 실제 무료 일봉 관찰 수집 1회 시도
+        id: scan
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          cd _luca_private
+          python run_free_cloud.py once > ../luca-run.log 2>&1
+      - name: 성공/실패 상태를 아이폰 사이트에 반영
+        if: always()
+        shell: bash
+        run: |
+          if [ -f _luca_private/docs/status.json ]; then
+            cp _luca_private/docs/status.json status.json
+            git add status.json
+          fi
+          if [ -f _luca_private/docs/latest.html ]; then
+            cp _luca_private/docs/latest.html latest.html
+            git add latest.html
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --cached --quiet; then
+            git commit -m '루카 무료 별도 연구판 관찰 상태 갱신'
+            git push
+          fi
+      - name: GitHub Pages 준비
+        if: always()
+        uses: actions/configure-pages@v5
+      - name: 아이폰 사이트 업로드
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _luca_private/docs
+      - name: 아이폰 사이트 배포
+        if: always()
+        uses: actions/deploy-pages@v4
+      - name: 실행 기록 보존 (7일)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-last-run-log
+          path: luca-run.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: 실제 수집 실패는 성공으로 처리하지 않음
+        if: steps.scan.outcome != 'success'
+        run: |
+          echo '시장 조사 미완료 · 매수 금지 · NOT_VALIDATED'
+          exit 1
