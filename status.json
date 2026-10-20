@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "status": "NOT_YET_CONNECTED",
+  "outcome": "CANNOT_DETERMINE_ZERO",
+  "checked_at_utc": null,
+  "success_this_run": false,
+  "last_success": null,
+  "real_trades_allowed": false,
+  "validation_status": "NOT_VALIDATED",
+  "research_only": true,
+  "realtime": false,
+  "reason": "무료 자동 조사는 아직 연결 전입니다. 실제 신규 시장 수집 성공 기록이 없고 매수 신호를 제공하지 않습니다."
+}
