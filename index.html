@@ -1,0 +1,25 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>루카 무료 탐색기 · 관찰 연구판</title><meta name="theme-color" content="#101928"><style>
+:root{color-scheme:dark;--bg:#101928;--card:#1c2b3c;--ink:#f7fafc;--muted:#b9c8d8;--stroke:#3a4c62;--yellow:#f5c978;--mint:#80e5c4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.65}header,main,footer{max-width:720px;margin:auto;padding:18px}header{padding-top:34px}small,.muted{color:var(--muted)}h1{font-size:26px;margin:4px 0}h2{font-size:19px;margin:0 0 9px}.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:800;color:var(--mint)}.box{background:var(--card);border:1px solid var(--stroke);padding:20px;border-radius:18px;margin:13px 0}.status{border-left:5px solid var(--yellow)}.pill{display:inline-block;padding:4px 11px;border-radius:99px;background:#354252;color:#fff;font-size:13px;font-weight:800}p{margin:7px 0}dl{display:grid;grid-template-columns:1fr auto;gap:4px 12px}dt{color:var(--muted)}dd{margin:0;text-align:right;font-weight:700}a.launch{display:block;text-align:center;background:var(--mint);color:#071f19;text-decoration:none;padding:14px;border-radius:14px;font-weight:900;margin-top:15px;font-size:17px}a[hidden]{display:none!important}.small{font-size:13px}footer{font-size:12px;color:var(--muted)}.danger{color:var(--yellow);font-weight:750}button{cursor:pointer;background:transparent;border:1px solid var(--stroke);border-radius:10px;color:var(--ink);padding:8px 12px;font-size:14px}@media(max-width:360px){h1{font-size:23px}.box{padding:15px}}
+</style></head><body><header><div class="eyebrow">LUCA / FREE CLOUD RESEARCH</div><h1>루카 급등 전조 탐색기</h1><p class="muted">미국 장 마감 일봉 관찰 · 실시간 시세 아님</p></header><main>
+<section class="box status" aria-live="polite"><span class="pill" id="statusBadge">확인 중</span><h2 id="headline">자동 조사 상태를 확인하고 있습니다</h2><p id="reason">최신 성공 여부 확인 중</p><button type="button" id="reload">상태 새로고침</button></section>
+<section class="box"><h2>마지막으로 검증된 조사</h2><dl><dt>미국 거래일</dt><dd id="session">없음</dd><dt>저장된 일봉</dt><dd id="dated">—</dd><dt>상세 분석</dt><dd id="details">—</dd><dt>정식 관찰 후보</dt><dd id="formal">판단 불가</dd><dt>마지막 성공 수집</dt><dd id="at">없음</dd></dl><a id="latest" class="launch" href="./latest.html" hidden>검증된 관찰 종목 보기</a><p class="small muted">실제 성공 증거가 있을 때만 버튼이 나타납니다. 갱신에 실패하면 이전 성공일이 그대로 표시됩니다.</p></section>
+<section class="box"><h2>중요한 안전 원칙</h2><p class="danger">현재 실전 매수 허용 0건 · 투자 성과 NOT_VALIDATED</p><p>이 화면은 사고팔 종목을 추천하거나 자동으로 주문하지 않습니다. SEC 신주 발행·상장유지·실시간 호가를 검증하지 못한 종목의 매수는 차단합니다.</p><p class="small muted">무료 주가 공급처가 차단되거나 자료 기준 날짜가 맞지 않으면, 후보 0개가 아니라 <b>판단 불가</b>로 표시합니다.</p></section>
+</main><footer>루카 별도 무료 연구판 · 기존 5거래일 시험 및 운영 사이트와 독립 · GitHub 공개 정적 호스팅</footer>
+<script>
+'use strict';
+const $=x=>document.getElementById(x);
+function toKst(s){if(!s)return '없음';let d=new Date(s);return isNaN(d)?'시각 불명':d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
+async function load(){
+try{const r=await fetch('./status.json?no_cache='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();
+const ok=d.status==='SUCCESS_RESEARCH_OBSERVATION'&&d.success_this_run===true;
+const s=d.last_success||null;
+const old=!!(s&&Number.isFinite(Date.parse(s.collected_at_utc))&&Date.now()-Date.parse(s.collected_at_utc)>30*3600*1000);
+$('statusBadge').textContent=ok?(old?'과거 자료 · 갱신 필요':'최근 조사 완료'):d.status==='NOT_YET_CONNECTED'?'설정 전':'최근 조사 실패·보류';
+$('headline').textContent=ok?(old?'이전 거래일 자료만 있습니다':'완료 일봉 관찰 자료가 저장됐습니다'):s?'이번 갱신은 실패했습니다. 마지막 성공 자료만 남았습니다':'새로운 실제 조사 결과가 없습니다';
+$('reason').textContent=ok?(old?'이전 수집 후 30시간이 지났습니다. 최신 자료가 아닙니다.':'무료 자료로 확인한 장 마감 자료입니다. 실시간 매수 신호가 아닙니다.'):(d.reason||'무료 공급처 접근 또는 날짜 검증에 실패했을 수 있습니다.');
+$('session').textContent=s?.session||'없음';$('dated').textContent=Number.isInteger(s?.dated)?s.dated+'개':'—';$('details').textContent=Number.isInteger(s?.details)?s.details+'개':'—';$('formal').textContent=Number.isInteger(s?.formal)?s.formal+'개 (매수 허가 아님)':'판단 불가';$('at').textContent=toKst(s?.collected_at_utc);$('latest').hidden=!(s&&s.url);
+if(s&&s.url)$('latest').href='./latest.html';
+}catch(e){$('statusBadge').textContent='조회 실패';$('headline').textContent='서버 상태를 확인할 수 없습니다';$('reason').textContent='오프라인이거나 상태 파일이 없습니다. 최신 종목을 확인한 것으로 간주하지 마세요.';$('latest').hidden=true;}}
+$('reload').addEventListener('click',load);load();
+</script></body></html>
