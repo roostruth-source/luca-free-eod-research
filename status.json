@@ -1,13 +1,18 @@
 {
   "version": 1,
-  "status": "NOT_YET_CONNECTED",
+  "status": "FAILED_LAST_SUCCESS_RETAINED",
   "outcome": "CANNOT_DETERMINE_ZERO",
-  "checked_at_utc": null,
+  "checked_at_utc": "2026-10-20T19:38:04+00:00",
+  "started_at_utc": "2026-10-20T19:37:54+00:00",
   "success_this_run": false,
-  "last_success": null,
   "real_trades_allowed": false,
   "validation_status": "NOT_VALIDATED",
+  "reason": "RuntimeError: 수집 종료 코드 1 · 감독/자료/시간 검증 로그 확인 필요",
+  "last_success": null,
   "research_only": true,
   "realtime": false,
-  "reason": "무료 자동 조사는 아직 연결 전입니다. 실제 신규 시장 수집 성공 기록이 없고 매수 신호를 제공하지 않습니다."
+  "diagnostic": {
+    "supervisor_status": "FINISHED_FAILED",
+    "supervisor_outcome": "CANNOT_DETERMINE_ZERO"
+  }
 }
