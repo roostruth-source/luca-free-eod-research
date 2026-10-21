@@ -1,18 +1,24 @@
 {
   "version": 1,
-  "status": "FAILED_LAST_SUCCESS_RETAINED",
-  "outcome": "CANNOT_DETERMINE_ZERO",
-  "checked_at_utc": "2026-10-20T19:58:07+00:00",
-  "started_at_utc": "2026-10-20T19:58:04+00:00",
-  "success_this_run": false,
+  "status": "SUCCESS_RESEARCH_OBSERVATION",
+  "outcome": "OBSERVATIONS_FOUND",
+  "checked_at_utc": "2026-10-21T05:42:56+00:00",
+  "started_at_utc": "2026-10-21T05:42:29+00:00",
+  "success_this_run": true,
+  "last_success": {
+    "collected_at_utc": "2026-10-21T05:42:56+00:00",
+    "session": "2026-10-20",
+    "attempt_id": "2026-10-21T05-42-31.675603Z-47a95261",
+    "dated": 96,
+    "details": 25,
+    "formal": 6,
+    "scope_partial": true,
+    "outcome": "OBSERVATIONS_FOUND",
+    "source_type": "COMPLETED_DAILY_BARS",
+    "url": "./latest.html"
+  },
   "real_trades_allowed": false,
   "validation_status": "NOT_VALIDATED",
-  "reason": "RuntimeError: 수집 종료 코드 1 · 감독/자료/시간 검증 로그 확인 필요",
-  "last_success": null,
-  "research_only": true,
   "realtime": false,
-  "diagnostic": {
-    "supervisor_status": "FINISHED_FAILED",
-    "supervisor_outcome": "CANNOT_DETERMINE_ZERO"
-  }
+  "research_only": true
 }
