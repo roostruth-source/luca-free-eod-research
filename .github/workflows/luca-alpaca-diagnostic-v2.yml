@@ -1,0 +1,117 @@
+# LUCA Alpaca Paper/IEX second diagnostic; secret values never printed.
+# This is read-only. No orders, no market collection, no changes to existing workflows.
+name: LUCA Alpaca 오류 종류 확인 V2 (읽기 전용)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: WebSocket 라이브러리 준비
+        run: python3 -m pip install --quiet --disable-pip-version-check 'websockets==15.0.1'
+      - name: 비밀키 형식과 Paper/IEX 인증 구분
+        env:
+          LUCA_ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          LUCA_ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+          from websockets.sync.client import connect
+
+          key = os.environ.get('LUCA_ALPACA_KEY', '')
+          secret = os.environ.get('LUCA_ALPACA_SECRET', '')
+          print('LUCA_SAFE_DIAG_V2: READ_ONLY; NO_ORDERS')
+          print('SECRETS_PRESENT:', bool(key) and bool(secret))
+          if not key or not secret:
+              print('RESULT: GITHUB_SECRETS_MISSING')
+              sys.exit(1)
+
+          # Print only boolean format flags, never credentials/lengths/response data.
+          flagged = False
+          for name, value in [('KEY_ID', key), ('SECRET_KEY', secret)]:
+              whitespace = value != value.strip()
+              control = any(ord(c) < 32 or ord(c) == 127 for c in value)
+              nonascii = not value.isascii()
+              wrapped = (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'"))
+              print(f'{name}_HAS_EDGE_WHITESPACE:', whitespace)
+              print(f'{name}_HAS_CONTROL_CHAR:', control)
+              print(f'{name}_HAS_NONASCII:', nonascii)
+              print(f'{name}_HAS_OUTER_QUOTES:', wrapped)
+              flagged = flagged or whitespace or control or nonascii or wrapped
+          if flagged:
+              print('RESULT: SECRET_VALUE_FORMAT_NEEDS_CORRECTION')
+              sys.exit(1)
+
+          headers = {'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret}
+          def get_status(url, label):
+              try:
+                  with urlopen(Request(url, headers=headers, method='GET'), timeout=12) as response:
+                      print(label + '_HTTP:', response.status)
+                      return response.status == 200
+              except HTTPError as error:
+                  print(label + '_HTTP:', error.code)
+                  return False
+              except URLError as error:
+                  print(label + '_EXCEPTION_CLASS:', type(error.reason).__name__)
+                  return False
+              except Exception as error:
+                  print(label + '_EXCEPTION_CLASS:', type(error).__name__)
+                  return False
+
+          if not get_status('https://paper-api.alpaca.markets/v2/account', 'PAPER_ACCOUNT'):
+              print('RESULT: PAPER_API_REQUEST_NOT_200')
+              sys.exit(1)
+          if not get_status('https://data.alpaca.markets/v2/stocks/AAPL/trades/latest?feed=iex', 'IEX_REST'):
+              print('RESULT: IEX_REST_REQUEST_NOT_200')
+              sys.exit(1)
+
+          # A quiet market is not a failed WebSocket: authentication + subscription suffice.
+          try:
+              with connect('wss://stream.data.alpaca.markets/v2/iex', open_timeout=10,
+                           close_timeout=3, max_size=1_000_000) as ws:
+                  ws.send(json.dumps({'action': 'auth', 'key': key, 'secret': secret}))
+                  def until(match, seconds=12):
+                      deadline = time.monotonic() + seconds
+                      while time.monotonic() < deadline:
+                          try:
+                              raw = ws.recv(timeout=max(0.1, deadline-time.monotonic()))
+                          except TimeoutError:
+                              break
+                          try:
+                              events = json.loads(raw)
+                          except (TypeError, ValueError):
+                              continue
+                          for e in events if isinstance(events, list) else []:
+                              if not isinstance(e, dict):
+                                  continue
+                              if e.get('T') == 'error':
+                                  code = e.get('code')
+                                  print('WS_ERROR_CODE:', code if type(code) is int and 100 <= code <= 999 else 'UNKNOWN')
+                                  return False
+                              if match(e):
+                                  return True
+                      return False
+                  if not until(lambda e: e.get('T') == 'success' and e.get('msg') == 'authenticated'):
+                      print('RESULT: IEX_WEBSOCKET_AUTH_NOT_CONFIRMED')
+                      sys.exit(1)
+                  print('IEX_WEBSOCKET_AUTH: PASS')
+                  ws.send(json.dumps({'action':'subscribe','trades':['AAPL']}))
+                  if not until(lambda e: e.get('T') == 'subscription' and 'AAPL' in e.get('trades', [])):
+                      print('RESULT: IEX_WEBSOCKET_SUBSCRIPTION_NOT_CONFIRMED')
+                      sys.exit(1)
+                  print('RESULT: PAPER_AND_IEX_CONNECTED; NO_ORDERS; NOT_VALIDATED')
+          except SystemExit:
+              raise
+          except Exception as error:
+              print('WS_EXCEPTION_CLASS:', type(error).__name__)
+              print('RESULT: IEX_WEBSOCKET_EXCEPTION')
+              sys.exit(1)
+          PY
