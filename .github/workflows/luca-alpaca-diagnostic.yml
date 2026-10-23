@@ -1,0 +1,131 @@
+# LUCA Alpaca read-only diagnostic. Manual only. No order endpoints.
+# Prints only HTTP status numbers and allowlisted WebSocket error codes.
+name: LUCA Alpaca 인증 원인 진단 (수동 · 주문 없음)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Python 및 WebSocket 도구 준비
+        run: python3 -m pip install --quiet --disable-pip-version-check 'websockets==15.0.1'
+      - name: Paper 키 인증 및 IEX 권한 확인 (읽기 전용)
+        env:
+          LUCA_ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          LUCA_ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, time
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError, URLError
+          from websockets.sync.client import connect
+
+          key = os.environ.get('LUCA_ALPACA_KEY', '')
+          secret = os.environ.get('LUCA_ALPACA_SECRET', '')
+          print('DIAGNOSTIC: 시작 (키/계좌/응답 본문 출력 없음)')
+          if not key or not secret:
+              print('RESULT: GITHUB_SECRET_MISSING_OR_EMPTY')
+              sys.exit(1)
+
+          headers = {'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret}
+          def check_status(url):
+              try:
+                  req = Request(url, headers=headers, method='GET')
+                  with urlopen(req, timeout=12) as res:
+                      return str(res.status)
+              except HTTPError as exc:
+                  return str(exc.code)
+              except (URLError, TimeoutError, OSError):
+                  return 'NETWORK_ERROR'
+              except Exception:
+                  return 'UNKNOWN_ERROR'
+
+          # GET-only requests. No access to trading order endpoints.
+          paper_status = check_status('https://paper-api.alpaca.markets/v2/account')
+          print('PAPER_ACCOUNT_HTTP:', paper_status)
+          if paper_status != '200':
+              print('RESULT: PAPER_AUTH_FAILED_OR_NETWORK_ISSUE')
+              sys.exit(1)
+          data_status = check_status('https://data.alpaca.markets/v2/stocks/AAPL/trades/latest?feed=iex')
+          print('IEX_DATA_HTTP:', data_status)
+          if data_status != '200':
+              print('RESULT: DATA_FEED_PERMISSION_OR_NETWORK_ISSUE')
+              sys.exit(1)
+
+          # WebSocket: authentication and subscription only. No trades placed.
+          try:
+              with connect('wss://stream.data.alpaca.markets/v2/iex',
+                           open_timeout=12, close_timeout=3, max_size=1000000) as ws:
+                  ws.send(json.dumps({'action': 'auth', 'key': key, 'secret': secret}))
+                  deadline = time.monotonic() + 12
+                  authenticated = False
+                  error_code = 'NONE'
+                  while time.monotonic() < deadline:
+                      try:
+                          raw = ws.recv(timeout=max(0.1, deadline-time.monotonic()))
+                      except TimeoutError:
+                          break
+                      try:
+                          events = json.loads(raw)
+                      except (ValueError, TypeError):
+                          continue
+                      if not isinstance(events, list):
+                          continue
+                      for event in events:
+                          if not isinstance(event, dict):
+                              continue
+                          if event.get('T') == 'error':
+                              code = event.get('code')
+                              # Only numeric provider error codes are shown. Message is not printed.
+                              error_code = str(code) if isinstance(code, int) and 100 <= code <= 999 else 'UNSPECIFIED'
+                              print('WEBSOCKET_ERROR_CODE:', error_code)
+                              print('RESULT: WS_AUTH_REJECTED')
+                              sys.exit(1)
+                          if event.get('T') == 'success' and event.get('msg') == 'authenticated':
+                              authenticated = True
+                              break
+                      if authenticated:
+                          break
+                  if not authenticated:
+                      print('RESULT: WS_AUTH_TIMEOUT')
+                      sys.exit(1)
+                  print('WEBSOCKET_AUTH: PASS')
+                  ws.send(json.dumps({'action': 'subscribe', 'trades': ['AAPL']}))
+                  deadline = time.monotonic() + 12
+                  while time.monotonic() < deadline:
+                      try:
+                          raw = ws.recv(timeout=max(0.1, deadline-time.monotonic()))
+                      except TimeoutError:
+                          break
+                      try:
+                          events = json.loads(raw)
+                      except (ValueError, TypeError):
+                          continue
+                      if not isinstance(events, list):
+                          continue
+                      for event in events:
+                          if not isinstance(event, dict):
+                              continue
+                          if event.get('T') == 'error':
+                              code = event.get('code')
+                              print('WEBSOCKET_ERROR_CODE:', str(code) if isinstance(code, int) and 100 <= code <= 999 else 'UNSPECIFIED')
+                              print('RESULT: WS_SUBSCRIBE_REJECTED')
+                              sys.exit(1)
+                          if event.get('T') == 'subscription' and 'AAPL' in event.get('trades', []):
+                              print('RESULT: CONNECTED_IEX_SUBSCRIBED_NOT_VALIDATED')
+                              sys.exit(0)
+                  print('RESULT: WS_SUBSCRIPTION_TIMEOUT')
+                  sys.exit(1)
+          except SystemExit:
+              raise
+          except Exception:
+              # Do not print exception bodies, headers, credentials, URLs or payloads.
+              print('RESULT: WS_NETWORK_OR_HANDSHAKE_ERROR')
+              sys.exit(1)
+          PY
