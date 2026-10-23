@@ -1,0 +1,100 @@
+# LUCA / Alpaca IEX WebSocket one-off connectivity test.
+# Manual run only. No stock orders, no persistence, no changes to existing research workflows.
+name: LUCA Alpaca IEX 실시간 연결 시험 (수동 전용)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connect-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Python 3.11 준비
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: WebSocket 시험 도구 준비
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet 'websockets==15.0.1'
+
+      - name: IEX 실시간 데이터 인증 및 AAPL 구독 확인 (주문 기능 없음)
+        env:
+          LUCA_ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          LUCA_ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          from websockets.sync.client import connect
+
+          key = os.getenv('LUCA_ALPACA_KEY', '')
+          secret = os.getenv('LUCA_ALPACA_SECRET', '')
+          if not key or not secret:
+              print('FAIL: GitHub Secrets 이름 또는 저장 위치 확인 필요')
+              sys.exit(1)
+
+          def get_events(ws, wait_seconds):
+              deadline = time.monotonic() + wait_seconds
+              while time.monotonic() < deadline:
+                  try:
+                      raw = ws.recv(timeout=max(0.1, deadline-time.monotonic()))
+                  except TimeoutError:
+                      return []
+                  try:
+                      events = json.loads(raw)
+                  except (TypeError, ValueError):
+                      continue
+                  if isinstance(events, list):
+                      return [event for event in events if isinstance(event, dict)]
+              return []
+
+          def await_event(ws, matching, timeout=10):
+              deadline = time.monotonic() + timeout
+              while time.monotonic() < deadline:
+                  events = get_events(ws, deadline - time.monotonic())
+                  for event in events:
+                      if event.get('T') == 'error':
+                          print('FAIL: 데이터 제공업체가 인증 또는 구독을 거절함')
+                          sys.exit(2)
+                      if matching(event):
+                          return True
+              return False
+
+          try:
+              with connect('wss://stream.data.alpaca.markets/v2/iex',
+                           open_timeout=10, close_timeout=3, max_size=1_000_000) as ws:
+                  # Alpaca requires authentication promptly after connection.
+                  ws.send(json.dumps({'action': 'auth', 'key': key, 'secret': secret}))
+                  if not await_event(ws, lambda e: e.get('T') == 'success' and e.get('msg') == 'authenticated'):
+                      print('FAIL: 실시간 데이터 인증 응답 없음')
+                      sys.exit(3)
+                  print('PASS: Alpaca IEX 실시간 연결 인증 성공')
+
+                  ws.send(json.dumps({'action': 'subscribe', 'trades': ['AAPL']}))
+                  if not await_event(ws, lambda e: e.get('T') == 'subscription' and 'AAPL' in e.get('trades', [])):
+                      print('FAIL: AAPL 실시간 거래 구독 확인 불가')
+                      sys.exit(4)
+                  print('PASS: IEX AAPL 실시간 거래 데이터 구독 승인')
+
+                  # Waiting for a tick is informational only. A quiet/off-market
+                  # interval should not be mistaken for a failed subscription.
+                  seen_tick = await_event(ws, lambda e: e.get('T') == 't' and e.get('S') == 'AAPL', timeout=8)
+                  if seen_tick:
+                      print('PASS: IEX AAPL 실제 거래 메시지 수신')
+                  else:
+                      print('INFO: 8초 동안 AAPL 실제 체결 미수신 (장 시간/거래량 영향 가능)')
+                  print('RESULT: CONNECTED_IEX_SUBSCRIBED; PAPER_ONLY; NO_ORDERS; NOT_VALIDATED')
+          except SystemExit:
+              raise
+          except Exception:
+              # Never print exception payloads, request headers, secrets or tracebacks.
+              print('FAIL: 네트워크/WebSocket 연결 오류 (키 및 응답 원문은 출력하지 않음)')
+              sys.exit(5)
+          PY
