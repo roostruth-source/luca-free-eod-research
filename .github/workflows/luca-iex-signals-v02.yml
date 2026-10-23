@@ -1,0 +1,235 @@
+# LUCA V0.2 separate real-time observation prototype. Manual only, no orders/deploy/site changes.
+name: LUCA IEX RSI 거래량 전조 관찰 V02 (수동 연구판)
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'IEX 관찰 종목 (쉼표 구분 1~20개; 소형주 데이터 빈약 가능)'
+        required: true
+        type: string
+        default: 'AAPL,NVDA,TSLA,NIKI,GPUS,PFSA,LAES,VCIG'
+      minutes:
+        description: '관찰 시간 (분)'
+        required: true
+        type: choice
+        options:
+          - '18'
+          - '24'
+        default: '24'
+permissions:
+  contents: read
+concurrency:
+  group: luca-iex-indicator-manual-test
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 연구 라이브러리 설치
+        run: python3 -m pip install --quiet --disable-pip-version-check 'websockets==15.0.1'
+      - name: IEX 체결 및 1분봉 RSI 거래량 저점 관찰
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_SYMBOLS: ${{ inputs.symbols }}
+          LUCA_MINUTES: ${{ inputs.minutes }}
+        run: |
+          cat > luca_signals_v02.py <<'PYTHON'
+          import collections, datetime as dt, json, math, os, pathlib, re, statistics, sys, time
+          from zoneinfo import ZoneInfo
+          from websockets.sync.client import connect
+          UTC=dt.timezone.utc
+          SYMBOL_RX=re.compile(r'^[A-Z][A-Z0-9.\-]{0,12}$')
+          
+          # All observations are IEX single-exchange data, not all-US markets.
+          # Read-only websocket, never import trading API, never place orders.
+          
+          def parse_symbols(raw):
+              xs=list(dict.fromkeys(x.strip().upper() for x in raw.replace(';',',').split(',') if x.strip()))
+              if not xs or len(xs)>20 or any(not SYMBOL_RX.fullmatch(x) for x in xs):
+                  raise ValueError('INVALID_SYMBOLS')
+              return xs
+          
+          def parse_ts(x):
+              if not isinstance(x,str): return None
+              try:
+                  t=dt.datetime.fromisoformat(x.replace('Z','+00:00'))
+                  return t.astimezone(UTC) if t.tzinfo else None
+              except (ValueError, TypeError): return None
+          
+          def num(x,positive=False):
+              if isinstance(x,bool): return None
+              try: v=float(x)
+              except (ValueError,TypeError): return None
+              if not math.isfinite(v) or v>1e15 or (v<=0 if positive else v<0): return None
+              return v
+          
+          def contiguous(bars):
+              return all((bars[i+1]['start']-bars[i]['start']).total_seconds()==60 for i in range(len(bars)-1))
+          
+          def rsi14(closes):
+              # Wilder RSI(14) with 14-change seed, then Wilder smoothing on older closed bars.
+              if len(closes)<15: return None
+              changes=[closes[i+1]-closes[i] for i in range(len(closes)-1)]
+              gains=sum(max(0,c) for c in changes[:14])/14
+              losses=sum(max(0,-c) for c in changes[:14])/14
+              for c in changes[14:]:
+                  gains=(13*gains+max(0,c))/14
+                  losses=(13*losses+max(0,-c))/14
+              if losses==0: return 50.0 if gains==0 else 100.0
+              return 100-100/(1+gains/losses)
+          
+          def assess(history):
+              ordered=sorted(history.values(), key=lambda b:b['start'])
+              # contiguous tail only. Do not bridge IEX minutes without transactions.
+              tail=[]
+              for b in reversed(ordered):
+                  if tail and (tail[-1]['start']-b['start']).total_seconds()!=60: break
+                  tail.append(b)
+              tail.reverse()
+              out={'complete_bars':len(ordered),'continuous_tail':len(tail),'rsi14':None,
+                   'rsi14_previous':None,'last5_iex_volume_ratio':None,'rising_3_lows':None,
+                   'five_min_change_pct':None,'flag':'INSUFFICIENT_IEX_BARS'}
+              if not tail:return out
+              if len(tail)>=6:
+                  base=statistics.mean(x['volume'] for x in tail[-6:-1])
+                  if base>0: out['last5_iex_volume_ratio']=round(tail[-1]['volume']/base,2)
+              if len(tail)>=3:
+                  out['rising_3_lows']=tail[-3]['low']<tail[-2]['low']<tail[-1]['low']
+              if len(tail)>=6 and tail[-6]['close']>0:
+                  out['five_min_change_pct']=round(100*(tail[-1]['close']/tail[-6]['close']-1),2)
+              if len(tail)>=15:
+                  out['rsi14']=round(rsi14([b['close'] for b in tail]),2)
+              if len(tail)>=16:
+                  out['rsi14_previous']=round(rsi14([b['close'] for b in tail[:-1]]),2)
+              vol=out['last5_iex_volume_ratio'] is not None and out['last5_iex_volume_ratio']>=3 and tail[-1]['volume']>=100
+              low=out['rising_3_lows'] is True
+              rising_rsi=(out['rsi14'] is not None and out['rsi14_previous'] is not None and
+                          out['rsi14_previous']<=25 and out['rsi14']>out['rsi14_previous'])
+              if vol and low and rising_rsi: out['flag']='RESEARCH_COMBINED_3'
+              elif vol and low: out['flag']='RESEARCH_VOLUME_AND_RISING_LOWS'
+              elif vol: out['flag']='RESEARCH_IEX_VOLUME_SPIKE_ONLY'
+              elif rising_rsi: out['flag']='RESEARCH_OVERSOLD_RSI_RECOVERY_ONLY'
+              else: out['flag']='OBSERVATION_ONLY' if len(tail)>=6 else 'INSUFFICIENT_IEX_BARS'
+              return out
+          
+          def safe_events(raw):
+              try: obj=json.loads(raw)
+              except (ValueError,TypeError):return []
+              return [x for x in obj if isinstance(x,dict)] if isinstance(obj,list) else []
+          
+          def run(symbols,minutes):
+              p=pathlib.Path('luca_iex_signals_v02');p.mkdir(exist_ok=True)
+              seen={s:{'trades':0,'bars':{},'bar_events':0,'flags':[]} for s in symbols}
+              started=dt.datetime.now(UTC);deadline=time.monotonic()+minutes*60
+              auth=False; subscribed=False; updates=0
+              stream='wss://stream.data.alpaca.markets/v2/iex'
+              print('BEGIN_V02_RESEARCH; SYMBOLS='+','.join(symbols)+'; OBSERVE_MINUTES='+str(minutes),flush=True)
+              with connect(stream,open_timeout=12,close_timeout=4,max_size=2000000) as ws:
+                  ws.send(json.dumps({'action':'auth','key':os.environ['ALPACA_KEY'],'secret':os.environ['ALPACA_SECRET']}))
+                  while time.monotonic()<deadline:
+                      try: raw=ws.recv(timeout=min(8,max(0.1,deadline-time.monotonic())))
+                      except TimeoutError:continue
+                      except Exception:raise RuntimeError('WEBSOCKET_DISCONNECTED') from None
+                      received=dt.datetime.now(UTC)
+                      for e in safe_events(raw):
+                          kind=e.get('T')
+                          if kind=='error':
+                              code=e.get('code'); code=code if type(code) is int and 100<=code<=999 else 'UNKNOWN'
+                              raise RuntimeError('ALPACA_ERROR_'+str(code))
+                          if kind=='success' and e.get('msg')=='authenticated':
+                              if not auth:
+                                  auth=True
+                                  ws.send(json.dumps({'action':'subscribe','trades':symbols,'bars':symbols}))
+                              continue
+                          if kind=='subscription':
+                              if auth and set(symbols).issubset(set(e.get('trades',[]))) and set(symbols).issubset(set(e.get('bars',[]))):
+                                  subscribed=True
+                              else:raise RuntimeError('SUBSCRIPTION_INCOMPLETE')
+                              continue
+                          sym=e.get('S')
+                          if not subscribed or sym not in seen:continue
+                          if kind=='t':
+                              if num(e.get('p'),True) is not None and num(e.get('s')) is not None:
+                                  seen[sym]['trades']+=1
+                          elif kind=='b':
+                              t=parse_ts(e.get('t'))
+                              cl=num(e.get('c'),True);lo=num(e.get('l'),True);vol=num(e.get('v'))
+                              if t is None or cl is None or lo is None or vol is None or lo>cl:continue
+                              # Reject future/unclosed bars. An Alpaca 'b' minute is completed after minute ends.
+                              if t+dt.timedelta(minutes=1)>received+dt.timedelta(seconds=3):continue
+                              bar={'start':t,'close':cl,'low':lo,'volume':int(vol)}
+                              k=t.isoformat()
+                              if k in seen[sym]['bars']:continue # Do not revise historical signal with later updateBars
+                              seen[sym]['bars'][k]=bar;seen[sym]['bar_events']+=1;updates+=1
+                              flags=assess(seen[sym]['bars'])
+                              if flags['flag'].startswith('RESEARCH_'):
+                                  evidence={'known_at_utc':received.isoformat(),'minute_utc':k,'symbol':sym,
+                                            'flag':flags['flag'],'rsi14':flags['rsi14'],
+                                            'iex_volume_ratio':flags['last5_iex_volume_ratio'],
+                                            'low_rising':flags['rising_3_lows']}
+                                  seen[sym]['flags'].append(evidence)
+                                  print('PRELIMINARY_RESEARCH_FLAG '+json.dumps(evidence,ensure_ascii=False),flush=True)
+                  if not auth:raise RuntimeError('AUTH_UNCONFIRMED')
+                  if not subscribed:raise RuntimeError('SUBSCRIPTION_UNCONFIRMED')
+              finished=dt.datetime.now(UTC)
+              out={'version':'0.2','research_only':True,'real_trades_allowed':False,
+                   'validated':False,'validation_status':'NOT_VALIDATED',
+                   'source':'Alpaca IEX only; NOT consolidated market; sparse bars are not zero market volume',
+                   'start_utc':started.isoformat(),'end_utc':finished.isoformat(),'minutes':minutes,
+                   'total_iex_trade_messages':sum(d['trades'] for d in seen.values()),
+                   'total_iex_final_minute_bars':updates,'symbols':[]}
+              for s,d in seen.items():
+                  check=assess(d['bars'])
+                  out['symbols'].append({'symbol':s,'iex_trade_messages':d['trades'],
+                     'minute_bars':d['bar_events'],'indicators':check,'research_flags':d['flags'],
+                     'evidence':'IEX_OBSERVED' if d['trades'] or d['bar_events'] else 'INSUFFICIENT_IEX_EVENTS'})
+              (p/'summary.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+              markdown=['# 루카 IEX 실시간 전조 지표 V0.2 (연구 전용)','',
+                '**실시간 데이터 연결 확인 · 실제 주문 0 · SEC 미검증 · NOT_VALIDATED**','',
+                f"관찰 시각: {out['start_utc']} ~ {out['end_utc']}",
+                f"IEX 체결 {out['total_iex_trade_messages']:,}건 / 완성 1분봉 {updates:,}개",'',
+                '| 종목 | IEX 체결 | 1분봉 | RSI(14) | IEX 직전 5봉 대비 거래량 | 저점 상승 | 최종 관찰 지표 |',
+                '|---|---:|---:|---:|---:|---|---|']
+              for item in out['symbols']:
+                  m=item['indicators'];v=m['last5_iex_volume_ratio']; r=m['rsi14']
+                  markdown.append(f"| {item['symbol']} | {item['iex_trade_messages']} | {item['minute_bars']} | {r if r is not None else '자료 부족'} | {str(v)+'배' if v is not None else '자료 부족'} | {('예' if m['rising_3_lows'] else '아니요') if m['rising_3_lows'] is not None else '자료 부족'} | {m['flag']} |")
+              markdown += ['','**이 연구 신호는 매수 추천이 아닙니다.** IEX는 단일 거래소로 미국 전체 거래량·가격을 대표하지 않습니다.',
+                'RSI는 연속된 완성 1분봉 15개 이상일 때만 계산합니다. 이보다 적으면 자료 부족으로 기록합니다.',
+                '급등 확률·매수가·목표가·손절가 산출 불가. SEC, 유통주식수, 희석, 호가, 공매도, 슬리피지 미검증.',
+                '이번 결과는 실행 종료 후 GitHub Summary에 기록됩니다. 즉시 휴대폰 알림 기능은 아직 없습니다.']
+              summary='\n'.join(markdown)+'\n'
+              (p/'summary.md').write_text(summary,encoding='utf8')
+              gs=os.environ.get('GITHUB_STEP_SUMMARY')
+              if gs:pathlib.Path(gs).write_text(summary,encoding='utf8')
+              print('RESULT: V02_IEX_INDICATOR_OBSERVATION_SUCCESS; TRADES='+str(out['total_iex_trade_messages'])+'; BARS='+str(updates)+'; NO_ORDERS; NOT_VALIDATED',flush=True)
+              return out
+          
+          if __name__=='__main__':
+              try:
+                  symbols=parse_symbols(os.environ.get('LUCA_SYMBOLS','AAPL,NVDA,TSLA,NIKI,GPUS,PFSA,LAES,VCIG'))
+                  minutes=int(os.environ.get('LUCA_MINUTES','24'))
+                  if minutes not in (18,24):raise ValueError('BAD_DURATION')
+                  if not os.environ.get('ALPACA_KEY') or not os.environ.get('ALPACA_SECRET'):
+                      raise ValueError('MISSING_GITHUB_SECRET')
+                  run(symbols,minutes)
+              except Exception as exc:
+                  # Do not print endpoint response, credentials or traceback.
+                  reason=str(exc)
+                  if reason.startswith('ALPACA_ERROR_') or reason in ('AUTH_UNCONFIRMED','SUBSCRIPTION_UNCONFIRMED',
+                      'SUBSCRIPTION_INCOMPLETE','WEBSOCKET_DISCONNECTED','INVALID_SYMBOLS','BAD_DURATION','MISSING_GITHUB_SECRET'):
+                      label=reason
+                  else:label='RUNTIME_'+type(exc).__name__
+                  print('RESULT: SAFE_FAILURE; REASON='+label+'; NO_ORDERS',flush=True)
+                  sys.exit(1)
+          PYTHON
+          python3 luca_signals_v02.py
+      - name: 근거 아카이브 7일 보존 (API 키 없음)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-iex-signals-${{ github.run_id }}
+          path: luca_iex_signals_v02/
+          if-no-files-found: ignore
+          retention-days: 7
