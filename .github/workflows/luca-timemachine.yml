@@ -1,0 +1,55 @@
+# 별도 연구 기록 자동 보존; 기존 루카 장마감 조사 workflow, Work 5일 관찰, 사이트, 코드 변경 없음.
+name: LUCA 타임머신 연구 기록 (독립)
+on:
+  workflow_dispatch:
+  schedule:
+    # 화~토 한국시간 16:15, 기존 조사보다 늦게 실행. GitHub 예약은 지연/누락될 수 있음.
+    - cron: '15 7 * * 2-6'
+permissions:
+  contents: write
+concurrency:
+  group: luca-time-machine-archive-only
+  cancel-in-progress: false
+jobs:
+  snapshot:
+    if: github.repository == 'roostruth-source/luca-free-eod-research'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: 별도 공개 연구 저장소 가져오기
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Python 준비
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 독립 보존 모듈 구문 및 실행 검사 (시장 요청 없음)
+        run: |
+          python -m py_compile tm_verify.py
+          python tm_verify.py --help
+      - name: 오늘 수집 원본 시점검사 및 동결 (시장 요청 없음)
+        run: |
+          python tm_verify.py snapshot \
+            --status status.json \
+            --html latest.html \
+            --out research/timemachine \
+            --retain-source
+      - name: 독립 근거 백업 7일 (주문/사이트 배포 없음)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: luca-tm-archive-${{ github.run_id }}
+          path: research/timemachine/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: 기록 추가 커밋 (기존 코드/사이트 파일 수정 금지)
+        run: |
+          git config user.name 'luca-tm-research-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- research/timemachine/snapshots research/timemachine/source
+          if git diff --cached --quiet; then
+            echo '이미 동일한 조사 기록이 보존됨'; exit 0
+          fi
+          git commit -m 'research: freeze completed-session observation evidence only'
+          git push
