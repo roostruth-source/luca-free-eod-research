@@ -1,0 +1,22 @@
+# Offline strict parity test. No market data, no live T0 or orders.
+name: LUCA V03 original review parity offline CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-iex-parity-ci.yml'
+      - 'research/v03_stage24/test_iex_adapter_legacy_parity.py'
+permissions:
+  contents: read
+jobs:
+  offline-parity:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Strict original versus optional adapter parity plus all regression tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm no live side effects
+        run: echo 'OFFLINE ONLY; NO T0 RE-RUN; ORIGINAL REVIEW UNCHANGED; NOT_VALIDATED; NO_ORDERS'
