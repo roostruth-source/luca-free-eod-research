@@ -28,6 +28,11 @@ class SecondFollowupGateTests(unittest.TestCase):
         self.assertFalse(x["real_trades_allowed"])
         self.assertEqual(x["validation_status"],"NOT_VALIDATED")
 
+    def test_exact_82_minute_boundary(self):
+        at=dt.datetime.fromisoformat(self.f["selected_at_utc"])+dt.timedelta(minutes=82)
+        x=self.call(now=at)
+        self.assertTrue(x["ready_for_fixed_clock_60min"])
+
     def test_source_not_yet_mature(self):
         t=dt.datetime.fromisoformat(self.f["selected_at_utc"])+dt.timedelta(minutes=80)
         with self.assertRaisesRegex(ValueError,"FOLLOWUP_NOT_YET_MATURE"):
