@@ -1,0 +1,23 @@
+# Offline-only regression for Korean source-verified research report.
+name: LUCA V03 Korean forward report offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-korean-report-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  korean-evidence-report:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run isolated research unit tests, no live calls
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Report is not a buy signal
+        run: echo 'NO LIVE T0; SEC_UNVERIFIED; NOT_VALIDATED; NO_ORDERS'
