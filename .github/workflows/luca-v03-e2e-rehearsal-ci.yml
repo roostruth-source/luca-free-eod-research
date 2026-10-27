@@ -1,0 +1,24 @@
+# Synthetic end-to-end rehearsal only; no real T0, data fetch, orders or alerts.
+name: LUCA V03 one-time T0 end-to-end offline rehearsal
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-e2e-rehearsal-ci.yml'
+      - 'research/v03_stage24/test_live_trial_contract.py'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-rehearsal:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: All isolated research tests including synthetic end-to-end contract
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Never confuse synthetic rehearsal with real market results
+        run: echo 'SYNTHETIC FIXTURES ONLY; NO LIVE T0; SEC_UNVERIFIED; NOT_VALIDATED; NO_ORDERS'
