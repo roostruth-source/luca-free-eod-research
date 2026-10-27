@@ -67,7 +67,7 @@ class OutcomeTests(unittest.TestCase):
         self.assertEqual(reference_price(signal(), rows), 10.0)
 
     def test_capture_shorter_than_horizon_is_not_false_failure(self):
-        result = evaluate([bar()], seconds=3900, capture_seconds=500)
+        result = evaluate([bar()], seconds=3900, capture_seconds=400)
         self.assertEqual(result["horizons"]["5"]["status"], "CAPTURE_ENDED_BEFORE_TARGET")
         self.assertEqual(result["horizons"]["60"]["status"], "CAPTURE_ENDED_BEFORE_TARGET")
 
