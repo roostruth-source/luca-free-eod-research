@@ -24,6 +24,7 @@ UTC=dt.timezone.utc
 def fixture(bar_minutes=(0,1,2,3,4,5,7,9,11)):
     f,_=make_synthetic()
     f["selected_at_utc"]=(dt.datetime.fromisoformat(f["selected_at_utc"])+dt.timedelta(days=1)).isoformat()
+    f["session_day_ny"]="2026-10-28"
     f["sha256"]=digest_frozen(f)
     at=T1+dt.timedelta(days=1)
     bars=[]
