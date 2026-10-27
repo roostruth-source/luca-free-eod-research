@@ -1,0 +1,23 @@
+# Offline CI only. Does not trigger source T0, followup, API fetch, alerts, or orders.
+name: LUCA V03 future IEX timestamp provenance offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-iex-timestamps-ci.yml'
+      - 'research/v03_stage24/iex_timestamp_provenance.py'
+      - 'research/v03_stage24/test_iex_timestamp_provenance.py'
+permissions:
+  contents: read
+jobs:
+  offline-only:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all research offline tests including future timestamp provenance
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm no live observation or order side effects
+        run: echo 'SYNTHETIC ONLY; FUTURE OPTIONAL MODULE NOT IN LIVE WORKFLOW; NOT_VALIDATED; NO_ORDERS'
