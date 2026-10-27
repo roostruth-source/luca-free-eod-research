@@ -9,6 +9,10 @@ on:
       - '.github/workflows/luca-v03-second-followup-once.yml'
       - 'research/v03_stage24/second_followup_gate.py'
       - 'research/v03_stage24/test_second_followup_gate.py'
+      - 'research/v03_stage24/second_source_artifact_identity.py'
+      - 'research/v03_stage24/test_second_source_artifact_identity.py'
+      - 'research/v03_stage24/second_trial_artifact_bridge.py'
+      - 'research/v03_stage24/first_iex_baseline_integrity.py'
 permissions:
   contents: read
 jobs:
