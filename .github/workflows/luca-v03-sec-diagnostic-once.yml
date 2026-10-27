@@ -1,0 +1,31 @@
+# Isolated one-time official SEC connectivity diagnosis. No schedule or production edits.
+name: LUCA V03 SEC official endpoint diagnosis once
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-sec-diagnostic-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  official-sec-diagnosis:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline safety regression suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Check only SEC-owned public URLs without proxy or retry
+        run: python3 research/v03_stage24/sec_official_access_diagnostic.py
+      - name: Archive source access evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-official-sec-diagnostic-${{ github.run_id }}
+          path: luca_v03_sec_diagnostic/
+          retention-days: 7
+          if-no-files-found: ignore
