@@ -85,8 +85,13 @@ class AdapterTests(unittest.TestCase):
 
     def test_duplicate_page_token_fails_closed(self):
         f,b=fixture()
+        calls=[]
+        def opener(req,timeout):
+            calls.append(1)
+            items=b[:6] if len(calls)==1 else b[6:]
+            return FakeResponse({"bars":{"GPUS":items},"next_page_token":"same"})
         with self.assertRaisesRegex(ValueError,"BAD_PAGINATION"):
-            do(f,lambda req,timeout:FakeResponse({"bars":{"GPUS":b[:6]},"next_page_token":"same"}))
+            do(f,opener)
 
     def test_duplicate_bar_across_pages_blocks(self):
         f,b=fixture()
