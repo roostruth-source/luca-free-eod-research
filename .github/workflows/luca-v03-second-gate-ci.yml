@@ -1,0 +1,26 @@
+# Offline gate CI only; not the future live T0. No API keys.
+name: LUCA V03 second trial gate offline regression
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-second-gate-ci.yml'
+      - '.github/workflows/luca-v03-second-prospective-once.yml'
+      - 'research/v03_stage24/second_trial_gate.py'
+      - 'research/v03_stage24/test_second_trial_gate.py'
+permissions:
+  contents: read
+jobs:
+  offline-gate:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all synthetic-only research tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Ensure future live request file has not been created
+        run: test ! -e research/v03_stage24/second_prospective_request.txt
+      - name: Verify future workflow is dormant and no market call made
+        run: echo 'SECOND LIVE REQUEST ABSENT; RESEARCH ONLY; NOT_VALIDATED; NO_ORDERS'
