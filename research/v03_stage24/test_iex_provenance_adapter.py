@@ -134,5 +134,16 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn('"v":',serialized)
         self.assertNotIn("1.5",serialized)
 
+    def test_real_recorded_at_is_after_fetch_when_omitted(self):
+        f,b=fixture()
+        # Default mode timestamps after successful GET/review, not before it.
+        from iex_provenance_adapter import fetch_review_with_provenance
+        r,p=fetch_review_with_provenance(
+            f,T1,"key","secret",None,
+            lambda req,timeout:FakeResponse({"bars":{"GPUS":b},"next_page_token":None}))
+        self.assertGreaterEqual(p["recorded_at_utc"],p["reviewed_at_utc"])
+        self.assertTrue(p["api_fetch"]["captured"])
+        self.assertEqual(r["observed_iex_bars"],12)
+
 if __name__=="__main__":
     unittest.main()
