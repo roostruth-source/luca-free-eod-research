@@ -255,6 +255,9 @@ def run_freeze_phase():
     print(f"PROSPECTIVE_FREEZE: CANDIDATES={frozen['candidate_count']}; "
           f"T0_UTC={frozen['selected_at_utc']}; "
           "NOT_VALIDATED; NO_ORDERS")
+    if frozen["candidate_count"]==0:
+        print("NO_FRESH_IEX_CANDIDATES; DO_NOT_WAIT_16_MINUTES")
+        raise SystemExit(6)
 
 
 def run_review_phase():
