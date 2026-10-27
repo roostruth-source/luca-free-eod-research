@@ -1,0 +1,23 @@
+# Offline only. Never rerun live T0 or followup or send alerts.
+name: LUCA V03 IEX coverage audit offline regression
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-iex-coverage-ci.yml'
+      - 'research/v03_stage24/iex_coverage_audit.py'
+      - 'research/v03_stage24/test_iex_coverage_audit.py'
+permissions:
+  contents: read
+jobs:
+  coverage-regression:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run complete isolated research tests, synthetic fixtures only
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Never mistake IEX missing bars for API outage or zero return
+        run: echo 'IEX SINGLE VENUE; MISSING CAUSE UNKNOWN; NO LIVE T0; NOT_VALIDATED; NO_ORDERS'
