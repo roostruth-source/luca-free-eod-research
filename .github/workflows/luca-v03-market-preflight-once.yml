@@ -1,0 +1,35 @@
+# One-time API access preflight BEFORE the scheduled forward T0 test.
+# Not scheduled. Does NOT freeze any candidates, place orders or notify users.
+name: LUCA V03 one-time data entitlement preflight
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/market_data_preflight_request.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test all isolated research safety code
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: GET-only screener, IEX snapshot, historical IEX 1min access probe
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: python3 research/v03_stage24/market_data_preflight.py
+      - name: Archive diagnostic; no live T0 and no alerts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-preflight-${{ github.run_id }}
+          path: luca_v03_preflight/
+          if-no-files-found: ignore
+          retention-days: 7
