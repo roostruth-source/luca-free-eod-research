@@ -102,6 +102,16 @@ jobs:
             --outcomes luca_v03_second_followup/outcomes.json \
             --reference luca_v03_second_reference/fixed_clock_reference.json \
             --dest luca_v03_second_quality/quality.json
+      - name: Write honest Korean second real-session comparison (no notification)
+        continue-on-error: true
+        run: |
+          python3 research/v03_stage24/second_korean_research_report.py \
+            --metadata second_source_metadata.json \
+            --source-dir luca_v03_second_forward \
+            --comparison luca_v03_second_quality/two_session_coverage.json \
+            --outcomes luca_v03_second_followup/outcomes.json \
+            --reference luca_v03_second_reference/fixed_clock_reference.json \
+            --output luca_v03_second_korean_report/report.md
       - name: Archive source identity and all results, never notify or trade
         if: always()
         uses: actions/upload-artifact@v4
@@ -115,5 +125,6 @@ jobs:
             luca_v03_second_followup/
             luca_v03_second_reference/
             luca_v03_second_quality/
+            luca_v03_second_korean_report/
           if-no-files-found: ignore
           retention-days: 7
