@@ -1,0 +1,35 @@
+# One-time GET-only complete screener + all IEX snapshot batches diagnostic.
+# Does NOT trigger the real T0 test, update production or send notifications.
+name: LUCA V03 one-time full-path market data readiness
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/full_path_access_request.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  full-path-readiness:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: All isolated research tests (offline)
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: One-time GET-only complete screener and IEX batch probe
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: python3 research/v03_stage24/full_path_access_probe.py
+      - name: Archive access-only result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-full-path-access-${{ github.run_id }}
+          path: luca_v03_full_path_preflight/
+          if-no-files-found: ignore
+          retention-days: 7
