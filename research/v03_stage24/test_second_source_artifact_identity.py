@@ -2,12 +2,12 @@
 import copy
 import unittest
 from second_source_artifact_identity import select_source_artifact
-from test_second_trial_artifact_bridge import META,ARTIFACT,SECOND_ID
+from test_second_trial_artifact_bridge import META,ART,SECOND_ID
 
 class SourceArtifactIdentityTests(unittest.TestCase):
     def setUp(self):
         self.meta=copy.deepcopy(META)
-        self.artifact=copy.deepcopy(ARTIFACT)
+        self.artifact=copy.deepcopy(ART)
         self.artifact["id"]=12799999999
         self.artifact["size_in_bytes"]=1200
         self.listing={"artifacts":[self.artifact]}
