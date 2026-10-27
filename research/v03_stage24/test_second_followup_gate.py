@@ -80,6 +80,44 @@ class SecondFollowupGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"SECOND_PROVENANCE_COUNTS_MISMATCH"):
             self.call()
 
+    def test_second_timestamp_grid_must_be_real_and_complete(self):
+        self.p["rows"][0]["missing_iex_bar_start_utc"]=[]
+        with self.assertRaisesRegex(ValueError,"INCONSISTENT_TIMESTAMP_GRID"):
+            self.call()
+
+    def test_second_timestamp_duplicate_rejected(self):
+        self.p["rows"][0]["observed_bar_start_utc"][1]=self.p["rows"][0]["observed_bar_start_utc"][0]
+        with self.assertRaisesRegex(ValueError,"INCONSISTENT_TIMESTAMP_GRID"):
+            self.call()
+
+    def test_second_http_final_page_must_be_recorded(self):
+        self.p["api_fetch"]["final_page_token_absent"]=False
+        with self.assertRaisesRegex(ValueError,"SECOND_HTTP_INCOMPLETE"):
+            self.call()
+
+    def test_second_http_must_be_get_only(self):
+        self.p["api_fetch"]["get_only_confirmed"]=False
+        with self.assertRaisesRegex(ValueError,"SECOND_HTTP_INCOMPLETE"):
+            self.call()
+
+    def test_wrong_expected_minute_grid_rejected(self):
+        self.p["expected_minutes_per_symbol"]=14
+        with self.assertRaisesRegex(ValueError,"SECOND_WINDOW_MISMATCH"):
+            self.call()
+
+    def test_wrong_missing_bar_cause_rejected(self):
+        self.p["rows"][0]["missing_cause"]="PROVEN_NO_TRADES"
+        with self.assertRaisesRegex(ValueError,"UNJUSTIFIED_GAP_CAUSE"):
+            self.call()
+
+    def test_valid_gate_records_verified_grid(self):
+        x=self.call()
+        self.assertTrue(x["iex_timestamp_grid_verified"])
+        self.assertTrue(x["iex_http_pages_verified"])
+        self.assertEqual(x["observed_iex_bars"],9)
+        self.assertEqual(x["expected_iex_bars"],15)
+        self.assertTrue(x["first_real_archive_verified"])
+
     def test_rerun_attempt_blocked(self):
         with self.assertRaisesRegex(ValueError,"WRONG_FOLLOWUP_TRIGGER"):
             self.call(attempt="2")
