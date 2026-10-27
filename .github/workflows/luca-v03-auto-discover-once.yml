@@ -1,0 +1,36 @@
+# Research-only, one-time API entitlement check and automatic candidate discovery.
+# No schedule, no live trades, no writes to main/site, no API order endpoints.
+name: LUCA V03 one-time automatic stock discovery
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-auto-discover-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  discover-once:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline safety and parsing tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Try no-symbol-input Alpaca stock screener GET endpoints
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_DISCOVERY_OUTPUT: luca_v03_discovery
+        run: python3 research/v03_stage24/auto_discover.py
+      - name: Archive research-only candidate or permission-error status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-auto-discovery-${{ github.run_id }}
+          path: luca_v03_discovery/
+          retention-days: 7
+          if-no-files-found: ignore
