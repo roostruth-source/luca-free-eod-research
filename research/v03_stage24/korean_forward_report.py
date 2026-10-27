@@ -44,7 +44,7 @@ def korean_report(source_metadata, frozen, review, outcomes=None, reference=None
         "",
         f"- 원본 GitHub 실행: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/{rid}",
         f"- T0 후보 확정 시각(UTC): {quality['frozen_at_utc']}",
-        f"- T0 원본 해시: \`{quality['frozen_t0_sha256']}\`",
+        f"- T0 원본 해시: `{quality['frozen_t0_sha256']}`",
         f"- T0 고정 후보: {quality['candidates_frozen']}종목",
         f"- 실제 확인한 IEX 1분봉: {quality['forward_iex_bars_observed']}개",
         f"- 초기 연구 패턴 기록: {quality['pattern_observed_symbols']}종목",
