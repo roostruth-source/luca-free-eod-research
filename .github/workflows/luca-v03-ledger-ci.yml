@@ -1,0 +1,24 @@
+# Offline synthetic multi-session research ledger tests only.
+# No live run, no GitHub artifacts fetched, no schedule, no orders, no deployment.
+name: LUCA V03 multi-session ledger offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-ledger-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ledger-integrity:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run entire isolated research test suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm no live results implied
+        run: echo 'OFFLINE ONLY; NOT_VALIDATED; NO_ORDERS'
