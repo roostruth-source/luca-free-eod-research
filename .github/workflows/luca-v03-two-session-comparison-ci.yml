@@ -1,0 +1,25 @@
+# Offline comparison only. No live trial, no GitHub request-file mutation.
+name: LUCA V03 first vs second IEX coverage offline comparison CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-two-session-comparison-ci.yml'
+      - 'research/v03_stage24/two_session_iex_comparison.py'
+      - 'research/v03_stage24/test_two_session_iex_comparison.py'
+permissions:
+  contents: read
+jobs:
+  offline-comparison:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all offline research tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm second live trial not started
+        run: test ! -e research/v03_stage24/second_prospective_request.txt
+      - name: No market API, no orders, no forecasts
+        run: echo 'OFFLINE COVERAGE COMPARISON ONLY; NOT_VALIDATED; NO_ORDERS'
