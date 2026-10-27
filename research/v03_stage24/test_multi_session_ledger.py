@@ -155,9 +155,10 @@ class MultiSessionLedgerTests(unittest.TestCase):
     def test_invalid_folder_name_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             folder=fixture(d)
-            folder.rename(Path(d)/"../unsafe")
+            invalid=Path(d)/"bad-name"
+            folder.rename(invalid)
             with self.assertRaisesRegex(ValueError,"RUN_DIRECTORY_MUST_BE_SOURCE_ID"):
-                one_session(Path(d)/"../unsafe")
+                one_session(invalid)
 
     def test_wrong_t0_hash_rejected(self):
         with tempfile.TemporaryDirectory() as d:
