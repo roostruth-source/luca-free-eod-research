@@ -1,0 +1,28 @@
+# Offline-only CI. Second followup request is intentionally ABSENT.
+name: LUCA V03 second 60min followup gate offline CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-second-followup-ci.yml'
+      - '.github/workflows/luca-v03-second-followup-once.yml'
+      - 'research/v03_stage24/second_followup_gate.py'
+      - 'research/v03_stage24/test_second_followup_gate.py'
+permissions:
+  contents: read
+jobs:
+  offline:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run full offline research suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm no future live request files
+        run: |
+          test ! -e research/v03_stage24/second_prospective_request.txt
+          test ! -e research/v03_stage24/second_followup_request.txt
+      - name: Research only
+        run: echo 'SECOND FOLLOWUP DORMANT; NOT_VALIDATED; NO_ORDERS'
