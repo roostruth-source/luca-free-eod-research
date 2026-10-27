@@ -68,3 +68,38 @@ def gate(run_id_text,meta,frozen,review,provenance,now,event,ref,attempt,history
         "sec_status":"SEC_UNVERIFIED",
         "real_trades_allowed":False,
     }
+
+
+def main():
+    import json
+    import os
+    from pathlib import Path
+    import subprocess
+    def load(path):
+        p=Path(path)
+        if not p.is_file() or p.stat().st_size>2_000_000:
+            raise ValueError("MISSING_OR_OVERSIZE_SOURCE")
+        return json.loads(p.read_text(encoding="utf8"))
+    count=subprocess.check_output(
+        ["git","rev-list","--count","HEAD","--",REQUEST_PATH],
+        text=True,timeout=15).strip()
+    if not count.isdecimal():
+        raise ValueError("BAD_FOLLOWUP_HISTORY")
+    root=Path("luca_v03_second_forward")
+    result=gate(
+        Path(REQUEST_PATH).read_text(encoding="utf8"),
+        load("second_source_metadata.json"),
+        load(root/"frozen_t0.json"),
+        load(root/"forward_review.json"),
+        load(root/"iex_timestamp_provenance.json"),
+        dt.datetime.now(UTC),
+        os.getenv("GITHUB_EVENT_NAME",""),
+        os.getenv("GITHUB_REF",""),
+        os.getenv("GITHUB_RUN_ATTEMPT",""),
+        int(count))
+    print("SECOND_FOLLOWUP_GATE: "+json.dumps(result,sort_keys=True))
+    print("NOT_VALIDATED; NO_ORDERS")
+
+
+if __name__=="__main__":
+    main()
