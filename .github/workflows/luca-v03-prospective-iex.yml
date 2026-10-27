@@ -1,4 +1,5 @@
 # Research-only forward IEX prototype: locked candidates BEFORE later bars.
+# Re-run offline CI after zero-candidate runner-minute safeguard.
 # Push CI is fast & offline; a manual run may wait 16 minutes ONLY if US morning.
 # No schedule, no orders, no deployment, no edits to production or fixed studies.
 name: LUCA V03 prospective IEX timestamp lock research
