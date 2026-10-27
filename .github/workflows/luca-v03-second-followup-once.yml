@@ -46,9 +46,21 @@ jobs:
           if verify_second_run(meta)!=int(sys.argv[1]):
               raise ValueError("SECOND_SOURCE_RUN_ID_MISMATCH")
           PY
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" > second_source_artifacts.json
+          python3 research/v03_stage24/second_source_artifact_identity.py \
+            --run-metadata second_source_metadata.json \
+            --artifacts-list second_source_artifacts.json \
+            --output second_source_artifact_metadata.json
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "luca-v03-second-prospective-$RUN_ID" --dir luca_v03_second_forward
       - name: Verify source T0, GET timestamps, maturity and single request before market API
         run: python3 research/v03_stage24/second_followup_gate.py
+      - name: Automatically compare two verified real IEX collection windows
+        run: |
+          python3 research/v03_stage24/second_trial_artifact_bridge.py \
+            --second-metadata second_source_metadata.json \
+            --second-artifact-metadata second_source_artifact_metadata.json \
+            --second-artifact-dir luca_v03_second_forward \
+            --output luca_v03_second_quality/two_session_coverage.json
       - name: Measure ONLY matured 5/15/30/60m signal outcomes
         id: signal
         env:
@@ -97,6 +109,8 @@ jobs:
           name: luca-v03-second-outcomes-${{ github.run_id }}
           path: |
             second_source_metadata.json
+            second_source_artifacts.json
+            second_source_artifact_metadata.json
             luca_v03_second_forward/
             luca_v03_second_followup/
             luca_v03_second_reference/
