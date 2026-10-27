@@ -63,7 +63,7 @@ class SecondKoreanReportTests(unittest.TestCase):
             self.report()
 
     def test_missing_bar_is_not_declared_failure(self):
-        self.f,self.r,self.p=fixture(())
+        self.f,self.r,self.p=fixture((0,1,2))
         self.coverage=compare(load_verified(),self.f,self.r,self.p,SECOND_ID)
         s=self.report()
         self.assertIn("분봉 누락·패턴 미관측(판정 불가)",s)
