@@ -70,6 +70,15 @@ jobs:
         run: |
           mkdir -p luca_v03_followup
           printf '{"status":"NO_FROZEN_SIGNALS","outcomes":0,"validation_status":"NOT_VALIDATED","real_trades_allowed":false}\n' > luca_v03_followup/no_signals.json
+      - name: Optional frozen-universe fixed-clock reference (all selected symbols)
+        if: steps.gate.outcome == 'success'
+        continue-on-error: true
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FOLLOWUP_INPUT: luca_v03_forward
+          LUCA_REFERENCE_OUTPUT: luca_v03_reference
+        run: python3 research/v03_stage24/fixed_clock_reference.py
       - name: Preserve followup research results, not notifications
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,5 +87,6 @@ jobs:
           path: |
             followup_source_metadata.json
             luca_v03_followup/
+            luca_v03_reference/
           if-no-files-found: ignore
           retention-days: 7
