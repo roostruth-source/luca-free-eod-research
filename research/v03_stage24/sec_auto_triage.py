@@ -206,9 +206,21 @@ def run(key,secret,opener=None,now=None):
     try:
         mapping=ticker_cik_map(get_json(TICKERS_URL,opener))
     except Exception as e:
-        return {"status":"SEC_TICKER_MAP_UNAVAILABLE","error_type":type(e).__name__,
-                "watch_count":len(watch),"validation_status":"NOT_VALIDATED",
-                "real_trades_allowed":False}
+        # Preserve the actual watchlist, but never pretend SEC risk was checked.
+        error_type=("HTTP_"+str(e.code) if isinstance(e,urllib.error.HTTPError)
+                    else type(e).__name__)
+        return {
+            "status":"SEC_TICKER_MAP_UNAVAILABLE",
+            "error_type":error_type,
+            "watch_count":len(watch),
+            "rows":[{"symbol":x["symbol"],
+                     "iex_price":x.get("iex_last_trade_price"),
+                     "sec_status":"SEC_NOT_CHECKED_SOURCE_UNAVAILABLE",
+                     "market_cap":None,"float_shares":None,
+                     "grade":"D","buy_allowed":False}
+                    for x in enrich["rows"] if x["price_band_0_20_to_20"]],
+            "market_cap_verified":False,"float_verified":False,
+            "validation_status":"NOT_VALIDATED","real_trades_allowed":False}
     subs={}
     errors={}
     for symbol in watch:
@@ -250,6 +262,7 @@ def main():
           "; CIK="+str(result.get("cik_mapped",0))+
           "; SEC_SUBMISSIONS="+str(result.get("submissions_available",0))+
           "; REVIEW_FORMS="+str(result.get("recent_review_forms",0))+
+          "; ERROR_TYPE="+str(result.get("error_type","NONE"))+
           "; NOT_VALIDATED; NO_ORDERS")
     if result["status"]!="COLLECTED_PARTIAL_NOT_CLEARED":
         raise SystemExit(3)
