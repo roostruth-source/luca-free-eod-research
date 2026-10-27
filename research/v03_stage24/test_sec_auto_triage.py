@@ -2,8 +2,10 @@
 import datetime as dt
 import json
 import unittest
+import urllib.error
+from unittest.mock import patch
 from sec_auto_triage import (TICKERS_URL, SUBMISSIONS_ROOT, get_json,
-                             ticker_cik_map, recent_filings, triage)
+                             ticker_cik_map, recent_filings, triage, run)
 
 T=dt.datetime(2026,10,27,7,0,tzinfo=dt.timezone.utc)
 ENRICH={
@@ -119,6 +121,21 @@ class SECTriageTests(unittest.TestCase):
             self.assertIn("LUCA-Research",req.get_header("User-agent"))
             return FakeResponse(json.dumps({"0":{"ticker":"GPUS","cik_str":123}}).encode())
         self.assertEqual(get_json(TICKERS_URL,opener)["0"]["ticker"],"GPUS")
+
+    def test_sec_ticker_map_403_preserves_blocked_watchlist(self):
+        enriched=json.loads(json.dumps(ENRICH))
+        enriched["status"]="COLLECTED_UNVERIFIED"
+        with patch("sec_auto_triage.enrich_run",return_value=enriched), patch(
+            "sec_auto_triage.get_json",
+            side_effect=urllib.error.HTTPError(TICKERS_URL,403,"forbidden",{},None)
+        ):
+            result=run("key","secret",now=T)
+        self.assertEqual(result["status"],"SEC_TICKER_MAP_UNAVAILABLE")
+        self.assertEqual(result["error_type"],"HTTP_403")
+        self.assertEqual(result["watch_count"],2)
+        self.assertEqual(len(result["rows"]),2)
+        self.assertTrue(all(x["grade"]=="D" and not x["buy_allowed"] for x in result["rows"]))
+        self.assertTrue(all(x["sec_status"]=="SEC_NOT_CHECKED_SOURCE_UNAVAILABLE" for x in result["rows"]))
 
     def test_recent_list_length_mismatch(self):
         sub=json.loads(json.dumps(SUB))
