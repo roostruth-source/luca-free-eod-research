@@ -1,0 +1,53 @@
+# FUTURE SECOND PROSPECTIVE TRIAL ONLY. This workflow is intentionally
+# dormant: second_prospective_request.txt DOES NOT EXIST until a later
+# explicitly chosen US morning. Never triggered by ordinary code changes.
+# No schedule, no orders, no main, no website, no notifications.
+name: LUCA V03 second future IEX prospective once with provenance
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/second_prospective_request.txt'
+permissions:
+  contents: read
+concurrency:
+  group: luca-v03-second-prospective-once
+  cancel-in-progress: false
+jobs:
+  second-future-only:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gate future NY morning and single request history BEFORE ANY API
+        run: python3 research/v03_stage24/second_trial_gate.py
+      - name: Run entire offline safety regression
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Freeze independent candidate list after real GET discovery
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_second_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase freeze
+      - name: Wait 16 minutes without modifying frozen T0
+        run: sleep 960
+      - name: Review unchanged pattern logic and archive real HTTP/timestamps
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_second_forward
+        run: |
+          cd research/v03_stage24
+          python3 -c "from future_iex_review import review_future_session; review_future_session('../../luca_v03_second_forward')"
+      - name: Archive research-only immutable evidence (no website or alerts)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-second-prospective-${{ github.run_id }}
+          path: luca_v03_second_forward/
+          if-no-files-found: ignore
+          retention-days: 7
