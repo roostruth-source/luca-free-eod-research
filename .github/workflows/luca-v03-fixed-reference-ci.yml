@@ -1,0 +1,25 @@
+# Research-only control-group baseline regression. Does not fetch market data.
+# No scheduled actions, orders, deployment, or frozen research rule changes.
+name: LUCA V03 fixed-clock baseline offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-fixed-reference-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-frozen-cohorts:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline all research integrity and control cohort tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Preserve no-real-trade-only guarantee
+        run: |
+          echo 'No live research run triggered. No orders, SEC safety or A/B grades enabled.'
