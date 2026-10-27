@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from two_session_iex_comparison import compare,FIRST_ID
+from first_iex_baseline_integrity import load_verified
 
 SECOND_WORKFLOW="LUCA V03 second future IEX prospective once with provenance"
 BRANCH="research/v03-stage24-evidence"
@@ -53,7 +54,8 @@ def build_verified_comparison(first_audit,second_meta,second_frozen,
 
 def main():
     p=argparse.ArgumentParser()
-    p.add_argument("--first-audit",required=True)
+    p.add_argument("--first-audit",default=None,
+                   help="Optional original audit file; default is integrity-checked durable real archive")
     p.add_argument("--second-metadata",required=True)
     p.add_argument("--second-artifact-metadata",required=True)
     p.add_argument("--second-artifact-dir",required=True)
@@ -66,7 +68,7 @@ def main():
         return json.loads(file.read_text(encoding="utf8"))
     root=Path(a.second_artifact_dir)
     result=build_verified_comparison(
-        load(a.first_audit),load(a.second_metadata),
+        load(a.first_audit) if a.first_audit else load_verified(),load(a.second_metadata),
         load(root/"frozen_t0.json"),load(root/"forward_review.json"),
         load(root/"iex_timestamp_provenance.json"),
         load(a.second_artifact_metadata))
