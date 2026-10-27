@@ -1,0 +1,25 @@
+# Separate, zero-network regression for 5/15/30/60m post-signal IEX outcomes.
+# No schedule, deployment, SEC clearance, real trades or production alterations.
+name: LUCA V03 5-15-30-60m forward outcomes offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-forward-outcomes-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  review-only:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify IEX post-selection lookahead and all research-only safety tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Assert forward outcomes remain offline and NOT_VALIDATED
+        run: |
+          echo 'ONLY offline tests. No new real signal data, SEC approvals, trading, or production workflow changes.'
