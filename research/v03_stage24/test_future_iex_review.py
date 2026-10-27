@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from future_iex_review import review_future_session
@@ -41,8 +42,9 @@ class FutureReviewTests(unittest.TestCase):
         return Response({"bars":{"GPUS":self.bars},"next_page_token":None})
 
     def run_future(self,opener=None):
-        with patch("iex_provenance_adapter.dt.datetime") as clock:
-            clock.now.return_value=T1+dt.timedelta(seconds=1)
+        fake=SimpleNamespace(datetime=SimpleNamespace(
+            now=lambda tz:T1+dt.timedelta(seconds=1)))
+        with patch("iex_provenance_adapter.dt",fake):
             return review_future_session(self.root,T1,opener or self.opener)
 
     def test_writes_both_original_schema_and_timestamp_evidence(self):
