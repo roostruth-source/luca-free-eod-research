@@ -1,0 +1,25 @@
+# Offline only. No real GitHub artifact downloads, market requests or orders.
+name: LUCA V03 second trial artifact provenance offline CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-second-artifact-bridge-ci.yml'
+      - 'research/v03_stage24/second_trial_artifact_bridge.py'
+      - 'research/v03_stage24/test_second_trial_artifact_bridge.py'
+permissions:
+  contents: read
+jobs:
+  bridge-offline:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run entire offline synthetic research suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm future second trial request remains absent
+        run: test ! -e research/v03_stage24/second_prospective_request.txt
+      - name: Research-only status
+        run: echo 'OFFLINE ONLY; NOT_VALIDATED; NO_ORDERS'
