@@ -123,6 +123,16 @@ jobs:
             --input github_source_runs.json \
             --repository-wide \
             --output luca_v03_source_attempts/source_attempts.json
+      - name: Write verified Korean T0 research report (optional, no notifications)
+        if: steps.gate.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python3 research/v03_stage24/korean_forward_report.py \
+            --metadata followup_source_metadata.json \
+            --source-dir luca_v03_forward \
+            --outcomes luca_v03_followup/outcomes.json \
+            --reference luca_v03_reference/fixed_clock_reference.json \
+            --output luca_v03_korean_report/report.md
       - name: Preserve followup research results, not notifications
         if: always()
         uses: actions/upload-artifact@v4
@@ -135,5 +145,6 @@ jobs:
             luca_v03_quality/
             luca_v03_ledger/
             luca_v03_source_attempts/
+            luca_v03_korean_report/
           if-no-files-found: ignore
           retention-days: 7
