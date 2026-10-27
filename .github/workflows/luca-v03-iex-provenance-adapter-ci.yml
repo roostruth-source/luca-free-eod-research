@@ -1,0 +1,23 @@
+# Offline-only adapter test; no market request, no T0, no followup, no orders.
+name: LUCA V03 prospective IEX provenance adapter offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-iex-provenance-adapter-ci.yml'
+      - 'research/v03_stage24/iex_provenance_adapter.py'
+      - 'research/v03_stage24/test_iex_provenance_adapter.py'
+permissions:
+  contents: read
+jobs:
+  offline-adapter:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all offline research tests including HTTP/pagination provenance
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: No real trading or live observation
+        run: echo 'SYNTHETIC ONLY; NO LIVE T0; NOT_VALIDATED; SEC_UNVERIFIED; NO_ORDERS'
