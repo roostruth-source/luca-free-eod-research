@@ -28,9 +28,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/luca-v03-prospective-live-once.yml/runs?branch=research%2Fv03-stage24-evidence&per_page=100" > github_source_runs.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" > github_source_runs.json
           python3 research/v03_stage24/source_run_inventory.py \
             --input github_source_runs.json \
+            --repository-wide \
             --output luca_v03_source_attempts/source_attempts.json
       - name: Archive inventory, no notification and no trading
         if: always()
