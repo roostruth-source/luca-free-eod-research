@@ -63,6 +63,7 @@ jobs:
             --output luca_v03_second_quality/two_session_coverage.json
       - name: Measure ONLY matured 5/15/30/60m signal outcomes
         id: signal
+        continue-on-error: true
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
           ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
@@ -89,6 +90,8 @@ jobs:
             printf '{"status":"NO_FROZEN_SIGNALS","outcomes":0,"validation_status":"NOT_VALIDATED","real_trades_allowed":false}\n' > luca_v03_second_followup/no_signals.json
           fi
       - name: Fixed T0 clock reference for all selected symbols
+        id: reference
+        continue-on-error: true
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
           ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
@@ -96,6 +99,8 @@ jobs:
           LUCA_REFERENCE_OUTPUT: luca_v03_second_reference
         run: python3 research/v03_stage24/fixed_clock_reference.py
       - name: Strict research quality report without trading approval
+        id: quality
+        continue-on-error: true
         run: |
           python3 research/v03_stage24/evidence_quality_gate.py \
             --source luca_v03_second_forward \
@@ -112,6 +117,19 @@ jobs:
             --outcomes luca_v03_second_followup/outcomes.json \
             --reference luca_v03_second_reference/fixed_clock_reference.json \
             --output luca_v03_second_korean_report/report.md
+      - name: Record real followup step outcomes, never pretend missing data is zero
+        if: always()
+        env:
+          SIGNAL_OUTCOME: ${{ steps.signal.outcome }}
+          REFERENCE_OUTCOME: ${{ steps.reference.outcome }}
+          QUALITY_OUTCOME: ${{ steps.quality.outcome }}
+        run: |
+          mkdir -p luca_v03_second_quality
+          python3 research/v03_stage24/second_followup_step_status.py \
+            --signal "$SIGNAL_OUTCOME" \
+            --reference "$REFERENCE_OUTCOME" \
+            --quality "$QUALITY_OUTCOME" \
+            --output luca_v03_second_quality/step_status.json
       - name: Archive source identity and all results, never notify or trade
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,3 +146,15 @@ jobs:
             luca_v03_second_korean_report/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Fail job AFTER archiving if any essential followup step failed
+        if: always()
+        env:
+          SIGNAL_OUTCOME: ${{ steps.signal.outcome }}
+          REFERENCE_OUTCOME: ${{ steps.reference.outcome }}
+          QUALITY_OUTCOME: ${{ steps.quality.outcome }}
+        run: |
+          if [ "$SIGNAL_OUTCOME" != success ] || [ "$REFERENCE_OUTCOME" != success ] || [ "$QUALITY_OUTCOME" != success ]; then
+            echo "FOLLOWUP_INCOMPLETE; source evidence archived; missing horizons NOT treated as zero or profit"
+            exit 1
+          fi
+          echo "FOLLOWUP_DATA_STEPS_SUCCEEDED; NOT_VALIDATED; NO_ORDERS"
