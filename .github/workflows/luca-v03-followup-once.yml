@@ -48,9 +48,10 @@ jobs:
             --metadata-json followup_source_metadata.json \
             --artifact-dir luca_v03_forward
           python3 - <<'PY'
-          import json,os
+          import json,os,sys
           from pathlib import Path
-          from research.v03_stage24.followup_bridge import verify_downloaded_files
+          sys.path.insert(0,"research/v03_stage24")
+          from followup_bridge import verify_downloaded_files
           x=verify_downloaded_files("luca_v03_forward")
           output=os.environ["GITHUB_OUTPUT"]
           with open(output,"a",encoding="utf-8") as f:
