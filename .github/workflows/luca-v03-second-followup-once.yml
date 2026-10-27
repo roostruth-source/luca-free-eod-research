@@ -1,0 +1,105 @@
+# Dormant one-time SECOND research followup. This is NOT the first followup.
+# Request file does not exist until source run is complete and mature.
+name: LUCA V03 second independent 60min IEX followup once
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/second_followup_request.txt'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: luca-v03-second-followup-once
+  cancel-in-progress: false
+jobs:
+  followup:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence' && github.run_attempt == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Offline safety regression before any source fetch
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Fetch ONLY the specified second source run and its immutable artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(tr -d '\r\n' < research/v03_stage24/second_followup_request.txt)"
+          if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{7,14}$ ]]; then
+            echo 'BAD_SECOND_RUN_ID'
+            exit 2
+          fi
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json databaseId,name,headBranch,event,status,conclusion > second_source_metadata.json
+          python3 - "$RUN_ID" <<'PY'
+          import json,sys
+          sys.path.insert(0,"research/v03_stage24")
+          from second_trial_artifact_bridge import verify_second_run
+          with open("second_source_metadata.json") as f:
+              meta=json.load(f)
+          if verify_second_run(meta)!=int(sys.argv[1]):
+              raise ValueError("SECOND_SOURCE_RUN_ID_MISMATCH")
+          PY
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "luca-v03-second-prospective-$RUN_ID" --dir luca_v03_second_forward
+      - name: Verify source T0, GET timestamps, maturity and single request before market API
+        run: python3 research/v03_stage24/second_followup_gate.py
+      - name: Measure ONLY matured 5/15/30/60m signal outcomes
+        id: signal
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FOLLOWUP_INPUT: luca_v03_second_forward
+          LUCA_FOLLOWUP_OUTPUT: luca_v03_second_followup
+        shell: bash
+        run: |
+          set -euo pipefail
+          HAS_SIGNALS="$(python3 - <<'PY'
+          import json,sys
+          sys.path.insert(0,"research/v03_stage24")
+          from forward_outcomes_iex import validate_origins
+          from pathlib import Path
+          root=Path("luca_v03_second_forward")
+          f=json.loads((root/"frozen_t0.json").read_text())
+          r=json.loads((root/"forward_review.json").read_text())
+          print("true" if validate_origins(f,r)[2] else "false")
+          PY
+          )"
+          if [ "$HAS_SIGNALS" = true ]; then
+            python3 research/v03_stage24/forward_outcomes_iex.py
+          else
+            mkdir -p luca_v03_second_followup
+            printf '{"status":"NO_FROZEN_SIGNALS","outcomes":0,"validation_status":"NOT_VALIDATED","real_trades_allowed":false}\n' > luca_v03_second_followup/no_signals.json
+          fi
+      - name: Fixed T0 clock reference for all selected symbols
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FOLLOWUP_INPUT: luca_v03_second_forward
+          LUCA_REFERENCE_OUTPUT: luca_v03_second_reference
+        run: python3 research/v03_stage24/fixed_clock_reference.py
+      - name: Strict research quality report without trading approval
+        run: |
+          python3 research/v03_stage24/evidence_quality_gate.py \
+            --source luca_v03_second_forward \
+            --outcomes luca_v03_second_followup/outcomes.json \
+            --reference luca_v03_second_reference/fixed_clock_reference.json \
+            --dest luca_v03_second_quality/quality.json
+      - name: Archive source identity and all results, never notify or trade
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-second-outcomes-${{ github.run_id }}
+          path: |
+            second_source_metadata.json
+            luca_v03_second_forward/
+            luca_v03_second_followup/
+            luca_v03_second_reference/
+            luca_v03_second_quality/
+          if-no-files-found: ignore
+          retention-days: 7
