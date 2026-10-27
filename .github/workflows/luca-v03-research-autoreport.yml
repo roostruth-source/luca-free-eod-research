@@ -1,0 +1,39 @@
+# Research branch only. Offline end-to-end automatic report proof; NOT a scheduled live scanner.
+name: LUCA V03 frozen-to-SEC-to-ABCD research report
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-research-autoreport.yml'
+      - 'research/v03_stage24/research_auto_report.py'
+      - 'research/v03_stage24/test_research_auto_report.py'
+      - 'research/v03_stage24/sec_asof_guard.py'
+      - 'research/v03_stage24/sec_snapshot_2026-10-26.json'
+      - 'research/v03_stage24/fixture_frozen_excerpt_2026-10-26.json'
+
+permissions:
+  contents: read
+
+jobs:
+  research-autoreport:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline regression and SEC guard tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Produce report automatically from frozen historical replay excerpt
+        run: |
+          python3 research/v03_stage24/research_auto_report.py \
+            research/v03_stage24/fixture_frozen_excerpt_2026-10-26.json \
+            research/v03_stage24/sec_snapshot_2026-10-26.json \
+            --out-dir luca_v03_research_autoreport
+      - name: Archive independent report (not deployed to website)
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-research-autoreport-${{ github.run_id }}
+          path: luca_v03_research_autoreport/
+          retention-days: 7
+          if-no-files-found: error
