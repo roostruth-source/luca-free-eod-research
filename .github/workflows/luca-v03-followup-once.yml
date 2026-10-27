@@ -109,6 +109,19 @@ jobs:
           python3 research/v03_stage24/multi_session_ledger.py \
             --input-root luca_v03_ledger_inputs \
             --output luca_v03_ledger/ledger.json
+      - name: Read source workflow attempts including GitHub failures (optional audit)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/luca-v03-prospective-live-once.yml/runs?branch=research%2Fv03-stage24-evidence&per_page=100" > github_source_runs.json
+          python3 research/v03_stage24/source_run_inventory.py \
+            --input github_source_runs.json \
+            --output luca_v03_source_attempts/source_attempts.json
       - name: Preserve followup research results, not notifications
         if: always()
         uses: actions/upload-artifact@v4
@@ -120,5 +133,6 @@ jobs:
             luca_v03_reference/
             luca_v03_quality/
             luca_v03_ledger/
+            luca_v03_source_attempts/
           if-no-files-found: ignore
           retention-days: 7
