@@ -39,6 +39,14 @@ def gate(run_id_text,meta,frozen,review,provenance,now,event,ref,attempt,history
         raise ValueError("UNSAFE_PROVENANCE")
     if provenance.get("api_fetch",{}).get("all_pages_successful") is not True:
         raise ValueError("UNVERIFIED_IEX_HTTP")
+    if (parse_utc(provenance.get("frozen_at_utc"))!=t0 or
+        parse_utc(provenance.get("reviewed_at_utc"))!=reviewed or
+        [r.get("symbol") for r in provenance.get("rows",[])]!=frozen["candidates"]):
+        raise ValueError("SECOND_PROVENANCE_ORIGIN_MISMATCH")
+    if (sum(r.get("observed_minutes",0) for r in provenance["rows"])!=review["observed_iex_bars"] or
+        any(r.get("observed_minutes")!=x.get("observed_iex_bars")
+            for r,x in zip(provenance["rows"],review["results"]))):
+        raise ValueError("SECOND_PROVENANCE_COUNTS_MISMATCH")
     if type(now) is not dt.datetime or now.tzinfo is None:
         raise ValueError("AWARE_NOW_REQUIRED")
     checked=now.astimezone(UTC)
