@@ -1,0 +1,35 @@
+# Isolated research-only IEX historical 1m trial; NOT a live prospective scanner.
+# Existing V02 manual observation, fixed Stage24 SIP test, and production untouched.
+name: LUCA V03 one-time automatic IEX 1m pattern observation
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-iex-1min-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  observe-once:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline test all isolated research units
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Auto-discover tickers and read last completed regular session's IEX 1m bars
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: python3 research/v03_stage24/iex_1min_research.py
+      - name: Preserve retrospective evidence, not notifications
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-iex-1min-research-${{ github.run_id }}
+          path: luca_v03_iex_1min/
+          retention-days: 7
+          if-no-files-found: ignore
