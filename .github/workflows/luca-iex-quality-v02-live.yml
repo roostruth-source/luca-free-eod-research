@@ -1,0 +1,53 @@
+# LUCA V0.2 IEX quality research only. MANUAL, branch-only, no orders/deploy/schedules.
+name: LUCA IEX quality V02 manual live research
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'IEX 종목 (쉼표 구분, 최대 20개)'
+        type: string
+        required: true
+        default: 'AAPL,NIKI,GPUS,PFSA,LAES,VCIG'
+      minutes:
+        description: '관찰 분: 9분 품질시험 / 70분 미래 결과 시험'
+        type: choice
+        required: true
+        options:
+          - '9'
+          - '70'
+        default: '9'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: luca-iex-quality-v02-manual
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: github.ref == 'refs/heads/research/iex-quality-v02'
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+      - name: Install read-only stream library
+        run: python3 -m pip install --quiet --disable-pip-version-check 'websockets==15.0.1'
+      - name: Capture IEX-only evidence (no orders)
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_SYMBOLS: ${{ inputs.symbols }}
+          LUCA_MINUTES: ${{ inputs.minutes }}
+        run: python3 research/iex_quality_v02/capture.py
+      - name: Evaluate as-of IEX-only future outcomes (not trading returns)
+        run: python3 research/iex_quality_v02/outcomes.py --dir luca_iex_quality_v02
+      - name: Archive read-only evidence for 7 days
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-iex-quality-v02-${{ github.run_id }}
+          path: luca_iex_quality_v02/
+          if-no-files-found: ignore
+          retention-days: 7
