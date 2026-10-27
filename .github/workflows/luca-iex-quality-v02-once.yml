@@ -1,0 +1,40 @@
+# One-time research-branch-only connection smoke test. No schedule, no orders.
+# Trigger only when THIS workflow file is first added/edited on the research branch.
+name: LUCA IEX V02 one-shot connection check
+on:
+  push:
+    branches:
+      - research/iex-quality-v02
+    paths:
+      - '.github/workflows/luca-iex-quality-v02-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  observe-once:
+    if: github.ref == 'refs/heads/research/iex-quality-v02'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Read independent research branch
+        uses: actions/checkout@v4
+      - name: Install read-only IEX client
+        run: python3 -m pip install --quiet --disable-pip-version-check 'websockets==15.0.1'
+      - name: Observe 3 minutes without trading
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_SYMBOLS: 'AAPL,NIKI,GPUS,PFSA,LAES,VCIG'
+          LUCA_MINUTES: '3'
+        run: python3 research/iex_quality_v02/capture.py
+      - name: Grade observed future windows only
+        run: python3 research/iex_quality_v02/outcomes.py --dir luca_iex_quality_v02
+      - name: Save evidence for 7 days
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-iex-v02-once-${{ github.run_id }}
+          path: luca_iex_quality_v02/
+          if-no-files-found: ignore
+          retention-days: 7
