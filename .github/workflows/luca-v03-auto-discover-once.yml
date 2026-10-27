@@ -1,4 +1,5 @@
 # Research-only, one-time API entitlement check and automatic candidate discovery.
+# Rerun after offline duplicate-symbol regression correction.
 # No schedule, no live trades, no writes to main/site, no API order endpoints.
 name: LUCA V03 one-time automatic stock discovery
 on:
