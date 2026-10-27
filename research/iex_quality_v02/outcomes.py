@@ -60,13 +60,17 @@ def reference_price(signal, raw_rows):
     return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
 
-def evaluate_signal(signal, raw_rows, *, evaluated_at, truncated=False):
+def evaluate_signal(signal, raw_rows, *, evaluated_at, capture_end=None, truncated=False):
     """Historical as-of evaluation; never use events received after evaluated_at."""
     known = parse_utc(signal.get("known_at_utc"))
     symbol = signal.get("symbol")
     if known is None or not isinstance(symbol, str) or evaluated_at.tzinfo is None:
         raise ValueError("INVALID_SIGNAL_OR_EVALUATION_TIME")
     evaluated_at = evaluated_at.astimezone(UTC)
+    if capture_end is not None:
+        if capture_end.tzinfo is None:
+            raise ValueError("CAPTURE_END_MUST_BE_AWARE")
+        capture_end = capture_end.astimezone(UTC)
     if evaluated_at < known:
         raise ValueError("EVALUATION_BEFORE_SIGNAL")
     baseline = reference_price(signal, raw_rows)
@@ -97,6 +101,8 @@ def evaluate_signal(signal, raw_rows, *, evaluated_at, truncated=False):
             row["status"] = "NO_ASOF_REFERENCE_BAR"
         elif evaluated_at < deadline:
             row["status"] = "PENDING"
+        elif capture_end is None or capture_end < deadline:
+            row["status"] = "CAPTURE_ENDED_BEFORE_TARGET"
         else:
             trades = []
             for event in raw_rows:
@@ -123,7 +129,7 @@ def evaluate_signal(signal, raw_rows, *, evaluated_at, truncated=False):
     return result
 
 
-def build_report(signals, raw_rows, *, evaluated_at, truncated=False):
+def build_report(signals, raw_rows, *, evaluated_at, capture_end=None, truncated=False):
     return {
         "version": "0.2-outcomes",
         "research_only": True,
@@ -132,7 +138,7 @@ def build_report(signals, raw_rows, *, evaluated_at, truncated=False):
         "warning": "IEX-only observations, not consolidated market or executable prices",
         "evaluated_at_utc": evaluated_at.astimezone(UTC).isoformat(),
         "signals": [
-            evaluate_signal(signal, raw_rows, evaluated_at=evaluated_at, truncated=truncated)
+            evaluate_signal(signal, raw_rows, evaluated_at=evaluated_at, capture_end=capture_end, truncated=truncated)
             for signal in signals
         ],
     }
@@ -157,6 +163,7 @@ def main():
         read_jsonl(folder / "signals.jsonl"),
         read_jsonl(folder / "raw_events.jsonl"),
         evaluated_at=evaluated_at,
+        capture_end=parse_utc(meta.get("finished_utc")),
         truncated=bool(meta.get("raw_truncated", False)),
     )
     (folder / "outcomes.json").write_text(
