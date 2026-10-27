@@ -1,0 +1,93 @@
+{
+  "schema": "LUCA_V03_SEC_ASOF_SNAPSHOT_V1",
+  "asof_market_day": "2026-10-26",
+  "compiled_on": "2026-10-27",
+  "purpose": "RETROSPECTIVE_SEC_RISK_ONLY_NOT_LIVE_ASOF_CERTIFICATION",
+  "validation_status": "NOT_VALIDATED",
+  "real_trades_allowed": false,
+  "coverage_note": "Partial primary SEC source review; absence of evidence is not evidence of safety; no up-to-the-minute 2026-10-26 full EDGAR audit.",
+  "symbols": {
+    "GPUS": {
+      "risk": "HIGH",
+      "coverage_complete": false,
+      "filings": [
+        {
+          "filing_date": "2026-10-13",
+          "form": "8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/896493/000121465926012768/0001214659-26-012768-index.htm",
+          "observation": "ATM total capacity cut from $300m to $100m; not terminated."
+        },
+        {
+          "filing_date": "2026-06-11",
+          "form": "424B5",
+          "url": "https://www.sec.gov/Archives/edgar/data/896493/000121465926007365/x610261424b5.htm",
+          "observation": "Yorkville conversion formula may use 90% of minimum daily VWAP in previous 5 days; $0.10 floor; current balance not verified."
+        }
+      ],
+      "notes": "Actual 2026-10-26 outstanding shares, ATM sold-to-date and Yorkville outstanding amount not verified."
+    },
+    "LAES": {
+      "risk": "HIGH",
+      "coverage_complete": false,
+      "filings": [
+        {
+          "filing_date": "2026-09-14",
+          "form": "6-K Exhibit 99.1",
+          "url": "https://www.sec.gov/Archives/edgar/data/1951222/000121390026099476/ea030513901ex99-1.htm",
+          "observation": "June 30 half-year financial statements report ATM unused amount and Class E/pre-funded warrants; quantities as-of document, not necessarily outstanding Oct 26."
+        },
+        {
+          "filing_date": "2026-10-16",
+          "form": "6-K Exhibit 99.1",
+          "url": "https://www.sec.gov/Archives/edgar/data/1951222/000121390026110120/ea030885901ex99-1.htm",
+          "observation": "Company preliminary cash update; cash does not negate dilution."
+        },
+        {
+          "filing_date": "2026-10-07",
+          "form": "Form 4",
+          "url": "https://www.sec.gov/Archives/edgar/data/1951222/000211488826000017/xslF345X06/form4-10072026_041007.xml",
+          "observation": "Officer option exercise and 35,000-share sale; insider sale is not a primary-share issuance."
+        }
+      ],
+      "notes": "ATM/warrant exercise and registration-effectiveness balances at 2026-10-26 not verified."
+    },
+    "PFSA": {
+      "risk": "HIGH",
+      "coverage_complete": false,
+      "filings": [
+        {
+          "filing_date": "2026-10-15",
+          "form": "8-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1859807/000121390026109558/0001213900-26-109558-index.htm",
+          "observation": "Secured convertible note financing; complete adjustment and resale registration status unverified."
+        }
+      ],
+      "notes": "Convertible note balance, conversion floor, reset, resale registration effectiveness not verified."
+    },
+    "VCIG": {
+      "risk": "VERY_HIGH",
+      "coverage_complete": false,
+      "filings": [
+        {
+          "filing_date": "2026-09-30",
+          "form": "6-K",
+          "url": "https://www.sec.gov/Archives/edgar/data/1930510/000121390026105029/ea0306618-6k_vciglobal.htm",
+          "observation": "Equity line and convertible notes with variable conversion price terms; review contractual floors, lookback and cash true-up."
+        },
+        {
+          "filing_date": "2026-09-30",
+          "form": "F-1",
+          "url": "https://www.sec.gov/Archives/edgar/data/1930510/000121390026104630/ea0306911-f1_vciglobal.htm",
+          "observation": "Registration filing is not equivalent to an EFFECT notice."
+        }
+      ],
+      "notes": "Share issuance, resale registration effectiveness and contract balance as of 2026-10-26 not verified."
+    },
+    "NIKI": {
+      "risk": "UNKNOWN",
+      "coverage_complete": false,
+      "filings": [],
+      "notes": "SEC source verification not completed; unknown is never safe."
+    }
+  }
+}
