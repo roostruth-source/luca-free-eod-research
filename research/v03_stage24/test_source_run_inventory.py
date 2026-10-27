@@ -1,7 +1,7 @@
 """No-network failure-inclusive source-run inventory tests."""
 import copy
 import unittest
-from source_run_inventory import build_inventory,SOURCE_WORKFLOW,SOURCE_PATH,SOURCE_BRANCH
+from source_run_inventory import build_inventory,select_source_from_repository_runs,SOURCE_WORKFLOW,SOURCE_PATH,SOURCE_BRANCH
 
 def run(rid=40490000001,conclusion="success",status="completed",**kw):
     row={"id":rid,"name":SOURCE_WORKFLOW,"path":SOURCE_PATH,
@@ -111,6 +111,27 @@ class SourceRunInventoryTests(unittest.TestCase):
     def test_order_sorted_by_created_and_run_id(self):
         a=build_inventory(payload(run(40490000002),run(40490000001)))
         self.assertEqual([x["source_run_id"] for x in a["runs"]],[40490000001,40490000002])
+
+    def test_repository_wide_filters_unrelated_workflows(self):
+        unrelated=run(40490000003,name="Unrelated research",path=".github/workflows/other.yml")
+        source=run()
+        filtered=select_source_from_repository_runs(payload(unrelated,source))
+        self.assertEqual(filtered["total_count"],1)
+        self.assertEqual(build_inventory(filtered)["github_success_count"],1)
+
+    def test_repository_wide_fails_on_missing_pages(self):
+        with self.assertRaisesRegex(ValueError,"REPOSITORY_RUN_LIST_INCOMPLETE"):
+            select_source_from_repository_runs(payload(run(),total=101))
+
+    def test_repository_wide_wrong_branch_is_not_silently_mixed(self):
+        with self.assertRaisesRegex(ValueError,"WRONG_BRANCH_OR_EVENT"):
+            build_inventory(select_source_from_repository_runs(
+                payload(run(head_branch="main"))))
+
+    def test_repository_wide_other_workflow_only_is_zero(self):
+        unrelated=run(name="Other",path=".github/workflows/other.yml")
+        out=build_inventory(select_source_from_repository_runs(payload(unrelated)))
+        self.assertEqual(out["runs_listed"],0)
 
     def test_no_trading_grade_ever(self):
         a=build_inventory(payload(run(),run(40490000002,conclusion="failure")))
