@@ -6,6 +6,8 @@ on:
       - research/v03-stage24-evidence
     paths:
       - '.github/workflows/luca-v03-korean-report-ci.yml'
+      - 'research/v03_stage24/test_korean_forward_report.py'
+      - 'research/v03_stage24/korean_forward_report.py'
 
 permissions:
   contents: read
