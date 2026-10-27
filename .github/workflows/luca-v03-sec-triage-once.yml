@@ -1,4 +1,5 @@
 # One-time research-only automatic candidate -> SEC filings triage.
+# Rerun to record source availability and blocked candidate evidence after 403 handling.
 # No schedule, no order endpoint, no deployment, no edits to main or frozen trials.
 name: LUCA V03 one-time SEC candidate triage
 on:
