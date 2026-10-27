@@ -38,7 +38,7 @@ class KoreanReportTests(unittest.TestCase):
         r["results"][0]["first_pattern"]=None
         s=korean_report(META,f,r)
         self.assertIn("초기 연구 패턴 기록: 0종목",s)
-        self.assertIn("급등 실패 판정 아님",s)
+        self.assertIn("분봉 누락·패턴 미관측(판정 불가)",s)
         self.assertNotIn("0% 수익",s)
 
     def test_no_bars_is_unavailable_not_zero_return(self):
@@ -57,8 +57,8 @@ class KoreanReportTests(unittest.TestCase):
         r["results"]=[]
         r["observed_iex_bars"]=0
         r["forward_pattern_symbols"]=0
-        s=korean_report(META,f,r)
-        self.assertIn("후보 없음",s)
+        with self.assertRaises(ValueError):
+            korean_report(META,f,r)
 
     def test_forged_source_run_id_rejected(self):
         m=copy.deepcopy(META);m["databaseId"]="40490000001"
@@ -87,7 +87,7 @@ class KoreanReportTests(unittest.TestCase):
     def test_tampered_t0_rejected(self):
         f,r=pair()
         f["selected_at_utc"]="2026-10-27T13:50:00+00:00"
-        with self.assertRaisesRegex(ValueError,"FROZEN_HASH_MISMATCH"):
+        with self.assertRaisesRegex(ValueError,"T0_HASH_MISMATCH"):
             korean_report(META,f,r)
 
     def test_unrelated_outcome_rejected(self):
@@ -107,7 +107,7 @@ class KoreanReportTests(unittest.TestCase):
     def test_forged_buy_grade_rejected(self):
         f,r=pair()
         r["results"][0]["grade"]="A"
-        with self.assertRaisesRegex(ValueError,"UNSAFE_REVIEW_ROW"):
+        with self.assertRaisesRegex(ValueError,"UNSAFE_RESEARCH_GRADE"):
             korean_report(META,f,r)
 
     def test_report_never_promises_success_rate(self):
