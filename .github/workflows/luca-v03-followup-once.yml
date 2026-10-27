@@ -1,0 +1,81 @@
+# Separate one-time prospective followup. Triggered ONLY by research branch request file.
+# Previous run's artifact is downloaded via read-only GitHub API permissions.
+# NO schedule, no orders, no deployment, no default-branch code change.
+name: LUCA V03 one-time verified forward outcome followup
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/followup_live_request.txt'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: luca-v03-one-off-forward-outcomes
+  cancel-in-progress: false
+
+jobs:
+  followup:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all independent offline research tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Validate and fetch correct past run artifact
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(tr -d '\r\n' < research/v03_stage24/followup_live_request.txt)"
+          if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{7,14}$ ]]; then
+            echo 'INVALID_RUN_ID - no fetch'
+            exit 2
+          fi
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --json databaseId,name,headBranch,event,status,conclusion > followup_source_metadata.json
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "luca-v03-forward-once-$RUN_ID" --dir luca_v03_forward
+          python3 research/v03_stage24/followup_bridge.py \
+            --request research/v03_stage24/followup_live_request.txt \
+            --metadata-json followup_source_metadata.json \
+            --artifact-dir luca_v03_forward
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          from research.v03_stage24.followup_bridge import verify_downloaded_files
+          x=verify_downloaded_files("luca_v03_forward")
+          output=os.environ["GITHUB_OUTPUT"]
+          with open(output,"a",encoding="utf-8") as f:
+              f.write("has_signals="+("true" if x["forward_signal_symbols"]>0 else "false")+"\n")
+          PY
+      - name: Compute only mature 5/15/30/60m later IEX results
+        if: steps.gate.outputs.has_signals == 'true'
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FOLLOWUP_INPUT: luca_v03_forward
+          LUCA_FOLLOWUP_OUTPUT: luca_v03_followup
+        run: python3 research/v03_stage24/forward_outcomes_iex.py
+      - name: Record valid no-signal study without fake outcomes
+        if: steps.gate.outputs.has_signals == 'false'
+        run: |
+          mkdir -p luca_v03_followup
+          printf '{"status":"NO_FROZEN_SIGNALS","outcomes":0,"validation_status":"NOT_VALIDATED","real_trades_allowed":false}\n' > luca_v03_followup/no_signals.json
+      - name: Preserve followup research results, not notifications
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-outcomes-${{ github.run_id }}
+          path: |
+            followup_source_metadata.json
+            luca_v03_followup/
+          if-no-files-found: ignore
+          retention-days: 7
