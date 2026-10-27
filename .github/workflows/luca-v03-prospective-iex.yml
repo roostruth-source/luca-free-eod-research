@@ -1,0 +1,60 @@
+# Research-only forward IEX prototype: locked candidates BEFORE later bars.
+# Push CI is fast & offline; a manual run may wait 16 minutes ONLY if US morning.
+# No schedule, no orders, no deployment, no edits to production or fixed studies.
+name: LUCA V03 prospective IEX timestamp lock research
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-prospective-iex.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: luca-v03-forward-only-isolated-trial
+  cancel-in-progress: false
+
+jobs:
+  forward-only-research:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all research-only safety and timestamp tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Freeze ticker selection at T0 after real Alpaca screeners
+        if: github.event_name == 'workflow_dispatch'
+        id: freeze
+        continue-on-error: true
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase freeze
+      - name: Only when T0 snapshot succeeded, observe 16 minutes with NO order access
+        if: github.event_name == 'workflow_dispatch' && steps.freeze.outcome == 'success'
+        run: sleep 960
+      - name: Retrieve only IEX minute bars AFTER T0
+        if: github.event_name == 'workflow_dispatch' && steps.freeze.outcome == 'success'
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase review
+      - name: Keep observational artifact, never publish alerts/site
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-prospective-iex-${{ github.run_id }}
+          path: luca_v03_forward/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: If freeze is unavailable, mark manual experiment as NOT_VALIDATED
+        if: github.event_name == 'workflow_dispatch' && steps.freeze.outcome != 'success'
+        run: |
+          echo 'Prospective freeze unavailable or outside US morning session; no prospective claim, no orders.'
+          exit 1
