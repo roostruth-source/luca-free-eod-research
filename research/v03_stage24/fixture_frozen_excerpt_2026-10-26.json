@@ -1,0 +1,96 @@
+{
+  "schema": "LUCA_STAGE24_FUTURE_DATED_HISTORICAL_REPLAY_V1",
+  "fixture_note": "EXCERPT of locally independently executed original frozen Stage24 replay, retaining required fields only; not the original complete replay JSON.",
+  "input_sha256": "6e40a76a7a5aa6846a9100bda4c0e5175582fdbdfd3dc52322ed091b54e38c68",
+  "frozen_protocol_sha256": "b8e0dd350daba7c9b1e6fa41fd3886ca32ea1395a785478257132310d08d8d1b",
+  "frozen_hypotheses_sha256": "a30de65d7f5e561178ebe888c45d3f4fd6f51209dd5ab03ff1551bd7a9a7a5eb",
+  "days_downloaded": [
+    "2026-10-26"
+  ],
+  "observed_bars": 727,
+  "coverage": [
+    {
+      "day": "2026-10-26",
+      "symbol": "GPUS",
+      "bars": 180,
+      "complete_180_minutes": true,
+      "missing_minutes": 0
+    },
+    {
+      "day": "2026-10-26",
+      "symbol": "LAES",
+      "bars": 178,
+      "complete_180_minutes": false,
+      "missing_minutes": 2
+    },
+    {
+      "day": "2026-10-26",
+      "symbol": "PFSA",
+      "bars": 94,
+      "complete_180_minutes": false,
+      "missing_minutes": 86
+    },
+    {
+      "day": "2026-10-26",
+      "symbol": "NIKI",
+      "bars": 10,
+      "complete_180_minutes": false,
+      "missing_minutes": 170
+    },
+    {
+      "day": "2026-10-26",
+      "symbol": "VCIG",
+      "bars": 85,
+      "complete_180_minutes": false,
+      "missing_minutes": 95
+    },
+    {
+      "day": "2026-10-26",
+      "symbol": "AAPL",
+      "bars": 180,
+      "complete_180_minutes": true,
+      "missing_minutes": 0
+    }
+  ],
+  "cases": [
+    {
+      "day": "2026-10-26",
+      "symbol": "GPUS",
+      "signal_bar_start_utc": "2026-10-26T14:12:00+00:00",
+      "known_at_utc": "2026-10-26T14:13:00+00:00",
+      "volume_ratio": 3.105,
+      "prior_5min_change_pct": 3.339,
+      "real_trades_allowed": false,
+      "sec_status": "SEC_UNVERIFIED",
+      "15m": {
+        "complete": true,
+        "change_pct": -4.789,
+        "first_touch": "STOP_TOUCHED_FIRST"
+      }
+    },
+    {
+      "day": "2026-10-26",
+      "symbol": "LAES",
+      "signal_bar_start_utc": "2026-10-26T14:10:00+00:00",
+      "known_at_utc": "2026-10-26T14:11:00+00:00",
+      "volume_ratio": 7.004,
+      "prior_5min_change_pct": 0.327,
+      "real_trades_allowed": false,
+      "sec_status": "SEC_UNVERIFIED",
+      "15m": {
+        "complete": true,
+        "change_pct": -0.327,
+        "first_touch": "NO_TOUCH"
+      }
+    }
+  ],
+  "summary": {
+    "total_first_signals": 2,
+    "15m_complete": 2,
+    "15m_up": 0
+  },
+  "source": "user supplied Alpaca SIP labelled file not provider reverified",
+  "prediction_accuracy_verified": false,
+  "real_trades_allowed": false,
+  "validation_status": "NOT_VALIDATED"
+}
