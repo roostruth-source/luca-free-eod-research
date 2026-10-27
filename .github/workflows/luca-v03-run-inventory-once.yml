@@ -1,0 +1,44 @@
+# One-time, research-branch-only inventory of GitHub source-run attempts.
+# Read-only metadata, including failures. Not a market scan and not scheduled.
+name: LUCA V03 one-time source-run failure inventory
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/source_run_inventory_request.txt'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source-run-inventory:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline safety tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Read complete GitHub source-workflow run inventory, including failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/luca-v03-prospective-live-once.yml/runs?branch=research%2Fv03-stage24-evidence&per_page=100" > github_source_runs.json
+          python3 research/v03_stage24/source_run_inventory.py \
+            --input github_source_runs.json \
+            --output luca_v03_source_attempts/source_attempts.json
+      - name: Archive inventory, no notification and no trading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-source-run-inventory-${{ github.run_id }}
+          path: |
+            github_source_runs.json
+            luca_v03_source_attempts/
+          if-no-files-found: ignore
+          retention-days: 7
