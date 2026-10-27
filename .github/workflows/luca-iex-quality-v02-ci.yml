@@ -1,0 +1,26 @@
+# Independent research-branch tests. No credentials, market stream, orders, deployment, or schedules.
+name: LUCA IEX quality V02 offline tests (research branch)
+on:
+  push:
+    branches:
+      - research/iex-quality-v02
+    paths:
+      - 'research/iex_quality_v02/**'
+      - '.github/workflows/luca-iex-quality-v02-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-quality-tests:
+    if: github.ref == 'refs/heads/research/iex-quality-v02'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read research branch
+        uses: actions/checkout@v4
+      - name: Compile research code
+        run: python3 -m compileall -q research/iex_quality_v02
+      - name: Run offline tests (no API secrets or orders)
+        run: python3 -m unittest discover -s research/iex_quality_v02 -p 'test_*.py' -v
