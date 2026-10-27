@@ -31,7 +31,8 @@ def gate(run_id_text,meta,frozen,review,provenance,now,event,ref,attempt,history
     if int(requested)!=rid:
         raise ValueError("SECOND_SOURCE_RUN_ID_MISMATCH")
     t0,reviewed,signals=validate_origins(frozen,review)
-    if t0.astimezone(NY).date()!=SESSION_DAY:
+    if (t0.astimezone(NY).date()!=SESSION_DAY or
+        frozen.get("session_day_ny")!=SESSION_DAY.isoformat()):
         raise ValueError("WRONG_SECOND_SOURCE_SESSION_DAY")
     if provenance.get("schema")!="LUCA_V03_IEX_TIMESTAMP_PROVENANCE_V1" or provenance.get("frozen_t0_sha256")!=frozen["sha256"]:
         raise ValueError("MISSING_SECOND_IEX_PROVENANCE")
