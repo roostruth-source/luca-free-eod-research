@@ -82,6 +82,15 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"INCONSISTENT_TIMESTAMP_GRID"):
             self.build()
 
+    def test_durable_real_archive_works_without_expired_artifact(self):
+        from first_iex_baseline_integrity import load_verified
+        first=load_verified()
+        x=build_verified_comparison(first,self.meta,self.f,self.r,self.p,self.art)
+        self.assertEqual(x["first"]["observed"],94)
+        self.assertEqual(x["first"]["expected"],168)
+        self.assertEqual(x["second_source_run_id"],SECOND_ID)
+        self.assertFalse(x["real_trades_allowed"])
+
     def test_no_artifact_metadata_marked_unverified(self):
         x=build_verified_comparison(self.first,self.meta,self.f,self.r,self.p)
         self.assertFalse(x["second_artifact_metadata_verified"])
