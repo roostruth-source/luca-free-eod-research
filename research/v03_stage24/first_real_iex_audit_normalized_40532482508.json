@@ -1,0 +1,441 @@
+{
+  "schema": "LUCA_V03_IEX_COVERAGE_AUDIT_V1",
+  "source_run_id": 40517830351,
+  "frozen_t0_sha256": "18af8b515b034f0dea029db642132c28200eaa9c403d7cc1141e1d3430e623eb",
+  "frozen_symbols": 12,
+  "initial": {
+    "observed_iex_bars": 94,
+    "expected_symbol_minutes": 168,
+    "iex_minute_presence_pct": 55.95,
+    "fully_observed_symbols": 1,
+    "sparse_symbols": 11
+  },
+  "fixed_clock_reference": [
+    {
+      "minutes": 5,
+      "observed_iex_bars": 35,
+      "expected_symbol_minutes": 60,
+      "iex_minute_presence_pct": 58.33,
+      "fully_observed_symbols": 3
+    },
+    {
+      "minutes": 15,
+      "observed_iex_bars": 93,
+      "expected_symbol_minutes": 180,
+      "iex_minute_presence_pct": 51.67,
+      "fully_observed_symbols": 1
+    },
+    {
+      "minutes": 30,
+      "observed_iex_bars": 186,
+      "expected_symbol_minutes": 360,
+      "iex_minute_presence_pct": 51.67,
+      "fully_observed_symbols": 1
+    },
+    {
+      "minutes": 60,
+      "observed_iex_bars": 360,
+      "expected_symbol_minutes": 720,
+      "iex_minute_presence_pct": 50,
+      "fully_observed_symbols": 1
+    }
+  ],
+  "rows": [
+    {
+      "symbol": "NEXR",
+      "initial_iex_minutes": 13,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 4,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 12,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 23,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 42,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "CLRO",
+      "initial_iex_minutes": 9,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 3,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 8,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 16,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 41,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "AIOK",
+      "initial_iex_minutes": 13,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 5,
+          "expected": 5,
+          "complete": true
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 13,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 25,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 44,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "SXTP",
+      "initial_iex_minutes": 1,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 1,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 1,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 2,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 5,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "BRAI",
+      "initial_iex_minutes": 13,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 5,
+          "expected": 5,
+          "complete": true
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 13,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 28,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 48,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "GPUS",
+      "initial_iex_minutes": 3,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 1,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 6,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 16,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 29,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "JBLU",
+      "initial_iex_minutes": 14,
+      "initial_expected_minutes": 14,
+      "initial_complete": true,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 5,
+          "expected": 5,
+          "complete": true
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 15,
+          "expected": 15,
+          "complete": true
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 30,
+          "expected": 30,
+          "complete": true
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 60,
+          "expected": 60,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "symbol": "SOAR",
+      "initial_iex_minutes": 5,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 3,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 4,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 6,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 12,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "POM",
+      "initial_iex_minutes": 3,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 1,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 3,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 7,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 15,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "ACTU",
+      "initial_iex_minutes": 3,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 2,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 4,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 8,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 14,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "AEYE",
+      "initial_iex_minutes": 6,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 2,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 3,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 8,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 15,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    },
+    {
+      "symbol": "ARTV",
+      "initial_iex_minutes": 11,
+      "initial_expected_minutes": 14,
+      "initial_complete": false,
+      "reference": [
+        {
+          "minutes": 5,
+          "iex_bars": 3,
+          "expected": 5,
+          "complete": false
+        },
+        {
+          "minutes": 15,
+          "iex_bars": 11,
+          "expected": 15,
+          "complete": false
+        },
+        {
+          "minutes": 30,
+          "iex_bars": 17,
+          "expected": 30,
+          "complete": false
+        },
+        {
+          "minutes": 60,
+          "iex_bars": 35,
+          "expected": 60,
+          "complete": false
+        }
+      ]
+    }
+  ],
+  "not_full_us_market_coverage": true,
+  "missing_bar_cause_unknown": true,
+  "missing_bar_is_not_proven_api_failure": true,
+  "missing_bar_is_not_zero_return": true,
+  "raw_bar_timestamps_not_in_source_artifact": true,
+  "cannot_diagnose_gap_timing_or_iex_trade_absence": true,
+  "no_signal_outcomes_because_no_pattern": true,
+  "no_trading_signal": true,
+  "prediction_accuracy_verified": false,
+  "sec_status": "SEC_UNVERIFIED",
+  "validation_status": "NOT_VALIDATED",
+  "real_trades_allowed": false
+}
