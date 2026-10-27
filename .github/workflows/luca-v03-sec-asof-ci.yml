@@ -1,0 +1,24 @@
+# Research-only tests. No schedule, no deployment, no orders, no secret use.
+name: LUCA V03 research SEC as-of guard offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/sec_asof_guard.py'
+      - 'research/v03_stage24/sec_snapshot_2026-10-26.json'
+      - 'research/v03_stage24/test_sec_asof_guard.py'
+      - '.github/workflows/luca-v03-sec-asof-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-sec-asof:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test fail-closed SEC annotation without network
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_sec_asof_guard.py' -v
