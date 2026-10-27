@@ -88,6 +88,27 @@ jobs:
             --outcomes luca_v03_followup/outcomes.json \
             --reference luca_v03_reference/fixed_clock_reference.json \
             --dest luca_v03_quality/quality.json
+      - name: Optional append-safe one-session ledger with provenance and no invented wins
+        if: steps.gate.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(tr -d '\r\n' < research/v03_stage24/followup_live_request.txt)"
+          TARGET="luca_v03_ledger_inputs/$RUN_ID"
+          mkdir -p "$TARGET"
+          cp luca_v03_forward/frozen_t0.json "$TARGET/"
+          cp luca_v03_forward/forward_review.json "$TARGET/"
+          cp followup_source_metadata.json "$TARGET/"
+          if [ -f luca_v03_followup/outcomes.json ]; then
+            cp luca_v03_followup/outcomes.json "$TARGET/"
+          fi
+          if [ -f luca_v03_reference/fixed_clock_reference.json ]; then
+            cp luca_v03_reference/fixed_clock_reference.json "$TARGET/"
+          fi
+          python3 research/v03_stage24/multi_session_ledger.py \
+            --input-root luca_v03_ledger_inputs \
+            --output luca_v03_ledger/ledger.json
       - name: Preserve followup research results, not notifications
         if: always()
         uses: actions/upload-artifact@v4
@@ -98,5 +119,6 @@ jobs:
             luca_v03_followup/
             luca_v03_reference/
             luca_v03_quality/
+            luca_v03_ledger/
           if-no-files-found: ignore
           retention-days: 7
