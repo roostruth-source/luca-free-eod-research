@@ -1,4 +1,5 @@
 # Separate, zero-network regression for 5/15/30/60m post-signal IEX outcomes.
+# Now includes verified GitHub run/artifact handoff regression tests.
 # No schedule, deployment, SEC clearance, real trades or production alterations.
 name: LUCA V03 5-15-30-60m forward outcomes offline tests
 on:
