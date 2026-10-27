@@ -1,0 +1,35 @@
+# Separate one-time research enrichment; no schedule or production deployment.
+name: LUCA V03 one-time IEX candidate enrichment
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-iex-enrichment-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  enrich-once:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline unit tests of all research-only tools
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Automatically discover tickers and enrich with explicit IEX snapshots
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_ENRICH_OUTPUT: luca_v03_enrichment
+        run: python3 research/v03_stage24/auto_enrich_iex.py
+      - name: Archive only the research evidence (no site or git writes)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-iex-enrichment-${{ github.run_id }}
+          path: luca_v03_enrichment/
+          retention-days: 7
+          if-no-files-found: ignore
