@@ -1,4 +1,5 @@
 # Research-only control-group baseline regression. Does not fetch market data.
+# Recheck after optional reference step added to isolated followup workflow.
 # No scheduled actions, orders, deployment, or frozen research rule changes.
 name: LUCA V03 fixed-clock baseline offline tests
 on:
