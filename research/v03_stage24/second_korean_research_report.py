@@ -86,7 +86,7 @@ def main():
     root=Path(args.source_dir)
     report=report_korean_second(
         load(args.metadata),load(root/"frozen_t0.json"),load(root/"forward_review.json"),
-        load(root/"iex_timestamp_provenance.json"),load(args.comparison"),
+        load(root/"iex_timestamp_provenance.json"),load(args.comparison),
         optional(args.outcomes),optional(args.reference))
     out=Path(args.output)
     out.parent.mkdir(parents=True,exist_ok=True)
