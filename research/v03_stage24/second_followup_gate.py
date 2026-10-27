@@ -8,6 +8,8 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 
 from second_trial_artifact_bridge import verify_second_run
+from two_session_iex_comparison import compare
+from first_iex_baseline_integrity import load_verified
 from forward_outcomes_iex import validate_origins,parse_utc
 
 NY=ZoneInfo("America/New_York")
@@ -48,6 +50,13 @@ def gate(run_id_text,meta,frozen,review,provenance,now,event,ref,attempt,history
         any(r.get("observed_minutes")!=x.get("observed_iex_bars")
             for r,x in zip(provenance["rows"],review["results"]))):
         raise ValueError("SECOND_PROVENANCE_COUNTS_MISMATCH")
+    # Validate EVERY original minute timestamp (observed and missing), not
+    # merely the bar totals. Reuse the strict second-session comparator and
+    # the durable, integrity-checked first real archive. Fail closed before
+    # any further market GET if an evidence file has been altered.
+    coverage=compare(load_verified(),frozen,review,provenance,rid)
+    if coverage["second"]["observed"]!=review["observed_iex_bars"]:
+        raise ValueError("SECOND_PROVENANCE_COVERAGE_MISMATCH")
     if type(now) is not dt.datetime or now.tzinfo is None:
         raise ValueError("AWARE_NOW_REQUIRED")
     checked=now.astimezone(UTC)
@@ -63,6 +72,11 @@ def gate(run_id_text,meta,frozen,review,provenance,now,event,ref,attempt,history
         "source_reviewed_at_utc":reviewed.isoformat(),
         "checked_at_utc":checked.isoformat(),
         "signals_at_t0":len(signals),
+        "iex_timestamp_grid_verified":True,
+        "iex_http_pages_verified":True,
+        "observed_iex_bars":coverage["second"]["observed"],
+        "expected_iex_bars":coverage["second"]["expected"],
+        "first_real_archive_verified":True,
         "ready_for_fixed_clock_60min":True,
         "research_only":True,
         "validation_status":"NOT_VALIDATED",
