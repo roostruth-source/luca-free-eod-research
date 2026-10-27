@@ -1,0 +1,52 @@
+# ONE-TIME, read-only forward observation for Work to activate DURING US regular
+# morning research window. Trigger only by explicitly changing the single
+# request file on the isolated research branch; NEVER scheduled.
+#
+# Why push trigger: GitHub workflow_dispatch can require workflow file on the
+# default branch, which is forbidden to modify for this experiment.
+name: LUCA V03 forward IEX once on isolated request file
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/prospective_live_request.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: luca-v03-forward-one-off-read-only
+  cancel-in-progress: false
+
+jobs:
+  forward-once:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify time locks and existing research guards
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Discover tickers and freeze candidate list at T0
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase freeze
+      - name: Observe forward for 16 minutes, no actual trading
+        run: sleep 960
+      - name: Read ONLY minute bars started after frozen T0
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase review
+      - name: Archive private research artifact, not website or notifications
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-forward-once-${{ github.run_id }}
+          path: luca_v03_forward/
+          if-no-files-found: ignore
+          retention-days: 7
