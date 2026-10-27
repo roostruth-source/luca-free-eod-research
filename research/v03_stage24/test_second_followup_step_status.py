@@ -43,8 +43,8 @@ class FollowupPartialArchiveTests(unittest.TestCase):
         self.assertIn("luca_v03_second_quality/step_status.json",c)
         self.assertIn("continue-on-error: true",c)
         self.assertIn('if [ "$SIGNAL_OUTCOME" != success ]',c)
-        self.assertIn('if [ "$REFERENCE_OUTCOME" != success ]',c)
-        self.assertIn('if [ "$QUALITY_OUTCOME" != success ]',c)
+        self.assertIn('|| [ "$REFERENCE_OUTCOME" != success ]',c)
+        self.assertIn('|| [ "$QUALITY_OUTCOME" != success ]',c)
 
 if __name__=="__main__":
     unittest.main()
