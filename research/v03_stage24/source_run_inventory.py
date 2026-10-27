@@ -105,15 +105,37 @@ def build_inventory(api_payload):
     }
 
 
+def select_source_from_repository_runs(payload):
+    """GitHub API list-runs endpoint, which works for branch-only workflows.
+
+    Reject incomplete first pages rather than silently excluding failed attempts.
+    """
+    if type(payload) is not dict or type(payload.get("workflow_runs")) is not list:
+        raise ValueError("BAD_REPOSITORY_RUN_LIST")
+    runs=payload["workflow_runs"]
+    total=payload.get("total_count")
+    if type(total) is not int or total!=len(runs):
+        raise ValueError("REPOSITORY_RUN_LIST_INCOMPLETE")
+    selected=[x for x in runs
+              if isinstance(x,dict)
+              and (x.get("name")==SOURCE_WORKFLOW
+                   or str(x.get("path","")).split("@",1)[0]==SOURCE_PATH)]
+    # A same-name workflow on main or another file must not be silently merged.
+    return {"total_count":len(selected),"workflow_runs":selected}
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--input",required=True)
     p.add_argument("--output",required=True)
+    p.add_argument("--repository-wide",action="store_true")
     args=p.parse_args()
     source=Path(args.input)
     if source.stat().st_size>5_000_000:
         raise ValueError("GITHUB_RUN_LIST_TOO_LARGE")
-    report=build_inventory(json.loads(source.read_text(encoding="utf8")))
+    payload=json.loads(source.read_text(encoding="utf8"))
+    if args.repository_wide:
+        payload=select_source_from_repository_runs(payload)
+    report=build_inventory(payload)
     output=Path(args.output)
     output.parent.mkdir(parents=True,exist_ok=True)
     with output.open("x",encoding="utf8") as f:
