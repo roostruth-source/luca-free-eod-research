@@ -160,6 +160,21 @@ class TimeLockedTest(unittest.TestCase):
         r=review(self.frozen,{"GPUS":data},T1)
         self.assertEqual(r["forward_pattern_symbols"],0)
 
+    def test_zero_fresh_candidates_stops_before_wait(self):
+        blank=dict(ENRICH)
+        blank["collected_at_utc"]=dt.datetime.now(UTC).isoformat()
+        blank["rows"]=[]
+        with tempfile.TemporaryDirectory() as d,patch.dict(os.environ,{
+                "LUCA_FREEZE_DIR":d,"ALPACA_KEY":"offline","ALPACA_SECRET":"offline"
+            }),patch("prospective_iex_research.ny_window",return_value=True),patch(
+                "prospective_iex_research.enrich_run",return_value=blank):
+            with self.assertRaises(SystemExit) as ctx:
+                run_freeze_phase()
+            self.assertEqual(ctx.exception.code,6)
+            saved=json.loads((Path(d)/"frozen_t0.json").read_text())
+            self.assertEqual(saved["candidate_count"],0)
+            self.assertFalse(saved["real_trades_allowed"])
+
     def test_freeze_phase_out_of_market_does_not_call_api(self):
         with tempfile.TemporaryDirectory() as d,patch.dict(os.environ,{"LUCA_FREEZE_DIR":d}),patch(
                 "prospective_iex_research.ny_window",return_value=False),patch(
