@@ -47,13 +47,13 @@ class IexCoverageAuditTests(unittest.TestCase):
     def test_bad_horizon_count_rejected(self):
         f,r,ref=fixture()
         ref["rows"][0]["horizons"][0]["observed_bars"]=6
-        with self.assertRaisesRegex(ValueError,"INVALID_REFERENCE_BAR_COUNT"):
+        with self.assertRaisesRegex(ValueError,"INVALID_HORIZON_COVERAGE"):
             audit(SOURCE,f,r,ref)
 
     def test_false_complete_status_rejected(self):
         f,r,ref=fixture()
         ref["rows"][0]["horizons"][0]["status"]="MISSING_IEX_MINUTES"
-        with self.assertRaisesRegex(ValueError,"INCONSISTENT_COMPLETENESS"):
+        with self.assertRaisesRegex(ValueError,"MISSING_HORIZON_HAS_RESULT"):
             audit(SOURCE,f,r,ref)
 
     def test_bad_initial_count_rejected(self):
