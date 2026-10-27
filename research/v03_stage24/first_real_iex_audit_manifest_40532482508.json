@@ -1,0 +1,78 @@
+{
+  "schema": "LUCA_V03_FIRST_REAL_AUDIT_MANIFEST_V1",
+  "source": "VERIFIED_REAL_GITHUB_ACTIONS_ARTIFACT",
+  "source_run_id": 40517830351,
+  "audit_run_id": 40532482508,
+  "audit_artifact_id": 12746118351,
+  "artifact_filename": "coverage.json",
+  "artifact_uncompressed_sha256": "5ef17ab15ab20055e282002abcd0a4397e3066a3a3983d8436b5755f4a0ef087",
+  "artifact_uncompressed_bytes": 9648,
+  "frozen_t0_sha256": "18af8b515b034f0dea029db642132c28200eaa9c403d7cc1141e1d3430e623eb",
+  "frozen_symbols": [
+    "NEXR",
+    "CLRO",
+    "AIOK",
+    "SXTP",
+    "BRAI",
+    "GPUS",
+    "JBLU",
+    "SOAR",
+    "POM",
+    "ACTU",
+    "AEYE",
+    "ARTV"
+  ],
+  "initial_bars": [
+    13,
+    9,
+    13,
+    1,
+    13,
+    3,
+    14,
+    5,
+    3,
+    3,
+    6,
+    11
+  ],
+  "first_window_minutes": 14,
+  "first_window_observed_bars": 94,
+  "first_window_expected_bars": 168,
+  "first_window_presence_pct": 55.95,
+  "first_window_complete_symbols": 1,
+  "pattern_observed_symbols": 0,
+  "reference": [
+    {
+      "minutes": 5,
+      "observed": 35,
+      "expected": 60,
+      "complete_symbols": 3
+    },
+    {
+      "minutes": 15,
+      "observed": 93,
+      "expected": 180,
+      "complete_symbols": 1
+    },
+    {
+      "minutes": 30,
+      "observed": 186,
+      "expected": 360,
+      "complete_symbols": 1
+    },
+    {
+      "minutes": 60,
+      "observed": 360,
+      "expected": 720,
+      "complete_symbols": 1
+    }
+  ],
+  "raw_iex_bar_timestamps_not_archived": true,
+  "missing_bar_cause_unknown": true,
+  "iex_single_exchange_not_full_market": true,
+  "validation_status": "NOT_VALIDATED",
+  "sec_status": "SEC_UNVERIFIED",
+  "real_trades_allowed": false,
+  "manifest_is_not_original_audit": true
+}
