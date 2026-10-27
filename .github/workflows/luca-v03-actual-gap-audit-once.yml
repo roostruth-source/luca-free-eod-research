@@ -1,0 +1,51 @@
+# One-time read-only audit of EXISTING verified real research artifacts.
+# No new market data, no T0 freeze, no followup market fetch, no orders/alerts.
+name: LUCA V03 one-time actual IEX gap coverage audit
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/real_iex_gap_audit_request.txt'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  actual-gap-audit:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all offline research tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Download exact completed original T0 and reference artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat research/v03_stage24/real_iex_gap_audit_request.txt)" = "SOURCE=40517830351 FOLLOWUP=40531637484"
+          gh run view 40517830351 --repo "$GITHUB_REPOSITORY" --json databaseId,name,headBranch,event,status,conclusion > source_metadata.json
+          gh run download 40517830351 --repo "$GITHUB_REPOSITORY" --name luca-v03-forward-once-40517830351 --dir original_t0
+          gh run download 40531637484 --repo "$GITHUB_REPOSITORY" --name luca-v03-outcomes-40531637484 --dir original_followup
+          python3 research/v03_stage24/followup_bridge.py --request research/v03_stage24/followup_live_request.txt --metadata-json source_metadata.json --artifact-dir original_t0
+          test -f original_followup/luca_v03_reference/fixed_clock_reference.json
+      - name: Calculate strict IEX bar presence coverage without filling gaps
+        run: |
+          python3 research/v03_stage24/iex_coverage_audit.py \
+            --source-dir original_t0 \
+            --metadata source_metadata.json \
+            --reference original_followup/luca_v03_reference/fixed_clock_reference.json \
+            --output luca_v03_gap_audit/coverage.json
+      - name: Archive research-only coverage and missingness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-actual-iex-coverage-${{ github.run_id }}
+          path: luca_v03_gap_audit/
+          if-no-files-found: ignore
+          retention-days: 7
