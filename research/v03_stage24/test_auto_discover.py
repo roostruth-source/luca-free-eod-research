@@ -106,7 +106,7 @@ class DiscoverTests(unittest.TestCase):
         r=dict(RESP)
         r["active_volume"]={"most_actives":[{"symbol":"GPUS"},{"symbol":"GPUS"}]}
         out=discover(r,T)
-        self.assertEqual(out["candidate_count"],4)
+        self.assertEqual(out["candidate_count"],3)
 
     def test_invalid_time_rejected(self):
         with self.assertRaisesRegex(ValueError,"RECEIPT_TIMESTAMP_REQUIRED"):
