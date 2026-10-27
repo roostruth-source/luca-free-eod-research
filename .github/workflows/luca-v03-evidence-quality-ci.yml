@@ -1,0 +1,25 @@
+# Research-only frozen-T0 quality audit. Runs synthetic offline checks only.
+# This CI does not activate tonight's one-time prospective task or market orders.
+name: LUCA V03 T0 research evidence quality offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-evidence-quality-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  quality-check:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: All isolated LUCA research unit tests; no market API
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Explicitly mark offline-only status
+        run: |
+          echo 'NO LIVE RESULTS, NOT_VALIDATED, SEC_UNVERIFIED, NO_ORDERS'
