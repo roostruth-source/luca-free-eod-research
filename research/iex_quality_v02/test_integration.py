@@ -75,7 +75,7 @@ class PipelineTests(unittest.TestCase):
             "T": "t", "S": "TEST", "t": now.isoformat(), "p": 10.3, "s": 100,
         }]))
         fake_socket = FakeSocket(frames)
-        clock = itertools.count(start=100, step=14)
+        clock = itertools.count(start=100, step=5)
         with tempfile.TemporaryDirectory() as dirname:
             with patch.dict(sys.modules, fake_modules(fake_socket)), \
                  patch.dict(os.environ, {"ALPACA_KEY": "dummy", "ALPACA_SECRET": "dummy"}), \
