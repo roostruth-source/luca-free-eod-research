@@ -1,0 +1,23 @@
+# Isolated offline-only regression; never triggers market study or deployment.
+name: LUCA V03 failed-run inventory offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-run-inventory-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-source-attempts:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test full isolated research suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Explicitly reject fake market accuracy
+        run: echo 'OFFLINE TESTS ONLY; NO LIVE T0; NOT_VALIDATED; NO_ORDERS'
