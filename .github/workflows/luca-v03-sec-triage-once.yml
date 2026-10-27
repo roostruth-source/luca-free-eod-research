@@ -1,0 +1,36 @@
+# One-time research-only automatic candidate -> SEC filings triage.
+# No schedule, no order endpoint, no deployment, no edits to main or frozen trials.
+name: LUCA V03 one-time SEC candidate triage
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-sec-triage-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sec-triage-once:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all isolated offline research tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Automatic ticker discovery, IEX snapshots, and SEC filings GET-only
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_SEC_TRIAGE_OUTPUT: luca_v03_sec_triage
+        run: python3 research/v03_stage24/sec_auto_triage.py
+      - name: Archive partial evidence or unavailable status without publishing alerts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-sec-triage-${{ github.run_id }}
+          path: luca_v03_sec_triage/
+          retention-days: 7
+          if-no-files-found: ignore
