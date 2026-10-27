@@ -1,0 +1,23 @@
+# Offline-only. Does not trigger a real T0, followup, API request or order.
+name: LUCA V03 future-only review archival offline tests
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-future-review-ci.yml'
+      - 'research/v03_stage24/future_iex_review.py'
+      - 'research/v03_stage24/test_future_iex_review.py'
+permissions:
+  contents: read
+jobs:
+  future-review-offline:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run entire offline research suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: No live orders or source workflow changes
+        run: echo 'OFFLINE ONLY; FUTURE OPTIONAL REVIEW; NOT_VALIDATED; NO_ORDERS'
