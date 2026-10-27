@@ -43,7 +43,7 @@ def run(symbols, minutes, outdir):
     # Import only inside the live collector; offline quality tests need no dependencies.
     from websockets.sync.client import connect
 
-    if minutes not in (3, 6, 9):
+    if minutes not in (3, 6, 9, 70):
         raise ValueError("INVALID_DURATION")
     key = os.environ.get("ALPACA_KEY")
     secret = os.environ.get("ALPACA_SECRET")
