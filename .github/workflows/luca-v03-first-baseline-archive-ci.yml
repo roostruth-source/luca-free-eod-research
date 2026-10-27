@@ -1,0 +1,28 @@
+# Offline-only archived first real audit integrity. No live IEX, SEC, orders, alerts.
+name: LUCA V03 first real IEX baseline archive integrity CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-first-baseline-archive-ci.yml'
+      - 'research/v03_stage24/first_real_iex_audit_normalized_40532482508.json'
+      - 'research/v03_stage24/first_real_iex_audit_manifest_40532482508.json'
+      - 'research/v03_stage24/first_iex_baseline_integrity.py'
+      - 'research/v03_stage24/test_first_iex_baseline_integrity.py'
+permissions:
+  contents: read
+jobs:
+  archive-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify actual first archived rows and full offline research suite
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Do not initiate second prospective or followup
+        run: |
+          test ! -e research/v03_stage24/second_prospective_request.txt
+          test ! -e research/v03_stage24/second_followup_request.txt
+      - name: Safe status
+        run: echo 'REAL FIRST BASELINE ARCHIVED; NOT_VALIDATED; NO_ORDERS'
