@@ -84,5 +84,8 @@ def fetch_review_with_provenance(frozen,review_time,key,secret,
             raise ValueError("INCOMPLETE_PAGINATION_EVIDENCE")
         api={"get_only":True,"http_statuses":[r["status"] for r in records],
              "final_page_token_absent":True}
-    evidence=build_minute_provenance(frozen,checked,bars,recorded_at,api)
+    # For real network calls, capture actual completion time AFTER the GET/review.
+    # Explicit recorded_at is supported only for deterministic offline tests.
+    completed_at=recorded_at if recorded_at is not None else dt.datetime.now(UTC)
+    evidence=build_minute_provenance(frozen,checked,bars,completed_at,api)
     return checked,evidence
