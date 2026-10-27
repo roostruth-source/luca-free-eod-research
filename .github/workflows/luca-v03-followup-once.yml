@@ -79,6 +79,15 @@ jobs:
           LUCA_FOLLOWUP_INPUT: luca_v03_forward
           LUCA_REFERENCE_OUTPUT: luca_v03_reference
         run: python3 research/v03_stage24/fixed_clock_reference.py
+      - name: Cross-check T0 signal, non-signal, missing bars, and available outcomes
+        if: steps.gate.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python3 research/v03_stage24/evidence_quality_gate.py \
+            --source luca_v03_forward \
+            --outcomes luca_v03_followup/outcomes.json \
+            --reference luca_v03_reference/fixed_clock_reference.json \
+            --dest luca_v03_quality/quality.json
       - name: Preserve followup research results, not notifications
         if: always()
         uses: actions/upload-artifact@v4
@@ -88,5 +97,6 @@ jobs:
             followup_source_metadata.json
             luca_v03_followup/
             luca_v03_reference/
+            luca_v03_quality/
           if-no-files-found: ignore
           retention-days: 7
