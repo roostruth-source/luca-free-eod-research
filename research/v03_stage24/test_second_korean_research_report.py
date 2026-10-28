@@ -32,6 +32,12 @@ class SecondKoreanReportTests(unittest.TestCase):
         self.assertIn("NOT_VALIDATED",s)
         self.assertIn("실제 주문 금지",s)
 
+    def test_signal_report_discloses_timestamp_only_not_recomputed_price(self):
+        s=self.report()
+        self.assertIn("해당 시각의 6분 연속 자료 확인",s)
+        self.assertIn("가격·거래량 원본은 재계산 못함",s)
+        self.assertIn("전조 계산식 자체는 재검산할 수 없습니다",s)
+
     def test_no_signal_no_fake_wins(self):
         self.f,self.r,self.p=fixture(())
         self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
