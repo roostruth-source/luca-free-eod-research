@@ -26,6 +26,8 @@ class SecondKoreanReportTests(unittest.TestCase):
         self.assertIn("1차 IEX 수집: 94/168개 (55.95%)",s)
         self.assertIn("2차 IEX 수집: 9/15개 (60.00%)",s)
         self.assertIn("수집률 차이: +4.05%p",s)
+        self.assertIn("실제 전조 검사 가능: 1/1종목",s)
+        self.assertIn("검사 가능한 6분 구간: 1/10개",s)
         self.assertIn("D등급(매수 불가)",s)
         self.assertIn("NOT_VALIDATED",s)
         self.assertIn("실제 주문 금지",s)
@@ -35,6 +37,7 @@ class SecondKoreanReportTests(unittest.TestCase):
         self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
         s=self.report()
         self.assertIn("전조 패턴 관측: 0종목",s)
+        self.assertIn("실제 전조 검사 불가: 1종목",s)
         self.assertIn("후속 관찰 자료 없음",s)
         self.assertNotIn("승률 100%",s)
 
@@ -82,7 +85,7 @@ class SecondKoreanReportTests(unittest.TestCase):
         self.f,self.r,self.p=fixture((0,1,2))
         self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
         s=self.report()
-        self.assertIn("분봉 누락·패턴 미관측(판정 불가)",s)
+        self.assertIn("전조 검사 불가(6분 연속 분봉 없음)",s)
         self.assertIn("누락 분봉 원인은 확인되지 않았습니다",s)
 
 if __name__=="__main__":
