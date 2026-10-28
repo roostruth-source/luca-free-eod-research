@@ -68,7 +68,7 @@ def report_korean_second(meta,frozen,review,provenance,coverage,outcomes=None,re
             raise ValueError("EVALUABILITY_UNIVERSE_DRIFT")
         windows=availability["evaluable_six_minute_windows"]
         if row["pattern_count"]>0:
-            description="연구 패턴 기록(급등 성공 증거 아님)"
+            description="전조 기록(해당 시각의 6분 연속 자료 확인, 가격·거래량 원본은 재계산 못함)"
         elif windows==0:
             description="전조 검사 불가(6분 연속 분봉 없음)"
         else:
@@ -81,6 +81,7 @@ def report_korean_second(meta,frozen,review,provenance,coverage,outcomes=None,re
         "- 두 번의 관찰만으로 급등 예측 정확도, 승률, 실제 수익률을 계산할 수 없습니다.",
         "- IEX는 미국 전체 거래소 통합 시세가 아닙니다. 누락 분봉 원인은 확인되지 않았습니다.",
         "- 자료가 6개 이상이어도 분 단위로 연속하지 않으면 전조를 검사할 수 없습니다.",
+        "- 전조 기록은 해당 시각의 6분 연속 자료 존재만 대조했습니다. 보관된 자료에는 원본 가격·거래량이 없어 전조 계산식 자체는 재검산할 수 없습니다.",
         "- 검사가 가능했는데 패턴이 없었던 종목도 미래에 급등하지 않는다는 뜻이 아닙니다.",
         "- 관찰된 패턴은 실제 체결 가능한 매수 신호가 아닙니다. 호가 차이·수수료·미끄러짐을 검증하지 않았습니다.",
         "- SEC 증자·전환사채·워런트, Float, 시총과 실제 매도 가능 물량은 확인되지 않았습니다.",
