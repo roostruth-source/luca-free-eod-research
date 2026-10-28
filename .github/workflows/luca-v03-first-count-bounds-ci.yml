@@ -1,0 +1,27 @@
+# Completely offline first-real-session count-only observability audit.
+# Does NOT trigger either future live source or followup; no market API or orders.
+name: LUCA V03 first IEX six-minute count bounds offline CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - '.github/workflows/luca-v03-first-count-bounds-ci.yml'
+permissions:
+  contents: read
+jobs:
+  first-count-audit:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all frozen research offline regression tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Recompute original 14-minute count-only bounds independently
+        run: python3 research/v03_stage24/first_count_only_six_minute_bounds.py
+      - name: Ensure neither live source nor followup was accidentally requested
+        run: |
+          test ! -e research/v03_stage24/second_prospective_request.txt
+          test ! -e research/v03_stage24/second_followup_request.txt
+          echo 'ONLY OFFLINE FIRST COUNT BOUNDS; NO LIVE API; D; SEC_UNVERIFIED; NOT_VALIDATED; NO_ORDERS'
