@@ -41,6 +41,23 @@ class SecondKoreanReportTests(unittest.TestCase):
         self.assertIn("후속 관찰 자료 없음",s)
         self.assertNotIn("승률 100%",s)
 
+    def test_six_disconnected_bars_are_not_six_minute_window(self):
+        self.f,self.r,self.p=fixture((0,2,4,6,8,10))
+        self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
+        s=self.report()
+        self.assertIn("IEX 분봉 6/15",s)
+        self.assertIn("전조 검사 불가(6분 연속 분봉 없음)",s)
+        self.assertIn("실제 전조 검사 불가: 1종목",s)
+        self.assertNotIn("급등 성공",s)
+
+    def test_six_contiguous_without_pattern_is_evaluable_not_failure(self):
+        self.f,self.r,self.p=fixture((6,7,8,9,10,11))
+        self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
+        s=self.report()
+        self.assertIn("실제 전조 검사 가능: 1/1종목",s)
+        self.assertIn("검사 가능·해당 패턴 미관측",s)
+        self.assertIn("급등이 없었다는 뜻 아님",s)
+
     def test_valid_bridge_metadata_is_not_false_rejected(self):
         s=self.report()
         self.assertIn("2차 IEX 수집:",s)
