@@ -17,6 +17,7 @@ on:
       - 'research/v03_stage24/test_second_korean_research_report.py'
       - 'research/v03_stage24/second_followup_step_status.py'
       - 'research/v03_stage24/test_second_followup_step_status.py'
+      - 'research/v03_stage24/test_second_followup_full_cli_integration.py'
 permissions:
   contents: read
 jobs:
