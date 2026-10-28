@@ -16,6 +16,30 @@ class SixMinuteEvaluabilityTests(unittest.TestCase):
         self.assertEqual(out["rows"][0]["evaluability_status"],"PATTERN_RECORDED_RESEARCH_ONLY")
         self.assertFalse(out["real_trades_allowed"])
 
+    def test_first_pattern_has_own_verified_six_minute_source_grid(self):
+        f,r,p=fixture((0,1,2,3,4,5,7,9,11))
+        row=assess_six_minute_evaluability(f,r,p,SECOND_ID)["rows"][0]
+        self.assertTrue(row["first_pattern_six_minute_timestamps_verified"])
+        self.assertFalse(row["first_pattern_price_and_volume_recomputed"])
+
+    def test_signal_at_lonely_observed_bar_is_not_supported_by_other_streak(self):
+        f,r,p=fixture((0,1,2,3,4,5,7,9,11))
+        first=r["results"][0]["first_pattern"]
+        lonely=dt.datetime.fromisoformat(p["rows"][0]["observed_bar_start_utc"][-1])
+        first["signal_bar_start_utc"]=lonely.isoformat()
+        first["bar_knowable_after_utc"]=(lonely+dt.timedelta(minutes=1)).isoformat()
+        with self.assertRaisesRegex(ValueError,"FIRST_PATTERN_WITHOUT_MATCHING_SIX_MINUTE_GRID"):
+            assess_six_minute_evaluability(f,r,p,SECOND_ID)
+
+    def test_signal_on_missing_minute_fails_even_if_another_streak_exists(self):
+        f,r,p=fixture((0,1,2,3,4,5,7,9,11))
+        first=r["results"][0]["first_pattern"]
+        missing=dt.datetime.fromisoformat(p["rows"][0]["missing_iex_bar_start_utc"][-1])
+        first["signal_bar_start_utc"]=missing.isoformat()
+        first["bar_knowable_after_utc"]=(missing+dt.timedelta(minutes=1)).isoformat()
+        with self.assertRaisesRegex(ValueError,"FIRST_PATTERN_BAR_NOT_OBSERVED"):
+            assess_six_minute_evaluability(f,r,p,SECOND_ID)
+
     def test_six_scattered_not_one_six_minute_window(self):
         f,r,p=fixture((0,2,4,6,8,10))
         out=assess_six_minute_evaluability(f,r,p,SECOND_ID)
