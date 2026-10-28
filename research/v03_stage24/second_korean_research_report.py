@@ -77,6 +77,46 @@ def report_korean_second(meta,frozen,review,provenance,coverage,outcomes=None,re
                      f"가장 긴 연속 기록 {availability['longest_contiguous_minutes']}분; 검사 가능 6분 구간 {windows}개; D등급(매수 불가)")
     lines += [
         "",
+        "## 전조 발견 뒤 5·15·30·60분 관찰 (실제 체결 수익 아님)",
+    ]
+    if quality["pattern_observed_symbols"]==0:
+        lines.append("- 전조 기록 0종목: 전조 이후 결과를 계산할 대상이 없습니다. 급등 기회가 없었다는 뜻은 아닙니다.")
+    elif outcomes is None:
+        lines.append("- 전조 기록은 있지만 후속 관찰 자료가 없습니다. 주가 변화는 미확인입니다(0%로 계산하지 않음).")
+    else:
+        # summarize() above has already enforced same T0, exact signal symbols,
+        # 60m maturity, all horizons, safe grades and non-executable returns.
+        records={record["symbol"]:record for record in outcomes["signals"]}
+        for row in quality["rows"]:
+            sym=row["symbol"]
+            if row["pattern_count"]==0:
+                continue
+            record=records[sym]
+            formatted=[]
+            for h in record["horizons"]:
+                n=h["horizon_minutes"]
+                if h["status"]=="COMPLETE_IEX_PRICES_ONLY":
+                    pct=h["theoretical_iex_open_to_close_pct"]
+                    formatted.append(f"{n}분: IEX 가정상 가격 변화 {pct:+.2f}% (자료 완전, 실제 매매 아님)")
+                else:
+                    formatted.append(f"{n}분: 관찰 불완전 {h['observed_bars']}/{h['expected_bars']}개 (가격 변화 판정 불가)")
+            lines.append(f"- {sym}: "+"; ".join(formatted))
+    lines += [
+        "",
+        "## 전체 후보의 고정시각 참고 관찰 (급등 전조의 효과를 증명하지 않음)",
+    ]
+    if reference is None:
+        lines.append("- 공통 시각부터 관찰한 참고 자료가 없습니다. 비교 결과는 미확인입니다.")
+    else:
+        for minutes in (5,15,30,60):
+            complete=sum(
+                any(h["horizon_minutes"]==minutes and h["status"]=="COMPLETE_IEX_PRICES_ONLY"
+                    for h in record["horizons"])
+                for record in reference["rows"]
+            )
+            lines.append(f"- {minutes}분 자료 완전: {complete}/{len(reference['rows'])}종목 (단일 IEX 거래소 자료, 매매 성과 아님)")
+    lines += [
+        "",
         "## 반드시 지킬 해석",
         "- 두 번의 관찰만으로 급등 예측 정확도, 승률, 실제 수익률을 계산할 수 없습니다.",
         "- IEX는 미국 전체 거래소 통합 시세가 아닙니다. 누락 분봉 원인은 확인되지 않았습니다.",
@@ -84,6 +124,7 @@ def report_korean_second(meta,frozen,review,provenance,coverage,outcomes=None,re
         "- 전조 기록은 해당 시각의 6분 연속 자료 존재만 대조했습니다. 보관된 자료에는 원본 가격·거래량이 없어 전조 계산식 자체는 재검산할 수 없습니다.",
         "- 검사가 가능했는데 패턴이 없었던 종목도 미래에 급등하지 않는다는 뜻이 아닙니다.",
         "- 관찰된 패턴은 실제 체결 가능한 매수 신호가 아닙니다. 호가 차이·수수료·미끄러짐을 검증하지 않았습니다.",
+        "- 가정상 가격 변화는 특정 IEX 1분봉의 시가·종가를 단순 비교한 숫자입니다. 실제 호가에서 사거나 팔 수 있었다는 증거가 아닙니다.",
         "- SEC 증자·전환사채·워런트, Float, 시총과 실제 매도 가능 물량은 확인되지 않았습니다.",
         "- 연구 상태: NOT_VALIDATED / SEC_UNVERIFIED / 모든 후보 D등급 / 실제 주문 금지.",
         "- 이 파일은 검증된 연구 기록을 요약한 것이며 자동 알림을 보내지 않습니다.",
