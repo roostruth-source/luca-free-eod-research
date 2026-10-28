@@ -1,5 +1,6 @@
 """Synthetic-only tests for real 6-contiguous-minute IEX pattern evaluability."""
 import copy
+import datetime as dt
 import unittest
 from second_six_minute_evaluability import assess_six_minute_evaluability
 from test_two_session_iex_comparison import fixture,SECOND_ID
@@ -54,10 +55,10 @@ class SixMinuteEvaluabilityTests(unittest.TestCase):
         r["results"][0]["pattern_count"]=1
         r["results"][0]["first_pattern"]={
             "signal_bar_start_utc":p["rows"][0]["observed_bar_start_utc"][5],
-            "bar_knowable_after_utc":"2026-10-28T14:02:00+00:00",
+            "bar_knowable_after_utc":(dt.datetime.fromisoformat(p["rows"][0]["observed_bar_start_utc"][5])+dt.timedelta(minutes=1)).isoformat(),
             "research_pattern_only":True,"buy_allowed":False}
         r["forward_pattern_symbols"]=1
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError,"PATTERN_WITHOUT_SIX_CONTIGUOUS_MINUTES"):
             assess_six_minute_evaluability(f,r,p,SECOND_ID)
 
     def test_wrong_frozen_identity_blocks(self):
