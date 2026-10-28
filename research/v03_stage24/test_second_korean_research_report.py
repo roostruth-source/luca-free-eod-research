@@ -2,7 +2,8 @@
 import copy
 import unittest
 from second_korean_research_report import report_korean_second
-from two_session_iex_comparison import compare
+from second_trial_artifact_bridge import build_verified_comparison
+from test_second_trial_artifact_bridge import ART
 from first_iex_baseline_integrity import load_verified
 from test_second_trial_artifact_bridge import META,SECOND_ID
 from test_two_session_iex_comparison import fixture
@@ -12,7 +13,7 @@ class SecondKoreanReportTests(unittest.TestCase):
     def setUp(self):
         self.meta=copy.deepcopy(META)
         self.f,self.r,self.p=fixture()
-        self.coverage=compare(load_verified(),self.f,self.r,self.p,SECOND_ID)
+        self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
 
     def report(self,**changes):
         data=dict(meta=self.meta,frozen=self.f,review=self.r,
@@ -31,11 +32,26 @@ class SecondKoreanReportTests(unittest.TestCase):
 
     def test_no_signal_no_fake_wins(self):
         self.f,self.r,self.p=fixture(())
-        self.coverage=compare(load_verified(),self.f,self.r,self.p,SECOND_ID)
+        self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
         s=self.report()
         self.assertIn("전조 패턴 관측: 0종목",s)
         self.assertIn("후속 관찰 자료 없음",s)
         self.assertNotIn("승률 100%",s)
+
+    def test_valid_bridge_metadata_is_not_false_rejected(self):
+        s=self.report()
+        self.assertIn("2차 IEX 수집:",s)
+        self.assertIn("실제 주문 금지",s)
+
+    def test_unverified_artifact_flag_rejected(self):
+        self.coverage["second_artifact_metadata_verified"]=False
+        with self.assertRaisesRegex(ValueError,"SECOND_COMPARISON_SOURCE_UNVERIFIED"):
+            self.report()
+
+    def test_unverified_source_workflow_flag_rejected(self):
+        self.coverage["second_source_workflow_verified"]=False
+        with self.assertRaisesRegex(ValueError,"SECOND_COMPARISON_SOURCE_UNVERIFIED"):
+            self.report()
 
     def test_changed_coverage_rejected(self):
         self.coverage["second"]["observed"]=10
@@ -64,7 +80,7 @@ class SecondKoreanReportTests(unittest.TestCase):
 
     def test_missing_bar_is_not_declared_failure(self):
         self.f,self.r,self.p=fixture((0,1,2))
-        self.coverage=compare(load_verified(),self.f,self.r,self.p,SECOND_ID)
+        self.coverage=build_verified_comparison(load_verified(),self.meta,self.f,self.r,self.p,ART)
         s=self.report()
         self.assertIn("분봉 누락·패턴 미관측(판정 불가)",s)
         self.assertIn("누락 분봉 원인은 확인되지 않았습니다",s)
