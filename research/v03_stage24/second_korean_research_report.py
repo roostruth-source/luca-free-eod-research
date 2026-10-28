@@ -28,9 +28,16 @@ EVIDENCE={
 def report_korean_second(meta,frozen,review,provenance,coverage,outcomes=None,reference=None):
     rid=verify_second_run(meta)
     checked=compare(load_verified(),frozen,review,provenance,rid)
-    # Do not trust an independently supplied coverage report if it was changed.
-    if coverage!=checked:
+    # The authenticated GitHub bridge adds source/artifact identity flags to
+    # the strict numerical comparison. Compare ALL strict fields while requiring
+    # the additional source checks, rather than rejecting valid bridge output.
+    if type(coverage) is not dict or any(coverage.get(k)!=v for k,v in checked.items()):
         raise ValueError("SECOND_COMPARISON_REPORT_DRIFT")
+    if (coverage.get("second_source_workflow_verified") is not True or
+        coverage.get("second_artifact_metadata_verified") is not True or
+        coverage.get("first_audit_source_run_id")!=40532482508 or
+        coverage.get("not_a_prediction_win_rate") is not True):
+        raise ValueError("SECOND_COMPARISON_SOURCE_UNVERIFIED")
     quality=summarize(frozen,review,outcomes,reference)
     if quality["validation_status"]!="NOT_VALIDATED" or quality["real_trades_allowed"] is not False:
         raise ValueError("UNSAFE_SECOND_QUALITY")
