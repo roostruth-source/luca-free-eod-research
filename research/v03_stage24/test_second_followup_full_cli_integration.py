@@ -121,7 +121,7 @@ class SecondRealWorkflowOfflineIntegrationTests(unittest.TestCase):
         quality,report=self.replay((0,1,2))
         self.assertEqual(quality["first_window_sparse_symbols"],1)
         self.assertEqual(quality["quality"],"INSUFFICIENT_FOR_PREDICTION")
-        self.assertIn("분봉 누락·패턴 미관측(판정 불가)",report)
+        self.assertIn("전조 검사 불가(6분 연속 분봉 없음)",report)
 
 
 if __name__=="__main__":
