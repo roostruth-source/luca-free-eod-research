@@ -35,6 +35,23 @@ def assess_six_minute_evaluability(frozen, review, provenance, second_run_id):
         has_pattern=rev["pattern_count"]>0
         if has_pattern and windows==0:
             raise ValueError("PATTERN_WITHOUT_SIX_CONTIGUOUS_MINUTES")
+        # A valid six-minute streak SOMEWHERE in the observation window is
+        # insufficient. The very first declared signal must land on an
+        # actually observed IEX minute and have its own five preceding bars.
+        # These are timestamp checks, NOT recomputation of price/volume.
+        signal_window_verified=False
+        if has_pattern:
+            first=rev.get("first_pattern")
+            if type(first) is not dict:
+                raise ValueError("MISSING_FIRST_PATTERN_EVIDENCE")
+            signal_end=parse_utc(first.get("signal_bar_start_utc"))
+            observed=set(stamps)
+            if signal_end not in observed:
+                raise ValueError("FIRST_PATTERN_BAR_NOT_OBSERVED")
+            if any(signal_end-dt.timedelta(minutes=i) not in observed
+                   for i in range(MIN_CONTEXT)):
+                raise ValueError("FIRST_PATTERN_WITHOUT_MATCHING_SIX_MINUTE_GRID")
+            signal_window_verified=True
         status=("PATTERN_RECORDED_RESEARCH_ONLY" if has_pattern else
                 "NO_EVALUABLE_SIX_MINUTE_WINDOW" if not windows else
                 "EVALUABLE_NO_PATTERN_RECORDED")
@@ -46,6 +63,8 @@ def assess_six_minute_evaluability(frozen, review, provenance, second_run_id):
             "evaluable_six_minute_windows":windows,
             "possible_six_minute_windows":possible,
             "evaluability_status":status,
+            "first_pattern_six_minute_timestamps_verified":signal_window_verified,
+            "first_pattern_price_and_volume_recomputed":False,
             "no_pattern_is_not_no_future_spike":True,
             "grade":"D","buy_allowed":False
         })
