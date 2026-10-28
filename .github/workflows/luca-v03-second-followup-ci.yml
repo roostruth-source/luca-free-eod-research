@@ -19,6 +19,8 @@ on:
       - 'research/v03_stage24/test_second_followup_step_status.py'
       - 'research/v03_stage24/test_second_followup_full_cli_integration.py'
       - 'research/v03_stage24/test_second_source_end_to_end_offline.py'
+      - 'research/v03_stage24/second_six_minute_evaluability.py'
+      - 'research/v03_stage24/test_second_six_minute_evaluability.py'
 permissions:
   contents: read
 jobs:
