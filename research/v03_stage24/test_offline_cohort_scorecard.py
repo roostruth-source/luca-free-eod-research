@@ -46,6 +46,30 @@ class ScorecardTests(unittest.TestCase):
         manifest["payload"]["symbols"].pop()
         with self.assertRaisesRegex(ValueError, "HASH_MISMATCH"):
             scorecard(raw, manifest)
+    def test_small_sample_warning_on_both_groups(self):
+        raw, manifest = setup_case()
+        result = scorecard(raw, manifest)
+        for group in result["groups"].values():
+            self.assertEqual(group["horizons"]["5"]["sample_warning"],
+                             "INSUFFICIENT_OBSERVED_SAMPLE")
+            self.assertFalse(group["horizons"]["5"]["interpretation_allowed"])
+
+    def test_missing_outcome_warning_is_separate(self):
+        raw, manifest = setup_case()
+        row = scorecard(raw, manifest)["groups"]["signal_by_reference_time"]["horizons"]["60"]
+        self.assertEqual(row["missing_data_warning"], "MISSING_OUTCOMES")
+        self.assertEqual(row["sample_warning"], "INSUFFICIENT_OBSERVED_SAMPLE")
+
+    def test_complete_observation_has_no_missing_warning(self):
+        raw, manifest = setup_case()
+        row = scorecard(raw, manifest)["groups"]["signal_by_reference_time"]["horizons"]["5"]
+        self.assertIsNone(row["missing_data_warning"])
+
+    def test_nan_threshold_rejected(self):
+        raw, manifest = setup_case()
+        with self.assertRaisesRegex(ValueError, "INVALID_THRESHOLD"):
+            scorecard(raw, manifest, threshold_pct=float("nan"))
+
     def test_not_validated_and_no_orders(self):
         raw, manifest = setup_case()
         r = scorecard(raw, manifest)
