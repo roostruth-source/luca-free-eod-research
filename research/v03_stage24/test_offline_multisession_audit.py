@@ -25,8 +25,8 @@ def session(day="2026-10-29", observation_id="day-1", hour=10, minute=0):
         for signal in row["signals"]:
             signal["signal"]["signal_bar_start_utc"] = moved(
                 signal["signal"]["signal_bar_start_utc"])
-            for bar in signal["calculation_input_ohlcv"]:
-                bar["t"] = moved(bar["t"])
+            # The six input bars share object identity with row["ohlcv"] in
+            # fixture(); they were already shifted above. Do not shift twice.
     manifest = create_commitment((target + dt.timedelta(minutes=5)).isoformat(),
                                  [r["symbol"] for r in raw["rows"]], observation_id)
     return {"session_day_ny": day, "raw": raw, "manifest": manifest}
