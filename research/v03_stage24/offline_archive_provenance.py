@@ -19,12 +19,14 @@ def _claimed_utc(value, field):
     if not isinstance(value, str) or not value.strip():
         raise ValueError("MISSING_" + field)
     try:
-        stamp = _time(value)
+        original = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, TypeError, OverflowError) as exc:
         raise ValueError("INVALID_" + field) from exc
-    if stamp.utcoffset() != dt.timedelta(0):
+    if original.tzinfo is None or original.utcoffset() is None:
         raise ValueError("NOT_UTC_" + field)
-    return stamp.astimezone(UTC)
+    if original.utcoffset() != dt.timedelta(0):
+        raise ValueError("NOT_UTC_" + field)
+    return original.astimezone(UTC)
 
 
 def _identifier(value, field):
