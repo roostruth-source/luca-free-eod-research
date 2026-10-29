@@ -4,6 +4,8 @@ on:
     branches:
       - feature/v03-mobile-report-20261029
     paths:
+      - research/v03_stage24/offline_cohort_scorecard.py
+      - research/v03_stage24/test_offline_cohort_scorecard.py
       - research/v03_stage24/offline_reference_commitment.py
       - research/v03_stage24/test_offline_reference_commitment.py
       - research/v03_stage24/offline_fixed_time_comparison.py
