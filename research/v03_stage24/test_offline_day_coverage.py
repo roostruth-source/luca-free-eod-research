@@ -37,6 +37,17 @@ class DayCoverageTests(unittest.TestCase):
     def test_empty_ledger_rejected(self):
         with self.assertRaisesRegex(ValueError, "MISSING_DAY_LEDGER"):
             summarize_day_coverage(self.raw, self.manifest, [])
+    def test_integrated_audit_flags_repeated_symbols_and_unproven_days(self):
+        ledger = [{"observation_date_utc": d, "symbol": s}
+                  for d in ("2026-10-28", "2026-10-29") for s in ("TESTA", "NO_SIGNAL")]
+        report = summarize_day_coverage(self.raw, self.manifest, ledger)
+        audit = report["day_integrity_audit"]
+        self.assertEqual(audit["unique_symbols"], 2)
+        self.assertEqual(audit["claimed_symbol_date_pairs"], 4)
+        self.assertEqual(audit["independent_session_count_verified"], 0)
+        self.assertIn("SINGLE_REFERENCE_ANCHOR_CANNOT_VERIFY_OTHER_DAYS", audit["warnings"])
+        self.assertFalse(report["orders_allowed"])
+
     def test_days_not_claimed_verified(self):
         ledger = [{"observation_date_utc": "2026-10-29", "symbol": s} for s in ("TESTA", "NO_SIGNAL")]
         result = summarize_day_coverage(self.raw, self.manifest, ledger)
