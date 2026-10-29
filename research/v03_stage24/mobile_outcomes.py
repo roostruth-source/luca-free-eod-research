@@ -74,6 +74,17 @@ def build_report(raw):
             if not isinstance(entry, dict) or not isinstance(entry.get("signal"), dict):
                 raise ValueError("INVALID_SIGNAL")
             start = _time(entry["signal"].get("signal_bar_start_utc"))
+            inputs = entry.get("calculation_input_ohlcv")
+            if not isinstance(inputs, list) or len(inputs) != 6:
+                raise ValueError("INVALID_SIGNAL_INPUT_WINDOW")
+            stamps = [_time(bar["t"]) for bar in inputs]
+            if stamps[-1] != start:
+                raise ValueError("SIGNAL_TIMESTAMP_NOT_LAST_INPUT_BAR")
+            if any(b - a != dt.timedelta(minutes=1) for a, b in zip(stamps, stamps[1:])):
+                raise ValueError("SIGNAL_INPUT_NOT_CONTIGUOUS")
+            for stamp, bar in zip(stamps, inputs):
+                if by_time.get(stamp) != _price(bar["c"]):
+                    raise ValueError("SIGNAL_INPUT_BAR_MISMATCH")
             baseline = by_time.get(start)
             changes = {}
             for minutes in HORIZONS:
