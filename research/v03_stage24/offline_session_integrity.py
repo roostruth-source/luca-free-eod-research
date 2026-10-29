@@ -7,10 +7,12 @@ observations. This is a diagnostic attached to the descriptive scorecard.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from collections import Counter
 from zoneinfo import ZoneInfo
 
 from mobile_outcomes import _time
+from offline_reference_commitment import SCHEMA, canonical
 from nyse_session_gate import EARLY_CLOSES_2026, SCHEDULED_HOLIDAYS_2026
 
 NY = ZoneInfo("America/New_York")
@@ -32,7 +34,19 @@ def _calendar_label(day):
 def audit_day_ledger(manifest, day_ledger):
     if not isinstance(manifest, dict) or not isinstance(manifest.get("payload"), dict):
         raise ValueError("INVALID_MANIFEST")
-    anchor = _time(manifest["payload"].get("reference_time_utc"))
+    payload = manifest["payload"]
+    if (payload.get("schema") != SCHEMA or
+            payload.get("validation_status") != "NOT_VALIDATED" or
+            payload.get("orders_allowed") is not False):
+        raise ValueError("UNSAFE_MANIFEST")
+    expected = payload.get("symbols")
+    if not isinstance(expected, list) or not expected or any(
+            not isinstance(s, str) or not s for s in expected) or len(expected) != len(set(expected)):
+        raise ValueError("INVALID_MANIFEST_SYMBOLS")
+    digest = hashlib.sha256(canonical(payload).encode("utf8")).hexdigest()
+    if manifest.get("sha256") != digest:
+        raise ValueError("COMMITMENT_HASH_MISMATCH")
+    anchor = _time(payload.get("reference_time_utc"))
     if not isinstance(day_ledger, list) or not day_ledger:
         raise ValueError("MISSING_DAY_LEDGER")
     anchor_utc_day = anchor.date().isoformat()
@@ -53,6 +67,8 @@ def audit_day_ledger(manifest, day_ledger):
             raise ValueError("INVALID_OBSERVATION_DATE") from exc
         if parsed.isoformat() != day:
             raise ValueError("INVALID_OBSERVATION_DATE")
+        if symbol not in expected:
+            raise ValueError("UNKNOWN_LEDGER_SYMBOL")
         if (day, symbol) in pairs:
             raise ValueError("DUPLICATE_DAY_SYMBOL")
         pairs.add((day, symbol))
@@ -60,6 +76,8 @@ def audit_day_ledger(manifest, day_ledger):
         dates.add(day)
         symbols.add(symbol)
 
+    if symbols != set(expected):
+        raise ValueError("LEDGER_CANDIDATE_COVERAGE_MISMATCH")
     calendar = {day: _calendar_label(dt.date.fromisoformat(day))
                 for day in sorted(dates)}
     repeated = {symbol: count for symbol, count in sorted(counts.items())
@@ -81,6 +99,8 @@ def audit_day_ledger(manifest, day_ledger):
 
     return {
         "schema": "LUCA_V03_OFFLINE_DAY_INTEGRITY_AUDIT_V1",
+        "commitment_sha256": digest,
+        "commitment_timestamp_externally_verified": False,
         "reference_time_utc": anchor.isoformat(),
         "reference_utc_date": anchor_utc_day,
         "reference_session_date_ny": anchor_ny_day,
