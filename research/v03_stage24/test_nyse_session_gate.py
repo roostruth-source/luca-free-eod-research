@@ -3,7 +3,8 @@ import datetime as dt
 import unittest
 
 from nyse_session_gate import (
-    CALENDAR_MARKERS, CALENDAR_URL, STATUS_URL, verify_nyse_session,
+    CALENDAR_MARKERS, CALENDAR_URL, NOTICE_URL, STATUS_URL,
+    verify_nyse_session,
 )
 
 
@@ -36,6 +37,7 @@ def official_opener(extra_status="", bad_calendar=False, fail=False, calls=None)
     if bad_calendar:
         calendar = "not a calendar"
     status = "Market Status System Status Normal " + extra_status
+    notices = "NYSE and NYSE American Trader Updates " + extra_status
 
     def open_fake(request, timeout):
         if calls is not None:
@@ -48,6 +50,8 @@ def official_opener(extra_status="", bad_calendar=False, fail=False, calls=None)
             return Response(CALENDAR_URL, calendar)
         if request.full_url == STATUS_URL:
             return Response(STATUS_URL, status)
+        if request.full_url == NOTICE_URL:
+            return Response(NOTICE_URL, notices)
         raise AssertionError("UNEXPECTED_OFFICIAL_URL")
     return open_fake
 
@@ -59,7 +63,7 @@ class NyseSessionGateTests(unittest.TestCase):
             dt.date(2026, 10, 29), NOW, official_opener(calls=calls))
         self.assertTrue(result["official_sources_live_verified"])
         self.assertTrue(result["regular_session_confirmed"])
-        self.assertEqual(calls, [CALENDAR_URL, STATUS_URL])
+        self.assertEqual(calls, [CALENDAR_URL, STATUS_URL, NOTICE_URL])
         self.assertFalse(result["orders_allowed"])
 
     def test_scheduled_holiday_is_distinct_and_blocks_before_network(self):

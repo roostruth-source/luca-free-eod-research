@@ -16,7 +16,9 @@ from iex_raw_evidence import (
     write_new as write_raw_new,
 )
 from iex_timestamp_provenance import write_new as write_timestamp_new
-from nyse_session_gate import CALENDAR_MARKERS, CALENDAR_URL, STATUS_URL
+from nyse_session_gate import (
+    CALENDAR_MARKERS, CALENDAR_URL, NOTICE_URL, STATUS_URL,
+)
 from prospective_iex_research import digest_frozen, freeze, write_json_new
 from third_durable_archive import build_archive, verify_archive
 from third_trial_gate import (
@@ -107,6 +109,8 @@ def run_dry_run(work_root):
             return FakeOfficialResponse(CALENDAR_URL, " | ".join(CALENDAR_MARKERS))
         if request.full_url == STATUS_URL:
             return FakeOfficialResponse(STATUS_URL, "Market Status System Status Normal")
+        if request.full_url == NOTICE_URL:
+            return FakeOfficialResponse(NOTICE_URL, "NYSE Trader Updates")
         raise AssertionError("SYNTHETIC_CALENDAR_UNEXPECTED_URL")
 
     gate = validate_with_official_calendar(

@@ -16,6 +16,7 @@ from urllib.request import Request, urlopen
 
 CALENDAR_URL = "https://www.nyse.com/trade/hours-calendars"
 STATUS_URL = "https://www.nyse.com/market-status/history"
+NOTICE_URL = "https://www.nyse.com/market-notices/nyse"
 MAX_SOURCE_BYTES = 750_000
 
 SCHEDULED_HOLIDAYS_2026 = {
@@ -52,6 +53,7 @@ CALENDAR_MARKERS = (
     "Thursday, December 24, 2026",
 )
 STATUS_MARKERS = ("Market Status", "System Status")
+NOTICE_MARKERS = ("NYSE", "Trader Updates")
 
 
 def _read_official(url, opener):
@@ -125,8 +127,12 @@ def verify_nyse_session(session_day, now, opener=urlopen):
     status = _read_official(STATUS_URL, opener)
     if not all(marker in status for marker in STATUS_MARKERS):
         raise ValueError("OFFICIAL_NYSE_STATUS_UNRECOGNIZED")
+    notices = _read_official(NOTICE_URL, opener)
+    if not all(marker in notices for marker in NOTICE_MARKERS):
+        raise ValueError("OFFICIAL_NYSE_NOTICES_UNRECOGNIZED")
     if (_has_special_closure_notice(calendar, session_day) or
-            _has_special_closure_notice(status, session_day)):
+            _has_special_closure_notice(status, session_day) or
+            _has_special_closure_notice(notices, session_day)):
         raise ValueError("NYSE_SPECIAL_CLOSURE")
 
     return {
@@ -135,6 +141,7 @@ def verify_nyse_session(session_day, now, opener=urlopen):
         "checked_at_utc": now.astimezone(dt.timezone.utc).isoformat(),
         "official_calendar_url": CALENDAR_URL,
         "official_status_url": STATUS_URL,
+        "official_notices_url": NOTICE_URL,
         "official_sources_live_verified": True,
         "scheduled_holiday": False,
         "special_closure_notice_found": False,
