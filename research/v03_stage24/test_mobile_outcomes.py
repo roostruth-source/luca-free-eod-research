@@ -64,6 +64,30 @@ class MobileOutcomeTests(unittest.TestCase):
         raw=sample();raw["rows"][0]["buy_allowed"]=True
         with self.assertRaisesRegex(ValueError, "UNSAFE_ROW"):
             build_report(raw)
+    def test_early_signal_timestamp_rejected(self):
+        raw = sample()
+        raw["rows"][0]["signals"][0]["signal"]["signal_bar_start_utc"] = raw["rows"][0]["ohlcv"][0]["t"]
+        with self.assertRaisesRegex(ValueError, "SIGNAL_TIMESTAMP_NOT_LAST_INPUT_BAR"):
+            build_report(raw)
+
+    def test_nonconsecutive_signal_bars_rejected(self):
+        raw = sample()
+        raw["rows"][0]["signals"][0]["calculation_input_ohlcv"][2] = raw["rows"][0]["ohlcv"][9]
+        with self.assertRaisesRegex(ValueError, "SIGNAL_INPUT_NOT_CONTIGUOUS"):
+            build_report(raw)
+
+    def test_changed_signal_input_price_rejected(self):
+        raw = sample()
+        raw["rows"][0]["signals"][0]["calculation_input_ohlcv"][3] = dict(raw["rows"][0]["ohlcv"][3], c=999)
+        with self.assertRaisesRegex(ValueError, "SIGNAL_INPUT_BAR_MISMATCH"):
+            build_report(raw)
+
+    def test_five_signal_bars_rejected(self):
+        raw = sample()
+        raw["rows"][0]["signals"][0]["calculation_input_ohlcv"].pop()
+        with self.assertRaisesRegex(ValueError, "INVALID_SIGNAL_INPUT_WINDOW"):
+            build_report(raw)
+
     def test_no_signal_markdown(self):
         raw=sample(signal_indices=())
         self.assertIn("신호 없음", markdown(build_report(raw)))
