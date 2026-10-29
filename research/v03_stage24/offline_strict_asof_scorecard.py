@@ -103,6 +103,7 @@ def strict_asof_scorecard(sessions):
         "validation_status": "NOT_VALIDATED",
         "sec_status": "SEC_UNVERIFIED",
         "all_grades": "D",
+        "operating_mode": "NO_ORDERS",
         "orders_allowed": False,
         "real_trades_allowed": False,
         "warnings": sorted(set(audit["warnings"]) | {
