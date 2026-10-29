@@ -23,7 +23,7 @@ class MobileOutcomeTests(unittest.TestCase):
     def test_short_window_never_invents_60min(self):
         r = build_report(sample(35))["signals"][0]["changes_pct"]
         self.assertIsNone(r["60"])
-        self.assertEqual(r["30"], round((135/105-1)*100,4))
+        self.assertIsNone(r["30"])
     def test_missing_minute_is_unknown_not_zero(self):
         raw = sample()
         raw["rows"][0]["ohlcv"] = [b for i,b in enumerate(raw["rows"][0]["ohlcv"]) if i != 20]
