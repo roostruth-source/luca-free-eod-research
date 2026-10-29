@@ -88,6 +88,30 @@ class MobileOutcomeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "INVALID_SIGNAL_INPUT_WINDOW"):
             build_report(raw)
 
+    def test_future_bar_one_minute_early_is_not_substituted(self):
+        raw = sample()
+        raw["rows"][0]["ohlcv"] = [bar for i, bar in enumerate(raw["rows"][0]["ohlcv"]) if i != 10]
+        self.assertIsNone(build_report(raw)["signals"][0]["changes_pct"]["5"])
+
+    def test_negative_change_is_preserved(self):
+        raw = sample()
+        raw["rows"][0]["ohlcv"][10]["c"] = 90
+        self.assertEqual(build_report(raw)["signals"][0]["changes_pct"]["5"],
+                         round((90 / 105 - 1) * 100, 4))
+
+    def test_exact_60_minute_boundary(self):
+        raw = sample(66)
+        self.assertIsNotNone(build_report(raw)["signals"][0]["changes_pct"]["60"])
+        raw["rows"][0]["ohlcv"].pop()
+        self.assertIsNone(build_report(raw)["signals"][0]["changes_pct"]["60"])
+
+    def test_utc_offset_equivalent_bar_time(self):
+        raw = sample()
+        raw["rows"][0]["signals"][0]["signal"]["signal_bar_start_utc"] = (
+            (START + dt.timedelta(minutes=5, hours=9))
+            .replace(tzinfo=dt.timezone(dt.timedelta(hours=9))).isoformat())
+        self.assertEqual(build_report(raw)["signals"][0]["signal_bar_close"], 105)
+
     def test_no_signal_markdown(self):
         raw=sample(signal_indices=())
         self.assertIn("신호 없음", markdown(build_report(raw)))
