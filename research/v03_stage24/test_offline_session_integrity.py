@@ -70,6 +70,26 @@ class OfflineSessionIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "INVALID_OBSERVATION_DATE"):
             audit_day_ledger(self.manifest, self.ledger("2026-02-30"))
 
+    def test_tampered_manifest_time_rejected(self):
+        self.manifest["payload"]["reference_time_utc"] = "2026-10-28T14:05:00+00:00"
+        with self.assertRaisesRegex(ValueError, "COMMITMENT_HASH_MISMATCH"):
+            audit_day_ledger(self.manifest, self.ledger("2026-10-29"))
+
+    def test_unknown_symbol_rejected_in_standalone_audit(self):
+        ledger = self.ledger("2026-10-29")
+        ledger[0]["symbol"] = "LATE"
+        with self.assertRaisesRegex(ValueError, "UNKNOWN_LEDGER_SYMBOL"):
+            audit_day_ledger(self.manifest, ledger)
+
+    def test_missing_symbol_rejected_in_standalone_audit(self):
+        with self.assertRaisesRegex(ValueError, "LEDGER_CANDIDATE_COVERAGE_MISMATCH"):
+            audit_day_ledger(self.manifest, [self.ledger("2026-10-29")[0]])
+
+    def test_unsafe_manifest_rejected(self):
+        self.manifest["payload"]["orders_allowed"] = True
+        with self.assertRaisesRegex(ValueError, "UNSAFE_MANIFEST"):
+            audit_day_ledger(self.manifest, self.ledger("2026-10-29"))
+
     def test_safety_invariants(self):
         result = audit_day_ledger(self.manifest, self.ledger("2026-10-29"))
         self.assertEqual(result["validation_status"], "NOT_VALIDATED")
