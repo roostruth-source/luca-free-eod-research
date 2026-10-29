@@ -63,6 +63,7 @@ def audit_session_bundle(sessions):
     days, ids, raw_hashes = set(), set(), set()
     price_fingerprints = {}
     repeated_price_sequences = []
+    zero_bar_sessions = []
     counts = Counter()
     summaries = []
     for item in sessions:
@@ -93,13 +94,21 @@ def audit_session_bundle(sessions):
         result = scorecard(raw, manifest)
         if not isinstance(raw, dict) or not isinstance(raw.get("rows"), list):
             raise ValueError("INVALID_RAW_ROWS")
+        bar_count = 0
         for row in raw["rows"]:
+            previous = None
             for bar in row["ohlcv"]:
                 if not _in_regular_session(bar["t"], day):
                     raise ValueError("RAW_BAR_OUTSIDE_DECLARED_NY_SESSION")
                 stamp = _time(bar["t"])
                 if stamp.second or stamp.microsecond:
                     raise ValueError("RAW_BAR_NOT_MINUTE_ALIGNED")
+                if previous is not None and stamp <= previous:
+                    raise ValueError("RAW_BARS_NOT_CHRONOLOGICAL")
+                previous = stamp
+                bar_count += 1
+        if bar_count == 0:
+            zero_bar_sessions.append(day.isoformat())
         fingerprint = hashlib.sha256(canonical(raw).encode("utf8")).hexdigest()
         if fingerprint in raw_hashes:
             raise ValueError("REUSED_RAW_ARCHIVE_CONTENT")
@@ -124,6 +133,7 @@ def audit_session_bundle(sessions):
             "commitment_sha256": result["commitment_sha256"],
             "raw_content_sha256": fingerprint,
             "candidate_count": len(symbols),
+            "raw_bar_count": bar_count,
             "groups": result["groups"],
             "source_and_timestamp_externally_verified": False,
         })
@@ -136,6 +146,8 @@ def audit_session_bundle(sessions):
         warnings.append("REPEATED_SYMBOL_ACROSS_DAYS_NOT_INDEPENDENT")
     if repeated_price_sequences:
         warnings.append("IDENTICAL_PRICE_SEQUENCE_ACROSS_DAYS_REVIEW")
+    if zero_bar_sessions:
+        warnings.append("ZERO_BAR_SESSIONS_HAVE_NO_PRICE_EVIDENCE")
     if any(s["calendar_status"] == "SCHEDULED_EARLY_CLOSE" for s in summaries):
         warnings.append("EARLY_CLOSE_REQUIRES_MISSING_HORIZON_REVIEW")
     return {
@@ -143,6 +155,8 @@ def audit_session_bundle(sessions):
         "claimed_session_days_with_structurally_consistent_records": len(days),
         "unique_symbols": len(counts),
         "symbol_session_pairs": sum(counts.values()),
+        "sessions_with_any_price_bar": len(days) - len(zero_bar_sessions),
+        "zero_bar_session_days": sorted(zero_bar_sessions),
         "repeated_symbols": repeated,
         "matching_price_sequences_ignoring_timestamps": repeated_price_sequences,
         "extra_symbol_sessions_beyond_first": sum(n - 1 for n in counts.values()),
