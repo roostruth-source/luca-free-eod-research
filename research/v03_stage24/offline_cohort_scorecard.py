@@ -3,14 +3,17 @@
 Descriptive bar-close changes only. Not actual fills or verified predictions.
 """
 from __future__ import annotations
+import math
 from offline_reference_commitment import compare_committed
+
+MIN_OBSERVED_PER_GROUP = 30  # Research caution threshold, not a validated power calculation.
 
 HORIZONS = ("5", "15", "30", "60")
 GROUPS = ("signal_by_reference_time", "no_signal_by_reference_time")
 
 
 def scorecard(raw, manifest, threshold_pct=5):
-    if type(threshold_pct) not in (int, float) or not 0 < threshold_pct <= 100:
+    if type(threshold_pct) not in (int, float) or not math.isfinite(threshold_pct) or not 0 < threshold_pct <= 100:
         raise ValueError("INVALID_THRESHOLD")
     comparison = compare_committed(raw, manifest)
     rows = comparison["rows"]
@@ -37,6 +40,9 @@ def scorecard(raw, manifest, threshold_pct=5):
                 "threshold_rate_among_observed_pct": (
                     round(wins / len(observed) * 100, 4) if observed else None),
                 "missing_count_in_denominator": False,
+                "sample_warning": ("INSUFFICIENT_OBSERVED_SAMPLE" if len(observed) < MIN_OBSERVED_PER_GROUP else None),
+                "missing_data_warning": ("MISSING_OUTCOMES" if missing else None),
+                "interpretation_allowed": False,
             }
         groups[group] = {"candidates": len(subset), "horizons": horizons}
     return {
@@ -44,6 +50,8 @@ def scorecard(raw, manifest, threshold_pct=5):
         "reference_time_utc": comparison["reference_time_utc"],
         "commitment_sha256": comparison["commitment_sha256"],
         "threshold_pct": threshold_pct,
+        "minimum_observed_per_group_for_no_small_sample_warning": MIN_OBSERVED_PER_GROUP,
+        "small_sample_threshold_is_heuristic": True,
         "groups": groups,
         "prediction_accuracy_verified": False,
         "statistical_significance_verified": False,
