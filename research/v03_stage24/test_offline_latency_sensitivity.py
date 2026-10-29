@@ -64,7 +64,8 @@ class LatencySensitivityTests(unittest.TestCase):
         self.assertEqual(a - b, dt.timedelta(minutes=1))
 
     def test_missing_exact_baseline_not_backfilled(self):
-        item = session()
+        # Keep the six signal-input bars intact; remove a later reference bar.
+        item = at_reference(session(), 10)
         anchor = _time(item["manifest"]["payload"]["reference_time_utc"])
         missing = anchor - dt.timedelta(minutes=2)
         for row in item["raw"]["rows"]:
