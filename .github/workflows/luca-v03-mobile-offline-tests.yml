@@ -1,0 +1,39 @@
+name: LUCA V0.3 mobile offline checks
+on:
+  push:
+    branches:
+      - feature/v03-mobile-report-20261029
+    paths:
+      - research/v03_stage24/mobile_outcomes.py
+      - research/v03_stage24/test_mobile_outcomes.py
+      - research/v03_stage24/test_mobile_outcomes_integration.py
+      - research/v03_stage24/mobile_outcomes_viewer.html
+      - .github/workflows/luca-v03-mobile-offline-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile-offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run 18 mobile tests against actual checked-out files
+        working-directory: research/v03_stage24
+        run: python -m unittest -v test_mobile_outcomes test_mobile_outcomes_integration
+      - name: Verify real mobile viewer source, not a test stub
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('research/v03_stage24/mobile_outcomes_viewer.html')
+          s=p.read_text(encoding='utf8')
+          assert len(s)>2000, 'VIEWER_IS_STUB_OR_TRUNCATED'
+          for required in ('<html', 'file.text()', 'LUCA_V03_MOBILE_OUTCOMES_V1', 'changes_pct', 'orders_allowed', 'NOT_VALIDATED', 'SEC_UNVERIFIED'):
+              assert required in s, f'VIEWER_MISSING_{required}'
+          print('REAL_VIEWER_SOURCE_STATIC_CHECK_OK')
+          PY
