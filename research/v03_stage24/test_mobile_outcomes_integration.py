@@ -22,7 +22,7 @@ def synthetic_raw(minutes=35):
             "all_grades": "D", "orders_allowed": False, "real_trades_allowed": False,
             "rows": [{"symbol": "TESTA", "grade": "D", "buy_allowed": False,
                       "ohlcv": bars,
-                      "signals": [{"signal": {"signal_bar_start_utc": bars[0]["t"]},
+                      "signals": [{"signal": {"signal_bar_start_utc": bars[5]["t"]},
                                    "calculation_input_ohlcv": bars[:6]}]}]}
 
 class MobileIntegrationTests(unittest.TestCase):
@@ -31,7 +31,7 @@ class MobileIntegrationTests(unittest.TestCase):
         self.assertEqual(report["schema"], "LUCA_V03_MOBILE_OUTCOMES_V1")
         self.assertEqual(report["signals"][0]["symbol"], "TESTA")
         self.assertIsNone(report["signals"][0]["changes_pct"]["60"])
-        self.assertEqual(report["signals"][0]["changes_pct"]["5"], 5.0)
+        self.assertEqual(report["signals"][0]["changes_pct"]["5"], round((110/105-1)*100, 4))
         self.assertFalse(report["orders_allowed"])
         self.assertIn("확인 불가", markdown(report))
     def test_json_serialization_has_no_nan(self):
@@ -40,7 +40,7 @@ class MobileIntegrationTests(unittest.TestCase):
     def test_unobserved_future_not_fabricated(self):
         raw = synthetic_raw(6)
         changes = build_report(raw)["signals"][0]["changes_pct"]
-        self.assertEqual(changes["5"], 5.0)
+        self.assertIsNone(changes["5"])
         self.assertIsNone(changes["15"])
         self.assertIsNone(changes["30"])
         self.assertIsNone(changes["60"])
