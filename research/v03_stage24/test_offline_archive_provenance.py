@@ -135,6 +135,22 @@ class ClaimedProvenanceTests(unittest.TestCase):
         self.assertIn("ZERO_BAR_RECEIPT_CANNOT_ESTABLISH_PRICE_COLLECTION", result["warnings"])
         self.assertEqual(result["receipts"][0]["raw_bar_count"], 0)
 
+    def test_non_string_day_rejected_cleanly(self):
+        self.r1["session_day_ny"] = []
+        with self.assertRaisesRegex(ValueError, "RECEIPT_DAY_MISSING_OR_DUPLICATED"):
+            self.audit()
+
+    def test_non_string_source_kind_rejected_cleanly(self):
+        self.r1["source_kind"] = []
+        with self.assertRaisesRegex(ValueError, "UNVERIFIED_SOURCE_KIND_REQUIRED"):
+            self.audit()
+
+    def test_future_bars_are_outcomes_not_asof_evidence(self):
+        result = self.audit()
+        self.assertGreater(result["receipts"][0]["post_reference_raw_bar_count"], 0)
+        self.assertIn("POST_REFERENCE_BARS_ARE_OUTCOMES_NOT_ASOF_SIGNAL_EVIDENCE",
+                      result["warnings"])
+
     def test_observation_id_mismatch_rejected(self):
         self.r1["observation_id"] = "different"
         with self.assertRaisesRegex(ValueError, "RECEIPT_OBSERVATION_ID_MISMATCH"):
