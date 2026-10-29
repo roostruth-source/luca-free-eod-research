@@ -44,6 +44,24 @@ class MobileIntegrationTests(unittest.TestCase):
         self.assertIsNone(changes["15"])
         self.assertIsNone(changes["30"])
         self.assertIsNone(changes["60"])
+    def test_signal_timestamp_is_last_input_bar_not_first(self):
+        raw = synthetic_raw()
+        bars = raw["rows"][0]["ohlcv"]
+        raw["rows"][0]["signals"][0]["signal"]["signal_bar_start_utc"] = bars[5]["t"]
+        raw["rows"][0]["signals"][0]["calculation_input_ohlcv"] = bars[:6]
+        item = build_report(raw)["signals"][0]
+        self.assertEqual(item["signal_bar_close"], 105)
+        self.assertEqual(item["changes_pct"]["5"], round((110 / 105 - 1) * 100, 4))
+
+    def test_archive_signal_is_end_of_six_bar_context(self):
+        raw = synthetic_raw()
+        bars = raw["rows"][0]["ohlcv"]
+        raw["rows"][0]["signals"][0]["signal"]["signal_bar_start_utc"] = bars[5]["t"]
+        raw["rows"][0]["signals"][0]["calculation_input_ohlcv"] = bars[:6]
+        self.assertEqual(
+            raw["rows"][0]["signals"][0]["signal"]["signal_bar_start_utc"],
+            raw["rows"][0]["signals"][0]["calculation_input_ohlcv"][-1]["t"])
+
     def test_mobile_viewer_accepts_report_contract(self):
         report = build_report(synthetic_raw())
         viewer = Path(__file__).with_name("mobile_outcomes_viewer.html").read_text(encoding="utf8")
