@@ -42,6 +42,15 @@ def _in_regular_session(instant, day):
     return local.date() == day and OPEN <= local.time().replace(tzinfo=None) < close
 
 
+def _price_sequence_fingerprint(raw):
+    # Time-independent warning only: matching prices may be legitimate.
+    sequence = [{"symbol": row["symbol"],
+                 "bars": [{key: bar.get(key) for key in ("o", "h", "l", "c", "v")}
+                          for bar in row["ohlcv"]]}
+                for row in sorted(raw["rows"], key=lambda r: r["symbol"])]
+    return hashlib.sha256(canonical(sequence).encode("utf8")).hexdigest()
+
+
 def audit_session_bundle(sessions):
     """Require distinct NY session dates, commitment IDs and raw contents.
 
@@ -52,6 +61,8 @@ def audit_session_bundle(sessions):
     if not isinstance(sessions, list) or not sessions:
         raise ValueError("MISSING_SESSION_BUNDLE")
     days, ids, raw_hashes = set(), set(), set()
+    price_fingerprints = {}
+    repeated_price_sequences = []
     counts = Counter()
     summaries = []
     for item in sessions:
@@ -75,6 +86,8 @@ def audit_session_bundle(sessions):
         anchor = payload.get("reference_time_utc")
         if not _in_regular_session(anchor, day):
             raise ValueError("REFERENCE_OUTSIDE_DECLARED_NY_SESSION")
+        if _time(anchor).second or _time(anchor).microsecond:
+            raise ValueError("REFERENCE_NOT_MINUTE_ALIGNED")
         # Validate all raw safety fields, every six-bar signal, fixed reference
         # time, commitment hash and frozen candidate universe before counting.
         result = scorecard(raw, manifest)
@@ -84,10 +97,21 @@ def audit_session_bundle(sessions):
             for bar in row["ohlcv"]:
                 if not _in_regular_session(bar["t"], day):
                     raise ValueError("RAW_BAR_OUTSIDE_DECLARED_NY_SESSION")
+                stamp = _time(bar["t"])
+                if stamp.second or stamp.microsecond:
+                    raise ValueError("RAW_BAR_NOT_MINUTE_ALIGNED")
         fingerprint = hashlib.sha256(canonical(raw).encode("utf8")).hexdigest()
         if fingerprint in raw_hashes:
             raise ValueError("REUSED_RAW_ARCHIVE_CONTENT")
         raw_hashes.add(fingerprint)
+        price_signature = _price_sequence_fingerprint(raw)
+        if price_signature in price_fingerprints:
+            repeated_price_sequences.append({
+                "first_session_day_ny": price_fingerprints[price_signature],
+                "repeated_session_day_ny": day.isoformat(),
+            })
+        else:
+            price_fingerprints[price_signature] = day.isoformat()
         ids.add(observation_id)
         days.add(day)
         symbols = [row["symbol"] for row in raw["rows"]]
@@ -110,6 +134,8 @@ def audit_session_bundle(sessions):
                 "SESSION_RECORDS_NOT_INDEPENDENT_SAMPLES"]
     if repeated:
         warnings.append("REPEATED_SYMBOL_ACROSS_DAYS_NOT_INDEPENDENT")
+    if repeated_price_sequences:
+        warnings.append("IDENTICAL_PRICE_SEQUENCE_ACROSS_DAYS_REVIEW")
     if any(s["calendar_status"] == "SCHEDULED_EARLY_CLOSE" for s in summaries):
         warnings.append("EARLY_CLOSE_REQUIRES_MISSING_HORIZON_REVIEW")
     return {
@@ -118,6 +144,7 @@ def audit_session_bundle(sessions):
         "unique_symbols": len(counts),
         "symbol_session_pairs": sum(counts.values()),
         "repeated_symbols": repeated,
+        "matching_price_sequences_ignoring_timestamps": repeated_price_sequences,
         "extra_symbol_sessions_beyond_first": sum(n - 1 for n in counts.values()),
         "sessions": sorted(summaries, key=lambda s: s["session_day_ny"]),
         "independent_session_count_verified": 0,
@@ -133,5 +160,5 @@ def audit_session_bundle(sessions):
         "orders_allowed": False,
         "real_trades_allowed": False,
         "warnings": warnings,
-        "note_ko": "날짜마다 다른 원본·기준 시각·종목 명단이 있는지만 오프라인 검사했습니다. 실제 수집 여부와 사전 등록 시각은 확인하지 못했습니다. 종목-날짜 기록을 독립 표본이나 검증된 승률로 계산하지 않습니다.",
+        "note_ko": "날짜마다 다른 원본·기준 시각·종목 명단이 있는지만 오프라인 검사했습니다. 날짜만 바꾼 동일 가격 배열은 검토 경고를 표시하며 실제 수집 여부는 증명하지 못합니다. 종목-날짜 기록을 독립 표본이나 검증된 승률로 계산하지 않습니다.",
     }
