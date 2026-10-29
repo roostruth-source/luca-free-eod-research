@@ -8,28 +8,28 @@ from mobile_outcomes import build_report, markdown
 UTC = dt.timezone.utc
 START = dt.datetime(2026, 10, 29, 14, 0, tzinfo=UTC)
 
-def sample(length=61, signal_indices=(0,)):
+def sample(length=66, signal_indices=(5,)):
     bars = [{"t": (START + dt.timedelta(minutes=i)).isoformat(), "c": 100 + i} for i in range(length)]
     return {"schema": "LUCA_V03_IEX_RAW_OHLCV_EVIDENCE_V1",
             "validation_status": "NOT_VALIDATED", "sec_status": "SEC_UNVERIFIED",
             "orders_allowed": False, "real_trades_allowed": False, "all_grades": "D",
             "rows": [{"symbol": "TEST", "ohlcv": bars,
-                      "signals": [{"signal": {"signal_bar_start_utc": bars[i]["t"]}} for i in signal_indices]}]}
+                      "signals": [{"signal": {"signal_bar_start_utc": bars[i]["t"]}, "calculation_input_ohlcv": bars[i-5:i+1]} for i in signal_indices]}]}
 
 class MobileOutcomeTests(unittest.TestCase):
     def test_all_horizons(self):
         r = build_report(sample())["signals"][0]["changes_pct"]
-        self.assertEqual(r, {"5": 5.0, "15": 15.0, "30": 30.0, "60": 60.0})
+        self.assertEqual(r, {str(n): round(((105+n)/105-1)*100,4) for n in (5,15,30,60)})
     def test_short_window_never_invents_60min(self):
         r = build_report(sample(35))["signals"][0]["changes_pct"]
         self.assertIsNone(r["60"])
-        self.assertEqual(r["30"], 30.0)
+        self.assertEqual(r["30"], round((135/105-1)*100,4))
     def test_missing_minute_is_unknown_not_zero(self):
         raw = sample()
-        raw["rows"][0]["ohlcv"] = [b for i,b in enumerate(raw["rows"][0]["ohlcv"]) if i != 15]
+        raw["rows"][0]["ohlcv"] = [b for i,b in enumerate(raw["rows"][0]["ohlcv"]) if i != 20]
         self.assertIsNone(build_report(raw)["signals"][0]["changes_pct"]["15"])
     def test_multiple_signals_separately(self):
-        r = build_report(sample(signal_indices=(0, 10)))["signals"]
+        r = build_report(sample(signal_indices=(5, 10)))["signals"]
         self.assertEqual(len(r), 2)
         self.assertEqual(r[1]["changes_pct"]["5"], round((115/110-1)*100,4))
     def test_duplicate_bars_rejected(self):
@@ -68,8 +68,9 @@ class MobileOutcomeTests(unittest.TestCase):
         raw=sample(signal_indices=())
         self.assertIn("신호 없음", markdown(build_report(raw)))
     def test_missing_baseline(self):
-        raw=sample();raw["rows"][0]["ohlcv"]=raw["rows"][0]["ohlcv"][1:]
-        self.assertTrue(all(x is None for x in build_report(raw)["signals"][0]["changes_pct"].values()))
+        raw=sample();raw["rows"][0]["ohlcv"]=raw["rows"][0]["ohlcv"][6:]
+        with self.assertRaisesRegex(ValueError, "SIGNAL_INPUT_BAR_MISMATCH"):
+            build_report(raw)
 
 if __name__=="__main__":
     unittest.main()
