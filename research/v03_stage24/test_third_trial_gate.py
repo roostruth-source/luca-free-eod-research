@@ -3,8 +3,10 @@ import datetime as dt
 import unittest
 
 from third_trial_gate import (
-    approval_sha256, validate, BASELINE_COMMIT, BRANCH, HEADER,
+    approval_sha256, validate, validate_with_official_calendar,
+    BASELINE_COMMIT, BRANCH, HEADER,
 )
+from test_nyse_session_gate import official_opener
 
 
 UTC = dt.timezone.utc
@@ -26,11 +28,11 @@ def request(day="2026-10-29", expires=None, nonce=NONCE,
 
 
 def call(text=None, now=NOW, event="push", ref=BRANCH, attempt="1",
-         history=1, commit_at=None, secret=None, archives=0):
+         history=1, commit_at=None, secret=approval_sha256(NONCE), archives=0):
     return validate(
         request() if text is None else text, now, event, ref, attempt, history,
         commit_at or now - dt.timedelta(minutes=2),
-        secret or approval_sha256(NONCE), archives, BASELINE_COMMIT)
+        secret, archives, BASELINE_COMMIT)
 
 
 class ThirdTrialGateTests(unittest.TestCase):
@@ -45,7 +47,26 @@ class ThirdTrialGateTests(unittest.TestCase):
 
     def test_missing_or_wrong_secret_blocks(self):
         with self.assertRaisesRegex(ValueError, "USER_APPROVAL_SECRET_MISMATCH"):
+            call(secret="")
+        with self.assertRaisesRegex(ValueError, "USER_APPROVAL_SECRET_MISMATCH"):
             call(secret="0" * 64)
+
+    def test_authorization_precedes_official_calendar_and_market(self):
+        calls = []
+        with self.assertRaisesRegex(ValueError, "USER_APPROVAL_SECRET_MISMATCH"):
+            validate_with_official_calendar(
+                request(), NOW, "push", BRANCH, "1", 1,
+                NOW - dt.timedelta(minutes=1), "", 0, BASELINE_COMMIT,
+                calendar_opener=official_opener(calls=calls))
+        self.assertEqual(calls, [])
+
+    def test_authorized_request_requires_official_calendar(self):
+        result = validate_with_official_calendar(
+            request(), NOW, "push", BRANCH, "1", 1,
+            NOW - dt.timedelta(minutes=1), approval_sha256(NONCE), 0,
+            BASELINE_COMMIT, calendar_opener=official_opener())
+        self.assertTrue(result["nyse_holiday_calendar_verified"])
+        self.assertTrue(result["nyse_session_calendar"]["regular_session_confirmed"])
 
     def test_expired_approval_blocks(self):
         with self.assertRaisesRegex(ValueError, "EXPIRED_OR_OVERSIZED_APPROVAL_WINDOW"):

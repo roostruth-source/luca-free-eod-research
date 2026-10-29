@@ -16,9 +16,13 @@ from iex_raw_evidence import (
     write_new as write_raw_new,
 )
 from iex_timestamp_provenance import write_new as write_timestamp_new
+from nyse_session_gate import CALENDAR_MARKERS, CALENDAR_URL, STATUS_URL
 from prospective_iex_research import digest_frozen, freeze, write_json_new
 from third_durable_archive import build_archive, verify_archive
-from third_trial_gate import approval_sha256, validate, BASELINE_COMMIT, BRANCH, HEADER
+from third_trial_gate import (
+    approval_sha256, validate_with_official_calendar,
+    BASELINE_COMMIT, BRANCH, HEADER,
+)
 
 
 UTC = dt.timezone.utc
@@ -39,6 +43,26 @@ class FakeResponse:
 
     def __exit__(self, *args):
         return False
+
+    def read(self, count=-1):
+        return self.payload[:count]
+
+
+class FakeOfficialResponse:
+    status = 200
+
+    def __init__(self, url, text):
+        self.url = url
+        self.payload = text.encode("utf8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def geturl(self):
+        return self.url
 
     def read(self, count=-1):
         return self.payload[:count]
@@ -73,10 +97,23 @@ def run_dry_run(work_root):
         raise FileExistsError("SYNTHETIC_DRY_RUN_ROOT_EXISTS")
     root.mkdir(parents=True)
     nonce = "b" * 64
-    gate = validate(
+    calendar_calls = []
+
+    def fake_official_opener(request, timeout):
+        calendar_calls.append(request.full_url)
+        if request.get_method() != "GET":
+            raise AssertionError("SYNTHETIC_CALENDAR_NOT_GET")
+        if request.full_url == CALENDAR_URL:
+            return FakeOfficialResponse(CALENDAR_URL, " | ".join(CALENDAR_MARKERS))
+        if request.full_url == STATUS_URL:
+            return FakeOfficialResponse(STATUS_URL, "Market Status System Status Normal")
+        raise AssertionError("SYNTHETIC_CALENDAR_UNEXPECTED_URL")
+
+    gate = validate_with_official_calendar(
         _synthetic_request(nonce), T0, "push", BRANCH, "1", 1,
         T0 - dt.timedelta(minutes=1), approval_sha256(nonce), 0,
-        BASELINE_COMMIT)
+        BASELINE_COMMIT,
+        calendar_opener=fake_official_opener)
     enrichment = {
         "schema": "LUCA_V03_IEX_CANDIDATE_ENRICHMENT_V1",
         "status": "COLLECTED_UNVERIFIED",
@@ -125,7 +162,10 @@ def run_dry_run(work_root):
         "synthetic_only": True,
         "internet_or_real_market_api_used": False,
         "fake_get_calls": len(calls),
+        "fake_official_calendar_get_calls": len(calendar_calls),
         "gate_passed": gate["allowed"],
+        "official_calendar_live_verified":
+            gate["nyse_session_calendar"]["official_sources_live_verified"],
         "symbols": review["symbols"],
         "observed_iex_bars": review["observed_iex_bars"],
         "signal_symbols": review["forward_pattern_symbols"],

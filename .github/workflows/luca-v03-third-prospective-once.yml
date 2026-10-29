@@ -73,15 +73,41 @@ jobs:
         run: |
           if test ! -f luca_v03_third_forward/iex_raw_ohlcv_evidence.json; then
             echo 'archive_created=false' >> "$GITHUB_OUTPUT"
-            exit 0
+            python3 research/v03_stage24/third_archive_publish.py \
+              --run-id "$RUN_ID" \
+              --status luca_v03_third_publish_status.json \
+              --record-failure RAW_OHLCV_MISSING
+            exit 1
           fi
-          python3 research/v03_stage24/third_durable_archive.py \
-            --source luca_v03_third_forward \
+          if ! python3 research/v03_stage24/third_durable_archive.py \
+              --source luca_v03_third_forward \
+              --archive-root luca_v03_third_durable \
+              --run-id "$RUN_ID" \
+              --source-commit "$SOURCE_SHA" \
+              --allow-incomplete \
+              2>luca_v03_third_durable_error.txt; then
+            echo 'archive_created=false' >> "$GITHUB_OUTPUT"
+            python3 research/v03_stage24/third_archive_publish.py \
+              --run-id "$RUN_ID" \
+              --status luca_v03_third_publish_status.json \
+              --record-failure DURABLE_ARCHIVE_FAILED \
+              --raw-present
+            exit 1
+          fi
+          echo 'archive_created=true' >> "$GITHUB_OUTPUT"
+
+      - id: publish
+        name: Publish long-term archive and verify remote branch ref
+        if: always() && steps.durable.outputs.archive_created == 'true'
+        continue-on-error: true
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 research/v03_stage24/third_archive_publish.py \
+            --repo-root . \
             --archive-root luca_v03_third_durable \
             --run-id "$RUN_ID" \
-            --source-commit "$SOURCE_SHA" \
-            --allow-incomplete
-          echo 'archive_created=true' >> "$GITHUB_OUTPUT"
+            --status luca_v03_third_publish_status.json
 
       - name: Keep seven-day secondary Actions copy including failure evidence
         if: always()
@@ -91,24 +117,17 @@ jobs:
           path: |
             luca_v03_third_forward/
             luca_v03_third_durable/
+            luca_v03_third_publish_status.json
+            luca_v03_third_durable_error.txt
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Commit immutable long-term evidence to research branch
-        if: always() && steps.durable.outputs.archive_created == 'true'
+      - name: Fail run unless long-term raw archive is remotely verified
+        if: always()
         env:
           RUN_ID: ${{ github.run_id }}
         run: |
-          git config user.name 'luca-v03-evidence-bot'
-          git config user.email 'luca-v03-evidence-bot@users.noreply.github.com'
-          git fetch origin research/v03-stage24-evidence
-          git checkout research/v03-stage24-evidence
-          git pull --ff-only origin research/v03-stage24-evidence
-          target="research/v03_stage24/third_archives/$RUN_ID"
-          test ! -e "$target"
-          mkdir -p research/v03_stage24/third_archives
-          cp -R "luca_v03_third_durable/$RUN_ID" "$target"
-          git add -- "$target"
-          git diff --cached --quiet && exit 1
-          git commit -m "research: preserve immutable third IEX evidence run $RUN_ID [skip ci]"
-          git push origin HEAD:research/v03-stage24-evidence
+          python3 research/v03_stage24/third_archive_publish.py \
+            --run-id "$RUN_ID" \
+            --status luca_v03_third_publish_status.json \
+            --verify-status

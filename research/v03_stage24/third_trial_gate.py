@@ -12,6 +12,8 @@ import hashlib
 import hmac
 from zoneinfo import ZoneInfo
 
+from nyse_session_gate import verify_nyse_session
+
 
 UTC = dt.timezone.utc
 NY = ZoneInfo("America/New_York")
@@ -120,6 +122,20 @@ def validate(text, now, event_name, ref, run_attempt,
     }
 
 
+def validate_with_official_calendar(*args, calendar_opener=None, **kwargs):
+    """Run authorization first, then require live official NYSE confirmation."""
+    result = validate(*args, **kwargs)
+    session_day = dt.date.fromisoformat(result["session_day_ny"])
+    checked_at = dt.datetime.fromisoformat(result["checked_at_utc"])
+    if calendar_opener is None:
+        calendar = verify_nyse_session(session_day, checked_at)
+    else:
+        calendar = verify_nyse_session(session_day, checked_at, calendar_opener)
+    result["nyse_holiday_calendar_verified"] = True
+    result["nyse_session_calendar"] = calendar
+    return result
+
+
 def main():
     import json
     import os
@@ -147,7 +163,7 @@ def main():
         ["git", "rev-parse", "HEAD^"], text=True, timeout=15).strip()
     archive_root = Path("research/v03_stage24/third_archives")
     archives = [path for path in archive_root.iterdir() if path.is_dir()] if archive_root.exists() else []
-    result = validate(
+    result = validate_with_official_calendar(
         Path(REQUEST_PATH).read_text(encoding="utf8"), dt.datetime.now(UTC),
         os.getenv("GITHUB_EVENT_NAME", ""), os.getenv("GITHUB_REF", ""),
         os.getenv("GITHUB_RUN_ATTEMPT", ""), int(count_text), commit_time,

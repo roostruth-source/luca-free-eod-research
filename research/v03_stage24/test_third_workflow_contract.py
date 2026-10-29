@@ -48,8 +48,9 @@ class ThirdWorkflowContractTests(unittest.TestCase):
         self.assertIn("iex_raw_evidence.py", self.text)
         self.assertIn("replay_result.json", self.text)
         self.assertIn("third_durable_archive.py", self.text)
-        self.assertIn("third_archives/$RUN_ID", self.text)
-        self.assertIn("git push origin HEAD:research/v03-stage24-evidence", self.text)
+        self.assertIn("third_archive_publish.py", self.text)
+        self.assertIn("--verify-status", self.text)
+        self.assertIn("luca_v03_third_publish_status.json", self.text)
         self.assertIn("retention-days: 7", self.text)
 
     def test_no_production_site_orders_or_api_radar(self):
@@ -62,9 +63,21 @@ class ThirdWorkflowContractTests(unittest.TestCase):
 
     def test_write_permission_exists_only_for_durable_evidence_commit(self):
         self.assertIn("permissions:\n  contents: write", self.text)
-        self.assertEqual(self.text.count("git push"), 1)
-        self.assertIn("test ! -e \"$target\"", self.text)
-        self.assertIn("git add -- \"$target\"", self.text)
+        self.assertNotIn("git push", self.text)
+        publish = self.text.index("Publish long-term archive")
+        upload = self.text.index("Keep seven-day secondary Actions copy")
+        enforce = self.text.index("Fail run unless long-term raw archive")
+        self.assertLess(publish, upload)
+        self.assertLess(upload, enforce)
+        self.assertIn("continue-on-error: true", self.text)
+
+    def test_missing_raw_is_recorded_and_cannot_end_successfully(self):
+        self.assertIn("--record-failure RAW_OHLCV_MISSING", self.text)
+        self.assertIn("--record-failure DURABLE_ARCHIVE_FAILED", self.text)
+        self.assertIn("luca_v03_third_durable_error.txt", self.text)
+        self.assertIn("archive_created=false", self.text)
+        self.assertGreaterEqual(self.text.count("exit 1"), 2)
+        self.assertIn("if: always()", self.text)
 
     def test_baseline_formula_and_request_constants_are_fixed(self):
         self.assertEqual(BASELINE_COMMIT, "6d8ef32fd0de22ed61675cbbccadefed0fe26945")
