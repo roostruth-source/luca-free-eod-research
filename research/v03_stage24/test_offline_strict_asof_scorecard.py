@@ -133,6 +133,7 @@ class StrictAsofScorecardTests(unittest.TestCase):
         self.assertEqual(report["validation_status"], "NOT_VALIDATED")
         self.assertEqual(report["sec_status"], "SEC_UNVERIFIED")
         self.assertEqual(report["all_grades"], "D")
+        self.assertEqual(report["operating_mode"], "NO_ORDERS")
         self.assertFalse(report["orders_allowed"])
         self.assertFalse(report["real_trades_allowed"])
         self.assertFalse(report["prediction_accuracy_verified"])
