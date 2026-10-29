@@ -4,6 +4,8 @@ on:
     branches:
       - feature/v03-mobile-report-20261029
     paths:
+      - research/v03_stage24/offline_multisession_audit.py
+      - research/v03_stage24/test_offline_multisession_audit.py
       - research/v03_stage24/offline_session_integrity.py
       - research/v03_stage24/test_offline_session_integrity.py
       - research/v03_stage24/nyse_session_gate.py
