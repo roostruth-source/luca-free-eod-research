@@ -1,0 +1,114 @@
+# THIRD PROSPECTIVE OBSERVATION ONLY. Dormant until the user separately
+# approves and a brand-new third_prospective_request.txt is committed.
+# Ordinary pushes, manual dispatch, schedules and old request files cannot run it.
+name: LUCA V03 third approved IEX prospective once with durable raw evidence
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/third_prospective_request.txt'
+permissions:
+  contents: write
+concurrency:
+  group: luca-v03-third-prospective-once
+  cancel-in-progress: false
+jobs:
+  third-approved-future-only:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify fresh two-key user approval before any market API
+        env:
+          LUCA_V03_THIRD_APPROVAL_SHA256: ${{ secrets.LUCA_V03_THIRD_APPROVAL_SHA256 }}
+        run: python3 research/v03_stage24/third_trial_gate.py
+
+      - name: Run complete offline safety regression before any market API
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+
+      - name: Rehearse full path with synthetic bars and no internet
+        run: python3 research/v03_stage24/third_trial_dry_run.py
+
+      - name: Freeze third independent candidate list after approved real GET discovery
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_third_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase freeze
+
+      - name: Wait 16 minutes without modifying frozen T0
+        run: sleep 960
+
+      - id: review
+        name: Review unchanged formula and archive timestamps plus raw OHLCV
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_third_forward
+        run: |
+          cd research/v03_stage24
+          python3 -c "from future_iex_review import review_future_session; review_future_session('../../luca_v03_third_forward')"
+
+      - id: replay
+        name: Recalculate actual signals from archived OHLCV and compare exactly
+        run: |
+          python3 research/v03_stage24/iex_raw_evidence.py \
+            --frozen luca_v03_third_forward/frozen_t0.json \
+            --review luca_v03_third_forward/forward_review.json \
+            --timestamps luca_v03_third_forward/iex_timestamp_provenance.json \
+            --raw-evidence luca_v03_third_forward/iex_raw_ohlcv_evidence.json \
+            --output luca_v03_third_forward/replay_result.json
+
+      - id: durable
+        name: Prepare immutable long-term git archive or fail-closed quarantine
+        if: always()
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if test ! -f luca_v03_third_forward/iex_raw_ohlcv_evidence.json; then
+            echo 'archive_created=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 research/v03_stage24/third_durable_archive.py \
+            --source luca_v03_third_forward \
+            --archive-root luca_v03_third_durable \
+            --run-id "$RUN_ID" \
+            --source-commit "$SOURCE_SHA" \
+            --allow-incomplete
+          echo 'archive_created=true' >> "$GITHUB_OUTPUT"
+
+      - name: Keep seven-day secondary Actions copy including failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-third-prospective-${{ github.run_id }}
+          path: |
+            luca_v03_third_forward/
+            luca_v03_third_durable/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Commit immutable long-term evidence to research branch
+        if: always() && steps.durable.outputs.archive_created == 'true'
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          git config user.name 'luca-v03-evidence-bot'
+          git config user.email 'luca-v03-evidence-bot@users.noreply.github.com'
+          git fetch origin research/v03-stage24-evidence
+          git checkout research/v03-stage24-evidence
+          git pull --ff-only origin research/v03-stage24-evidence
+          target="research/v03_stage24/third_archives/$RUN_ID"
+          test ! -e "$target"
+          mkdir -p research/v03_stage24/third_archives
+          cp -R "luca_v03_third_durable/$RUN_ID" "$target"
+          git add -- "$target"
+          git diff --cached --quiet && exit 1
+          git commit -m "research: preserve immutable third IEX evidence run $RUN_ID [skip ci]"
+          git push origin HEAD:research/v03-stage24-evidence
