@@ -58,7 +58,7 @@ def audit_claimed_receipts(sessions, receipts):
         if not isinstance(receipt, dict):
             raise ValueError("INVALID_RECEIPT")
         day = receipt.get("session_day_ny")
-        if day not in session_map or day in seen_days:
+        if not isinstance(day, str) or day not in session_map or day in seen_days:
             raise ValueError("RECEIPT_DAY_MISSING_OR_DUPLICATED")
         seen_days.add(day)
         expected = session_map[day]
@@ -74,7 +74,7 @@ def audit_claimed_receipts(sessions, receipts):
         seen_captures.add(capture_id)
         source_label = _identifier(receipt.get("source_label"), "SOURCE_LABEL")
         source_kind = receipt.get("source_kind")
-        if source_kind not in ALLOWED_SOURCE_KINDS:
+        if not isinstance(source_kind, str) or source_kind not in ALLOWED_SOURCE_KINDS:
             raise ValueError("UNVERIFIED_SOURCE_KIND_REQUIRED")
         if (receipt.get("validation_status") != "NOT_VALIDATED"
                 or receipt.get("sec_status") != "SEC_UNVERIFIED"
@@ -104,6 +104,8 @@ def audit_claimed_receipts(sessions, receipts):
             warnings.append("ZERO_BAR_RECEIPT_CANNOT_ESTABLISH_PRICE_COLLECTION")
         if source_kind == "SYNTHETIC":
             warnings.append("SYNTHETIC_RECEIPT_NOT_MARKET_EVIDENCE")
+        if any(stamp >= anchor for stamp in stamps):
+            warnings.append("POST_REFERENCE_BARS_ARE_OUTCOMES_NOT_ASOF_SIGNAL_EVIDENCE")
         details.append({
             "session_day_ny": day,
             "observation_id": expected["observation_id"],
