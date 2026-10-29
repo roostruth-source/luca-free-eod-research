@@ -86,6 +86,31 @@ class MultiSessionAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "RAW_BAR_NOT_MINUTE_ALIGNED"):
             audit_session_bundle([item])
 
+    def test_zero_bar_session_not_mistaken_for_price_evidence(self):
+        item = session()
+        for row in item["raw"]["rows"]:
+            row["ohlcv"] = []
+            row["signals"] = []
+        report = audit_session_bundle([item])
+        self.assertEqual(report["claimed_session_days_with_structurally_consistent_records"], 1)
+        self.assertEqual(report["sessions_with_any_price_bar"], 0)
+        self.assertEqual(report["zero_bar_session_days"], ["2026-10-29"])
+        self.assertIn("ZERO_BAR_SESSIONS_HAVE_NO_PRICE_EVIDENCE", report["warnings"])
+
+    def test_out_of_order_raw_bars_rejected(self):
+        item = session()
+        bars = item["raw"]["rows"][0]["ohlcv"]
+        bars[-1], bars[-2] = bars[-2], bars[-1]
+        with self.assertRaisesRegex(ValueError, "RAW_BARS_NOT_CHRONOLOGICAL"):
+            audit_session_bundle([item])
+
+    def test_new_york_dst_switch_respected(self):
+        item = session("2026-11-02", "after-dst")
+        report = audit_session_bundle([item])
+        self.assertEqual(report["sessions"][0]["reference_time_utc"],
+                         "2026-11-02T15:05:00+00:00")
+        self.assertEqual(report["sessions_with_any_price_bar"], 1)
+
     def test_duplicate_ny_day_rejected(self):
         with self.assertRaisesRegex(ValueError, "DUPLICATE_NY_SESSION_DAY"):
             audit_session_bundle([session(), session(observation_id="day-2")])
