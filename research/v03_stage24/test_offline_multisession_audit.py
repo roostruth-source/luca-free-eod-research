@@ -55,6 +55,37 @@ class MultiSessionAuditTests(unittest.TestCase):
         self.assertEqual(report["symbol_session_pairs"], 3)
         self.assertEqual(report["repeated_symbols"], {"TESTA": 2})
 
+    def test_shifted_identical_price_sequence_warns(self):
+        report = audit_session_bundle([session(), session("2026-10-30", "day-2")])
+        self.assertIn("IDENTICAL_PRICE_SEQUENCE_ACROSS_DAYS_REVIEW", report["warnings"])
+        self.assertEqual(report["matching_price_sequences_ignoring_timestamps"],
+                         [{"first_session_day_ny": "2026-10-29",
+                           "repeated_session_day_ny": "2026-10-30"}])
+
+    def test_different_price_sequence_no_copy_warning(self):
+        first, second = session(), session("2026-10-30", "day-2")
+        second["raw"]["rows"][0]["ohlcv"][6]["c"] += 0.5
+        report = audit_session_bundle([first, second])
+        self.assertEqual(report["matching_price_sequences_ignoring_timestamps"], [])
+        self.assertNotIn("IDENTICAL_PRICE_SEQUENCE_ACROSS_DAYS_REVIEW", report["warnings"])
+
+    def test_non_minute_reference_rejected(self):
+        item = session()
+        anchor = dt.datetime.fromisoformat(item["manifest"]["payload"]["reference_time_utc"])
+        item["manifest"] = create_commitment(
+            (anchor + dt.timedelta(seconds=30)).isoformat(),
+            ["TESTA", "NO_SIGNAL"], "day-1")
+        with self.assertRaisesRegex(ValueError, "REFERENCE_NOT_MINUTE_ALIGNED"):
+            audit_session_bundle([item])
+
+    def test_non_minute_raw_bar_rejected(self):
+        item = session()
+        bar = item["raw"]["rows"][0]["ohlcv"][-1]
+        bar["t"] = (dt.datetime.fromisoformat(bar["t"]) +
+                    dt.timedelta(seconds=30)).isoformat()
+        with self.assertRaisesRegex(ValueError, "RAW_BAR_NOT_MINUTE_ALIGNED"):
+            audit_session_bundle([item])
+
     def test_duplicate_ny_day_rejected(self):
         with self.assertRaisesRegex(ValueError, "DUPLICATE_NY_SESSION_DAY"):
             audit_session_bundle([session(), session(observation_id="day-2")])
