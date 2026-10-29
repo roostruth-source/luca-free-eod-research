@@ -4,6 +4,8 @@ on:
     branches:
       - feature/v03-mobile-report-20261029
     paths:
+      - research/v03_stage24/offline_strict_asof_scorecard.py
+      - research/v03_stage24/test_offline_strict_asof_scorecard.py
       - research/v03_stage24/offline_asof_availability.py
       - research/v03_stage24/test_offline_asof_availability.py
       - research/v03_stage24/offline_archive_provenance.py
