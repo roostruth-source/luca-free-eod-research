@@ -48,7 +48,9 @@ def build_report(raw):
     output = []
     seen_symbols = set()
     for row in rows:
-        if not isinstance(row, dict) or row.get("grade", "D") != "D" or row.get("buy_allowed", False) is not False:
+        if not isinstance(row, dict):
+            raise ValueError("INVALID_ROW")
+        if row.get("grade", "D") != "D" or row.get("buy_allowed", False) is not False:
             raise ValueError("UNSAFE_ROW")
         symbol = row.get("symbol")
         if not isinstance(symbol, str) or not symbol or symbol in seen_symbols:
