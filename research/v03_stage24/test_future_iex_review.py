@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from future_iex_review import review_future_session
+from iex_raw_evidence import replay_raw_evidence
 from test_live_trial_contract import make_synthetic
 from test_prospective_iex_research import T1,make_bar
 
@@ -47,10 +48,11 @@ class FutureReviewTests(unittest.TestCase):
         with patch("iex_provenance_adapter.dt",fake):
             return review_future_session(self.root,T1,opener or self.opener)
 
-    def test_writes_both_original_schema_and_timestamp_evidence(self):
+    def test_writes_review_timestamps_and_raw_replay_evidence(self):
         result,evidence=self.run_future()
         old=json.loads((self.root/"forward_review.json").read_text())
         extra=json.loads((self.root/"iex_timestamp_provenance.json").read_text())
+        raw=json.loads((self.root/"iex_raw_ohlcv_evidence.json").read_text())
         self.assertEqual(old,result)
         self.assertEqual(extra,evidence)
         self.assertEqual(old["schema"],"LUCA_V03_PROSPECTIVE_IEX_REVIEW_V1")
@@ -61,6 +63,10 @@ class FutureReviewTests(unittest.TestCase):
         self.assertEqual(old["results"][0]["grade"],"D")
         self.assertFalse(old["real_trades_allowed"])
         self.assertFalse(extra["real_trades_allowed"])
+        replay=replay_raw_evidence(raw,self.frozen,old,extra)
+        self.assertTrue(replay["recorded_review_exact_match"])
+        self.assertEqual(raw["rows"][0]["ohlcv"],self.bars)
+        self.assertEqual(len(raw["rows"][0]["signals"][0]["calculation_input_ohlcv"]),6)
         self.assertEqual(json.loads((self.root/"frozen_t0.json").read_text()),self.frozen)
 
     def test_refuses_repeat_without_new_http_request(self):
@@ -79,6 +85,11 @@ class FutureReviewTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.run_future()
 
+    def test_refuses_existing_raw_evidence(self):
+        (self.root/"iex_raw_ohlcv_evidence.json").write_text("{}")
+        with self.assertRaises(FileExistsError):
+            self.run_future()
+
     def test_bad_frozen_hash_blocks_before_http(self):
         frozen=copy.deepcopy(self.frozen)
         frozen["candidates"]=["AAPL"]
@@ -92,6 +103,7 @@ class FutureReviewTests(unittest.TestCase):
             self.run_future(failed)
         self.assertFalse((self.root/"forward_review.json").exists())
         self.assertFalse((self.root/"iex_timestamp_provenance.json").exists())
+        self.assertFalse((self.root/"iex_raw_ohlcv_evidence.json").exists())
 
     def test_empty_iex_is_not_zero_return_or_signal(self):
         result,evidence=self.run_future(lambda req,timeout:Response(
@@ -100,6 +112,9 @@ class FutureReviewTests(unittest.TestCase):
         self.assertEqual(result["forward_pattern_symbols"],0)
         self.assertTrue(evidence["missing_iex_bar_cause_unknown"])
         self.assertTrue(evidence["api_fetch"]["all_pages_successful"])
+        raw=json.loads((self.root/"iex_raw_ohlcv_evidence.json").read_text())
+        self.assertEqual(raw["rows"][0]["record_status"],"NO_IEX_BARS_RECORDED")
+        self.assertEqual(raw["rows"][0]["ohlcv"],[])
 
     def test_missing_credentials_blocks(self):
         with patch.dict(os.environ,{"ALPACA_KEY":"","ALPACA_SECRET":""}):
@@ -116,7 +131,8 @@ class FutureReviewTests(unittest.TestCase):
     def test_does_not_create_any_other_file(self):
         self.run_future()
         self.assertEqual(sorted(p.name for p in self.root.iterdir()),[
-            "forward_review.json","frozen_t0.json","iex_timestamp_provenance.json"])
+            "forward_review.json","frozen_t0.json","iex_raw_ohlcv_evidence.json",
+            "iex_timestamp_provenance.json"])
 
 if __name__=="__main__":
     unittest.main()

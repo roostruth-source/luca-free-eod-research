@@ -101,6 +101,10 @@ class SecondSourceWorkflowE2ETests(unittest.TestCase):
         self.assertEqual(provenance["api_fetch"]["page_count"],1)
         self.assertEqual(provenance["rows"][0]["observed_minutes"],12)
         self.assertEqual(provenance["expected_minutes_per_symbol"],15)
+        raw=json.loads((self.folder/"iex_raw_ohlcv_evidence.json").read_text())
+        self.assertEqual(raw["observed_iex_bars"],12)
+        self.assertEqual(raw["signal_symbols"],1)
+        self.assertFalse(raw["orders_allowed"])
         self.assertEqual(json.loads((self.folder/"frozen_t0.json").read_text())["sha256"],digest)
         compared=build_verified_comparison(load_verified(),META,frozen,observed,provenance,ART)
         self.assertEqual(compared["second"]["observed"],12)
@@ -124,6 +128,7 @@ class SecondSourceWorkflowE2ETests(unittest.TestCase):
             self.review(lambda req,timeout:self.get(req,timeout,bars={"GPUS":corrupted}))
         self.assertFalse((self.folder/"forward_review.json").exists())
         self.assertFalse((self.folder/"iex_timestamp_provenance.json").exists())
+        self.assertFalse((self.folder/"iex_raw_ohlcv_evidence.json").exists())
 
     def test_unverified_http_status_blocks_archival(self):
         self.freeze()
@@ -131,6 +136,7 @@ class SecondSourceWorkflowE2ETests(unittest.TestCase):
             self.review(lambda req,timeout:self.get(req,timeout,status=503))
         self.assertFalse((self.folder/"forward_review.json").exists())
         self.assertFalse((self.folder/"iex_timestamp_provenance.json").exists())
+        self.assertFalse((self.folder/"iex_raw_ohlcv_evidence.json").exists())
 
     def test_duplicate_freeze_file_is_not_overwritten(self):
         f=self.freeze()

@@ -3,7 +3,8 @@
 Preserves existing fetch_after_freeze and review logic unchanged. Uses only the
 actual HTTP response status and terminal page token; never invents an API success
 or infers a missing IEX bar means the stock had no trades market-wide.
-Not wired into the one-off live workflow. No API call on import.
+No API call on import. The separate raw archive reuses these exact returned
+bars; it never performs a second market-data request.
 """
 from __future__ import annotations
 
@@ -56,8 +57,8 @@ class _ObservedResponse:
         return payload
 
 
-def fetch_review_with_provenance(frozen,review_time,key,secret,
-                                 recorded_at,opener=None):
+def _fetch_review_with_provenance(frozen,review_time,key,secret,
+                                  recorded_at,opener=None):
     """Fetch once after T0, review unchanged, then return timestamp evidence.
 
     A failed GET, missing HTTP status, incomplete pagination or invalid review
@@ -88,4 +89,19 @@ def fetch_review_with_provenance(frozen,review_time,key,secret,
     # Explicit recorded_at is supported only for deterministic offline tests.
     completed_at=recorded_at if recorded_at is not None else dt.datetime.now(UTC)
     evidence=build_minute_provenance(frozen,checked,bars,completed_at,api)
+    return checked,evidence,bars
+
+
+def fetch_review_with_provenance(frozen,review_time,key,secret,
+                                 recorded_at,opener=None):
+    """Backward-compatible two-result interface; raw bars are not exposed."""
+    checked,evidence,_=_fetch_review_with_provenance(
+        frozen,review_time,key,secret,recorded_at,opener)
     return checked,evidence
+
+
+def fetch_review_with_raw_bars(frozen,review_time,key,secret,
+                               recorded_at,opener=None):
+    """Return the same reviewed bars for a separate immutable OHLCV archive."""
+    return _fetch_review_with_provenance(
+        frozen,review_time,key,secret,recorded_at,opener)
