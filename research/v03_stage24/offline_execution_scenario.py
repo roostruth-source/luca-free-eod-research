@@ -20,11 +20,14 @@ def scenario(bid, ask, quantity, slippage_bps=0, halted=False, bid_size=None, as
     spread_pct = (ask - bid) / ask * 100
     buy = ask * (1 + slippage_bps / 10000)
     sell = bid * (1 - slippage_bps / 10000)
+    round_trip_pct = None if halted else (sell / buy - 1) * 100
+    if not all(math.isfinite(v) for v in (spread_pct, buy, sell)) or (round_trip_pct is not None and not math.isfinite(round_trip_pct)):
+        raise ValueError("NONFINITE_SYNTHETIC_RESULT")
     return {
         "schema": "LUCA_V03_SYNTHETIC_EXECUTION_SCENARIO_V1",
         "hypothetical_buy": None if halted else buy,
         "hypothetical_sell": None if halted else sell,
-        "hypothetical_round_trip_pct": None if halted else (sell / buy - 1) * 100,
+        "hypothetical_round_trip_pct": round_trip_pct,
         "quoted_spread_pct": spread_pct,
         "quantity": quantity,
         "depth_claim_sufficient": depth_sufficient,
