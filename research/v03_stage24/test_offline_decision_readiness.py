@@ -136,6 +136,35 @@ class DecisionReadinessTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UNSAFE_EVIDENCE"):
             audit_decision_readiness([item], [0], [0])
 
+    def test_exact_sixty_second_processing_boundary(self):
+        before = audit_decision_readiness([at_reference(session(), 6)], [0], [60])
+        after = audit_decision_readiness([at_reference(session(), 7)], [0], [60])
+        self.assertFalse(symbol_row(before, compute=60)["signal_ready_by_reference"])
+        self.assertTrue(symbol_row(after, compute=60)["signal_ready_by_reference"])
+
+    def test_thanksgiving_holiday_rejected(self):
+        with self.assertRaisesRegex(ValueError, "CLOSED_OR_UNSUPPORTED_NY_SESSION_DATE"):
+            audit_decision_readiness([session("2026-11-26")], [0], [0])
+
+    def test_early_close_warning_retained(self):
+        report = audit_decision_readiness([session("2026-11-27", "early")], [0], [0])
+        self.assertIn("EARLY_CLOSE_REQUIRES_MISSING_HORIZON_REVIEW", report["warnings"])
+
+    def test_new_york_dst_offset_preserved(self):
+        report = audit_decision_readiness([session("2026-11-02", "dst")], [0], [0])
+        self.assertEqual(report["sessions"][0]["reference_time_utc"],
+                         "2026-11-02T15:05:00+00:00")
+
+    def test_zero_bar_session_never_claims_signal_or_price(self):
+        item = session()
+        for row in item["raw"]["rows"]:
+            row["ohlcv"] = []
+            row["signals"] = []
+        report = audit_decision_readiness([item], [0], [0])
+        self.assertEqual(scenario(report)["ready_signal_count"], 0)
+        self.assertEqual(scenario(report)["missing_reference_bar_count"], 2)
+        self.assertIn("ZERO_BAR_SESSIONS_HAVE_NO_PRICE_EVIDENCE", report["warnings"])
+
     def test_safety_flags_and_uncertainty_preserved(self):
         report = audit_decision_readiness([session()], [0], [0])
         self.assertEqual(report["validation_status"], "NOT_VALIDATED")
