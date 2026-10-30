@@ -32,6 +32,14 @@ def scenario(bid, ask, quantity, slippage_bps=0, halted=False, bid_size=None, as
         "depth_claim_exceeded": ((bid_size is not None and quantity > bid_size)
                                  or (ask_size is not None and quantity > ask_size)),
         "depth_authenticated": False,
+        "hypothetical_fill_eligible": False,
+        "fill_status": "UNVERIFIED_SCENARIO_NOT_A_FILL",
+        "depth_limit_warning": ("INSUFFICIENT_CLAIMED_TOP_OF_BOOK_DEPTH" if
+                                (bid_size is not None and quantity > bid_size) or
+                                (ask_size is not None and quantity > ask_size) else
+                                "MISSING_CLAIMED_TOP_OF_BOOK_DEPTH" if
+                                bid_size is None or ask_size is None else
+                                "DEPTH_CLAIM_UNAUTHENTICATED"),
         "halt_claim": halted,
         "quote_authenticated": False,
         "halt_verified": False,
