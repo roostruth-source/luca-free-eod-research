@@ -3,15 +3,20 @@ from __future__ import annotations
 import math
 
 
-def scenario(bid, ask, quantity, slippage_bps=0, halted=False):
+def scenario(bid, ask, quantity, slippage_bps=0, halted=False, bid_size=None, ask_size=None):
     """Illustrate hypothetical buy then sell, without orders or live quotes."""
     values = (bid, ask, quantity, slippage_bps)
     if any(type(v) not in (int, float) or not math.isfinite(v) for v in values):
         raise ValueError("INVALID_SYNTHETIC_INPUT")
     if bid <= 0 or ask <= bid or quantity <= 0 or slippage_bps < 0 or slippage_bps > 10000:
         raise ValueError("INVALID_SYNTHETIC_INPUT")
+    for size in (bid_size, ask_size):
+        if size is not None and (type(size) not in (int, float) or not math.isfinite(size) or size <= 0):
+            raise ValueError("INVALID_SYNTHETIC_DEPTH")
     if type(halted) is not bool:
         raise ValueError("INVALID_HALT_FLAG")
+    depth_sufficient = (bid_size is not None and ask_size is not None
+                        and quantity <= bid_size and quantity <= ask_size)
     spread_pct = (ask - bid) / ask * 100
     buy = ask * (1 + slippage_bps / 10000)
     sell = bid * (1 - slippage_bps / 10000)
@@ -22,6 +27,11 @@ def scenario(bid, ask, quantity, slippage_bps=0, halted=False):
         "hypothetical_round_trip_pct": None if halted else (sell / buy - 1) * 100,
         "quoted_spread_pct": spread_pct,
         "quantity": quantity,
+        "depth_claim_sufficient": depth_sufficient,
+        "depth_claim_missing": bid_size is None or ask_size is None,
+        "depth_claim_exceeded": ((bid_size is not None and quantity > bid_size)
+                                 or (ask_size is not None and quantity > ask_size)),
+        "depth_authenticated": False,
         "halt_claim": halted,
         "quote_authenticated": False,
         "halt_verified": False,
