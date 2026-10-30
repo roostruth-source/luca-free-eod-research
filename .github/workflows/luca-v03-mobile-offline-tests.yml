@@ -4,6 +4,8 @@ on:
     branches:
       - feature/v03-mobile-report-20261029
     paths:
+      - research/v03_stage24/offline_execution_scenario.py
+      - research/v03_stage24/test_offline_execution_scenario.py
       - research/v03_stage24/offline_quote_claim_audit.py
       - research/v03_stage24/test_offline_quote_claim_audit.py
       - research/v03_stage24/offline_signal_observation_window.py
