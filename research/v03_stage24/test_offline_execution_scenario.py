@@ -50,6 +50,20 @@ class ExecutionScenarioTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "INVALID_SYNTHETIC_DEPTH"):
                 scenario(1, 1.05, 100, ask_size=value)
 
+    def test_depth_warnings_never_imply_real_fill(self):
+        cases = (
+            ({}, "MISSING_CLAIMED_TOP_OF_BOOK_DEPTH"),
+            ({"bid_size": 200, "ask_size": 99}, "INSUFFICIENT_CLAIMED_TOP_OF_BOOK_DEPTH"),
+            ({"bid_size": 200, "ask_size": 200}, "DEPTH_CLAIM_UNAUTHENTICATED"),
+        )
+        for kwargs, warning in cases:
+            with self.subTest(warning=warning):
+                r = scenario(1, 1.05, 100, **kwargs)
+                self.assertEqual(r["depth_limit_warning"], warning)
+                self.assertEqual(r["fill_status"], "UNVERIFIED_SCENARIO_NOT_A_FILL")
+                self.assertFalse(r["hypothetical_fill_eligible"])
+                self.assertFalse(r["orders_allowed"])
+
     def test_safety_contract(self):
         r = scenario(1, 1.05, 100)
         self.assertEqual((r["validation_status"], r["sec_status"], r["all_grades"], r["operating_mode"]),
