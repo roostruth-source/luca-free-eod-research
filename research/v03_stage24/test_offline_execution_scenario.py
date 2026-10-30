@@ -64,6 +64,10 @@ class ExecutionScenarioTests(unittest.TestCase):
                 self.assertFalse(r["hypothetical_fill_eligible"])
                 self.assertFalse(r["orders_allowed"])
 
+    def test_nonfinite_calculation_rejected(self):
+        with self.assertRaisesRegex(ValueError, "NONFINITE_SYNTHETIC_RESULT"):
+            scenario(1e307, 1e308, 100, slippage_bps=10000)
+
     def test_safety_contract(self):
         r = scenario(1, 1.05, 100)
         self.assertEqual((r["validation_status"], r["sec_status"], r["all_grades"], r["operating_mode"]),
