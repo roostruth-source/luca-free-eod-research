@@ -1,0 +1,8 @@
+LUCA_V03_THIRD_PROSPECTIVE_ONCE
+session_day_ny=2026-11-02
+expires_at_utc=2026-11-02T16:24:00+00:00
+approval_nonce=d5eb0d54c2b1d074a26a87bdcd781e829f2fb6f49c44f7918c08b77cb40e7c47
+baseline_commit=6d8ef32fd0de22ed61675cbbccadefed0fe26945
+approved_code_commit=98141cd1d9971c091cbbb77a80c9f2a1616051db
+research_only=true
+orders_allowed=false
