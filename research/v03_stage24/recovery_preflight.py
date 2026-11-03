@@ -31,8 +31,17 @@ def inspect(root: Path, now: dt.datetime) -> dict:
     if any(len(p) != 2 for p in pairs):
         result['reason'] = 'MALFORMED_REQUEST'
         return result
+    expected_keys = ('session_day_ny', 'expires_at_utc', 'approval_nonce',
+                     'baseline_commit', 'approved_code_commit',
+                     'research_only', 'orders_allowed')
+    if tuple(key for key, _ in pairs) != expected_keys:
+        result['reason'] = 'MALFORMED_REQUEST'
+        return result
     fields = dict(pairs)
-    nonce = fields.get('approval_nonce', '')
+    if fields['research_only'] != 'true' or fields['orders_allowed'] != 'false':
+        result['reason'] = 'UNSAFE_REQUEST'
+        return result
+    nonce = fields['approval_nonce']
     digest = hashlib.sha256(nonce.encode('utf-8')).hexdigest()
     result['request_approval_hash_matches_expected'] = digest == EXPECTED_APPROVAL_SHA256
     result['request_session_day_ny'] = fields.get('session_day_ny')
