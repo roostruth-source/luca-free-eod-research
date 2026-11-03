@@ -58,5 +58,29 @@ class RecoveryAuthorizationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "WRONG_TRIGGER_OR_BRANCH"):
             check(expected_ref="refs/heads/research/v03-stage24-evidence")
 
+    def test_expired_approval_fails(self):
+        with self.assertRaisesRegex(ValueError, "EXPIRED_OR_OVERSIZED_APPROVAL_WINDOW"):
+            check(now=NOW + dt.timedelta(minutes=11))
+
+    def test_future_request_commit_fails(self):
+        with self.assertRaisesRegex(ValueError, "STALE_OR_FUTURE_REQUEST_COMMIT"):
+            check(request_commit_at=NOW + dt.timedelta(seconds=1))
+
+    def test_stale_request_commit_fails(self):
+        with self.assertRaisesRegex(ValueError, "STALE_OR_FUTURE_REQUEST_COMMIT"):
+            check(request_commit_at=NOW - dt.timedelta(minutes=11))
+
+    def test_repeated_request_history_fails(self):
+        with self.assertRaisesRegex(ValueError, "REPEATED_REQUEST_COMMIT_BLOCKED"):
+            check(request_history_commits=2)
+
+    def test_wrong_approved_parent_fails(self):
+        with self.assertRaisesRegex(ValueError, "APPROVED_CODE_COMMIT_MISMATCH"):
+            check(request_parent_commit="c" * 40)
+
+    def test_order_permission_fails(self):
+        with self.assertRaisesRegex(ValueError, "UNSAFE_REQUEST"):
+            check(text=request().replace("orders_allowed=false", "orders_allowed=true"))
+
 if __name__ == "__main__":
     unittest.main()
