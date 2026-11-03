@@ -73,11 +73,11 @@ def _parse_request(text):
 def validate(text, now, event_name, ref, run_attempt,
              request_history_commits, request_commit_at,
              approval_secret_hash, existing_archive_count,
-             request_parent_commit):
+             request_parent_commit, expected_ref=BRANCH):
     if type(now) is not dt.datetime or now.tzinfo is None:
         raise ValueError("AWARE_NOW_REQUIRED")
     now = now.astimezone(UTC)
-    if event_name != "push" or ref != BRANCH:
+    if event_name != "push" or ref != expected_ref:
         raise ValueError("WRONG_TRIGGER_OR_BRANCH")
     if str(run_attempt) != "1":
         raise ValueError("RE_RUN_BLOCKED")
