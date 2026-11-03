@@ -1,0 +1,22 @@
+name: LUCA V0.3 recovery preflight regression (read-only)
+on:
+  push:
+    branches:
+      - research/v03-recovery-preflight
+    paths:
+      - research/v03_stage24/recovery_preflight.py
+      - research/v03_stage24/test_recovery_preflight.py
+      - .github/workflows/luca-v03-recovery-preflight-test.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recovery-preflight-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run read-only offline regression tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_recovery_preflight.py' -v
+      - name: Verify no working tree changes
+        run: test -z "$(git status --porcelain)"
