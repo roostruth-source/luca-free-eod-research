@@ -10,7 +10,7 @@ PARENT = "a" * 40
 NONCE = "b" * 64
 
 def request():
-    return ("\\n".join([
+    return ("\n".join([
         HEADER,
         "session_day_ny=2026-11-04",
         "expires_at_utc=2026-11-04T15:10:00+00:00",
@@ -19,7 +19,7 @@ def request():
         "approved_code_commit=" + PARENT,
         "research_only=true",
         "orders_allowed=false",
-    ]) + "\\n")
+    ]) + "\n")
 
 def check(**kwargs):
     args = dict(text=request(), now=NOW, event_name="push", ref=REF,
