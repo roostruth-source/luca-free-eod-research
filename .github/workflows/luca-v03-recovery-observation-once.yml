@@ -57,8 +57,11 @@ jobs:
             --output luca_v03_recovery_forward/replay_result.json
       - name: Verify evidence exists before reporting success
         run: |
-          test -s luca_v03_recovery_forward/iex_raw_ohlcv_evidence.json
-          test -s luca_v03_recovery_forward/replay_result.json
+          for file in frozen_t0.json forward_review.json iex_timestamp_provenance.json iex_raw_ohlcv_evidence.json replay_result.json; do
+            test -s "luca_v03_recovery_forward/$file"
+          done
+          (cd luca_v03_recovery_forward && sha256sum frozen_t0.json forward_review.json iex_timestamp_provenance.json iex_raw_ohlcv_evidence.json replay_result.json > SHA256SUMS.txt)
+          (cd luca_v03_recovery_forward && sha256sum -c SHA256SUMS.txt)
       - name: Preserve evidence on success or failure (temporary, not durable)
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,4 +69,4 @@ jobs:
           name: luca-v03-recovery-${{ github.run_id }}
           path: luca_v03_recovery_forward/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 30
