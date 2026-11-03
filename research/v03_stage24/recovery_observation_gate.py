@@ -25,7 +25,7 @@ def main():
         raise ValueError("WRONG_TRIGGER_OR_BRANCH")
     if os.getenv("GITHUB_RUN_ATTEMPT") != "1":
         raise ValueError("RE_RUN_BLOCKED")
-    if _git("diff-tree", "--no-commit-id", "--name-status", "-r", "HEAD") != "A\\t" + REQUEST:
+    if _git("diff-tree", "--no-commit-id", "--name-status", "-r", "HEAD") != "A\t" + REQUEST:
         raise ValueError("REQUEST_COMMIT_NOT_SINGLE_PURPOSE_CREATION")
     if _git("rev-list", "--count", "HEAD", "--", REQUEST) != "1":
         raise ValueError("REQUEST_MUST_BE_NEW_ONCE")
