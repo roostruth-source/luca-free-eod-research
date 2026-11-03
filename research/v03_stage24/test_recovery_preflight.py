@@ -73,7 +73,7 @@ class RecoveryPreflightTests(unittest.TestCase):
         self.assertFalse(result["safe_to_reuse_request"])
 
     def test_reordered_keys_rejected(self):
-        self.write_request(OLD_REQUEST.replace("research_only=true\\norders_allowed=false", "orders_allowed=false\\nresearch_only=true"))
+        self.write_request(OLD_REQUEST.replace("research_only=true\norders_allowed=false", "orders_allowed=false\nresearch_only=true"))
         result = inspect(self.root, NOW)
         self.assertEqual(result["reason"], "MALFORMED_REQUEST")
 
