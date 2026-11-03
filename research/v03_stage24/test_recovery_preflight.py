@@ -60,5 +60,22 @@ class RecoveryPreflightTests(unittest.TestCase):
         inspect(self.root, NOW)
         self.assertEqual(path.read_bytes(), before)
 
+    def test_orders_enabled_request_rejected(self):
+        self.write_request(OLD_REQUEST.replace("orders_allowed=false", "orders_allowed=true"))
+        result = inspect(self.root, NOW)
+        self.assertEqual(result["reason"], "UNSAFE_REQUEST")
+        self.assertFalse(result["safe_to_reuse_request"])
+
+    def test_duplicate_key_rejected(self):
+        self.write_request(OLD_REQUEST.replace("research_only=true", "orders_allowed=false"))
+        result = inspect(self.root, NOW)
+        self.assertEqual(result["reason"], "MALFORMED_REQUEST")
+        self.assertFalse(result["safe_to_reuse_request"])
+
+    def test_reordered_keys_rejected(self):
+        self.write_request(OLD_REQUEST.replace("research_only=true\\norders_allowed=false", "orders_allowed=false\\nresearch_only=true"))
+        result = inspect(self.root, NOW)
+        self.assertEqual(result["reason"], "MALFORMED_REQUEST")
+
 if __name__ == "__main__":
     unittest.main()
