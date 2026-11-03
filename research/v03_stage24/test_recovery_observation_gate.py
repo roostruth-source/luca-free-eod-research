@@ -60,7 +60,8 @@ class RecoveryAuthorizationTests(unittest.TestCase):
 
     def test_expired_approval_fails(self):
         with self.assertRaisesRegex(ValueError, "EXPIRED_OR_OVERSIZED_APPROVAL_WINDOW"):
-            check(now=NOW + dt.timedelta(minutes=11),\n                  request_commit_at=NOW + dt.timedelta(minutes=10))
+            check(now=NOW + dt.timedelta(minutes=11),
+                  request_commit_at=NOW + dt.timedelta(minutes=10))
 
     def test_future_request_commit_fails(self):
         with self.assertRaisesRegex(ValueError, "STALE_OR_FUTURE_REQUEST_COMMIT"):
