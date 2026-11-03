@@ -1,0 +1,69 @@
+# Independent recovery observation. Dormant until a NEW, user-approved request
+# file is committed as the only change in a push. No dispatch or schedule.
+name: LUCA V0.3 recovery approved read-only IEX observation
+on:
+  push:
+    branches:
+      - research/v03-recovery-preflight
+    paths:
+      - research/v03_stage24/recovery_observation_request.txt
+permissions:
+  contents: read
+concurrency:
+  group: luca-v03-recovery-observation-once
+  cancel-in-progress: false
+jobs:
+  recovery-observation:
+    if: github.ref == 'refs/heads/research/v03-recovery-preflight' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify new one-time approval and official NYSE calendar before market access
+        env:
+          LUCA_V03_RECOVERY_APPROVAL_SHA256: ${{ secrets.LUCA_V03_RECOVERY_APPROVAL_SHA256 }}
+        run: python3 research/v03_stage24/recovery_observation_gate.py
+      - name: Run complete offline safety regression
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Rehearse offline synthetic full path
+        run: python3 research/v03_stage24/third_trial_dry_run.py
+      - name: Freeze candidate list using read-only IEX data
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_recovery_forward
+        run: python3 research/v03_stage24/prospective_iex_research.py --phase freeze
+      - name: Wait for forward observation (16 minutes)
+        run: sleep 960
+      - name: Review forward bars and archive raw OHLCV
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          LUCA_FREEZE_DIR: luca_v03_recovery_forward
+        run: |
+          cd research/v03_stage24
+          python3 -c "from future_iex_review import review_future_session; review_future_session('../../luca_v03_recovery_forward')"
+      - name: Independently replay signals from archived raw OHLCV
+        run: |
+          python3 research/v03_stage24/iex_raw_evidence.py \
+            --frozen luca_v03_recovery_forward/frozen_t0.json \
+            --review luca_v03_recovery_forward/forward_review.json \
+            --timestamps luca_v03_recovery_forward/iex_timestamp_provenance.json \
+            --raw-evidence luca_v03_recovery_forward/iex_raw_ohlcv_evidence.json \
+            --output luca_v03_recovery_forward/replay_result.json
+      - name: Verify evidence exists before reporting success
+        run: |
+          test -s luca_v03_recovery_forward/iex_raw_ohlcv_evidence.json
+          test -s luca_v03_recovery_forward/replay_result.json
+      - name: Preserve evidence on success or failure (temporary, not durable)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luca-v03-recovery-${{ github.run_id }}
+          path: luca_v03_recovery_forward/
+          if-no-files-found: warn
+          retention-days: 7
