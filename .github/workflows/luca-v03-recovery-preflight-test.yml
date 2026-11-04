@@ -10,6 +10,10 @@ on:
       - research/v03_stage24/recovery_observation_gate.py
       - research/v03_stage24/test_recovery_observation_gate.py
       - .github/workflows/luca-v03-recovery-preflight-test.yml
+      - .github/workflows/luca-v03-recovery-observation-once.yml
+      - research/v03_stage24/iex_raw_evidence.py
+      - research/v03_stage24/prospective_iex_research.py
+      - research/v03_stage24/future_iex_review.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,5 +29,14 @@ jobs:
         run: |
           python3 -m unittest discover -s research/v03_stage24 -p 'test_recovery_preflight.py' -v
           python3 -m unittest discover -s research/v03_stage24 -p 'test_recovery_observation_gate.py' -v
+      - name: Check observation modules compile without market access
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ('recovery_observation_gate.py', 'iex_raw_evidence.py', 'prospective_iex_research.py', 'future_iex_review.py'):
+              path = Path('research/v03_stage24') / name
+              compile(path.read_bytes(), str(path), 'exec')
+          print('OFFLINE_OBSERVATION_MODULES_COMPILE_OK')
+          PY
       - name: Verify no working tree changes
         run: test -z "$(git status --porcelain)"
