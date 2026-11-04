@@ -9,6 +9,7 @@ on:
       - research/v03_stage24/recovery_observation_request.txt
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: luca-v03-recovery-observation-once
   cancel-in-progress: false
@@ -26,6 +27,7 @@ jobs:
       - name: Verify new one-time approval and official NYSE calendar before market access
         env:
           LUCA_V03_RECOVERY_APPROVAL_SHA256: ${{ secrets.LUCA_V03_RECOVERY_APPROVAL_SHA256 }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 research/v03_stage24/recovery_observation_gate.py
       - name: Run complete offline safety regression
         run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
