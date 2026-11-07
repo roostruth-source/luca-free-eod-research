@@ -1,0 +1,84 @@
+name: LUCA V0.3 mobile offline checks
+on:
+  push:
+    branches:
+      - feature/v03-mobile-report-20261029
+    paths:
+      - research/v03_stage24/offline_execution_scenario.py
+      - research/v03_stage24/test_offline_execution_scenario.py
+      - research/v03_stage24/offline_quote_claim_audit.py
+      - research/v03_stage24/test_offline_quote_claim_audit.py
+      - research/v03_stage24/offline_signal_observation_window.py
+      - research/v03_stage24/test_offline_signal_observation_window.py
+      - research/v03_stage24/offline_decision_readiness.py
+      - research/v03_stage24/test_offline_decision_readiness.py
+      - research/v03_stage24/offline_latency_sensitivity.py
+      - research/v03_stage24/test_offline_latency_sensitivity.py
+      - research/v03_stage24/offline_strict_asof_scorecard.py
+      - research/v03_stage24/test_offline_strict_asof_scorecard.py
+      - research/v03_stage24/offline_asof_availability.py
+      - research/v03_stage24/test_offline_asof_availability.py
+      - research/v03_stage24/offline_archive_provenance.py
+      - research/v03_stage24/test_offline_archive_provenance.py
+      - research/v03_stage24/offline_multisession_audit.py
+      - research/v03_stage24/test_offline_multisession_audit.py
+      - research/v03_stage24/offline_session_integrity.py
+      - research/v03_stage24/test_offline_session_integrity.py
+      - research/v03_stage24/nyse_session_gate.py
+      - research/v03_stage24/offline_day_coverage.py
+      - research/v03_stage24/test_offline_day_coverage.py
+      - research/v03_stage24/offline_cohort_scorecard.py
+      - research/v03_stage24/test_offline_cohort_scorecard.py
+      - research/v03_stage24/offline_reference_commitment.py
+      - research/v03_stage24/test_offline_reference_commitment.py
+      - research/v03_stage24/offline_fixed_time_comparison.py
+      - research/v03_stage24/test_offline_fixed_time_comparison.py
+      - research/v03_stage24/offline_cohort_inventory.py
+      - research/v03_stage24/test_offline_cohort_inventory.py
+      - research/v03_stage24/mobile_outcomes.py
+      - research/v03_stage24/test_mobile_outcomes.py
+      - research/v03_stage24/test_mobile_outcomes_integration.py
+      - research/v03_stage24/mobile_outcomes_viewer.html
+      - .github/workflows/luca-v03-mobile-offline-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile-offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run 18 mobile tests against actual checked-out files
+        working-directory: research/v03_stage24
+        run: python -m unittest -v test_mobile_outcomes test_mobile_outcomes_integration
+      - name: Verify real mobile viewer source, not a test stub
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('research/v03_stage24/mobile_outcomes_viewer.html')
+          s=p.read_text(encoding='utf8')
+          assert len(s)>2000, 'VIEWER_IS_STUB_OR_TRUNCATED'
+          for required in ('<html', 'f.text()', 'LUCA_V03_MOBILE_OUTCOMES_V1', 'changes_pct', 'orders_allowed', 'NOT_VALIDATED', 'SEC_UNVERIFIED'):
+              assert required in s, f'VIEWER_MISSING_{required}'
+          print('REAL_VIEWER_SOURCE_STATIC_CHECK_OK')
+          PY
+  existing-research-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run existing research synthetic tests plus mobile tests
+        run: python -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Confirm offline-only scope
+        run: echo 'OFFLINE SYNTHETIC TESTS ONLY; NO LIVE T0; SEC_UNVERIFIED; NOT_VALIDATED; NO_ORDERS'
