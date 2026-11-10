@@ -1,0 +1,30 @@
+# Offline CI for the integrated LUCA V0.3 observer scanner.
+# No secrets, no market requests, no orders, no production writes.
+name: LUCA V03 observer scanner offline CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research/v03_stage24/observer_scanner.py'
+      - 'research/v03_stage24/test_observer_scanner.py'
+      - '.github/workflows/luca-v03-observer-scanner-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-observer:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check observer scanner
+        run: python3 -m py_compile research/v03_stage24/observer_scanner.py
+      - name: Observer scanner unit tests
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_observer_scanner.py' -v
+      - name: Full isolated V0.3 regression
+        run: python3 -m unittest discover -s research/v03_stage24 -p 'test_*.py' -v
+      - name: Safety invariant
+        run: echo 'OFFLINE ONLY; NOT_VALIDATED; WATCH_ONLY; NO_MARKET_REQUESTS; NO_ORDERS'
