@@ -8,6 +8,7 @@ on:
     paths:
       - 'research/v03_stage24/observer_scanner.py'
       - 'research/v03_stage24/test_observer_scanner.py'
+      - 'research/v03_stage24/test_third_workflow_contract.py'
       - '.github/workflows/luca-v03-observer-scanner-ci.yml'
 
 permissions:
