@@ -16,11 +16,16 @@ class ThirdWorkflowContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.text = WORKFLOW.read_text(encoding="utf8")
 
-    def test_only_new_absent_third_request_can_trigger(self):
+    def test_only_fresh_single_purpose_request_can_pass_gate(self):
+        # A prior failed request file may remain. Presence alone is never approval.
         self.assertIn("paths:\n      - '" + REQUEST_PATH + "'", self.text)
         self.assertNotIn("workflow_dispatch", self.text)
         self.assertNotRegex(self.text, r"(?m)^\s*schedule:")
-        self.assertFalse((ROOT / REQUEST_PATH).exists())
+        gate_text = (ROOT / "research/v03_stage24/third_trial_gate.py").read_text(encoding="utf8")
+        self.assertIn("REPEATED_REQUEST_COMMIT_BLOCKED", gate_text)
+        self.assertIn("STALE_OR_FUTURE_REQUEST_COMMIT", gate_text)
+        self.assertIn("RE_RUN_BLOCKED", gate_text)
+        self.assertIn("USER_APPROVAL_SECRET_MISMATCH", gate_text)
 
     def test_exact_research_branch_and_attempt_one(self):
         self.assertIn("research/v03-stage24-evidence", self.text)
