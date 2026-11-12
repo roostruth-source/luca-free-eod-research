@@ -55,6 +55,8 @@ python reconcile_daily_bars.py whlr_2026-11-12_price_conflict.json
 
 `whlr_2026-11-12_price_conflict.json`은 2026-11-12 WHLR 일봉에 대해 ChartExchange와 Investing이 서로 다른 OHLC를 제시한 실제 충돌 사례다. 종가도 약 5.84% 차이가 나므로 1거래일 수익률을 확정하지 않고 `SOURCE_CONFLICT`로 보류한다.
 
+`inlf_2026-11-12_price_conflict.json`은 같은 날짜 INLF 일봉의 두 공개 출처가 종가 $0.4300과 $0.4943을 제시한 사례다. 약 14.95% 차이라 대표 일봉을 만들지 않는다. 각 관측값에는 HTTPS 원문 URL과 조회시각을 의무 저장하며, 이름만 다르고 URL이 같은 자료는 독립 출처로 인정하지 않는다.
+
 `whlr_2026-11-13T0008+09.json`은 자정 화면에서 확인한 WHLR 10거래일 신호를 고정한 연구용 입력이다. 다섯 엔진 동시 포착이어도 Float 단위가 일치하지 않아 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
 `engs_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 ENGS 사례다. SEC에는 2026년 사모발행·워런트 전량 현금 없는 행사와 9월 10일 효력이 생긴 최대 2억 달러 Shelf가 확인된다. 미확인 항목까지 남아 있으므로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
