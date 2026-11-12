@@ -1,0 +1,40 @@
+{
+  "ticker": "BDMD",
+  "snapshot_at": "2026-11-13T00:08:00+09:00",
+  "data_asof": "2026-11-11T16:00:00-05:00",
+  "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+  "entry": 0.0986,
+  "screen_target_median": 0.1426,
+  "screen_upside_pct": 44.7,
+  "engine_hits": {
+    "preview": {"rank": 9},
+    "signal": {"rank": 3},
+    "hidden_pick": {"rank": 10},
+    "best": {"rank": 39}
+  },
+  "warnings": {"atm": true},
+  "official_supply_checks": {
+    "atm": "UNKNOWN",
+    "eloc": "UNKNOWN",
+    "toxic_financing": "PRESENT",
+    "cb": "PRESENT",
+    "warrant": "PRESENT",
+    "lockup": "UNKNOWN",
+    "reverse_split": "UNKNOWN",
+    "shelf": "PRESENT"
+  },
+  "supply_evidence_asof": "2026-11-05T00:00:00-05:00",
+  "official_os_baseline": 32002370,
+  "official_fully_diluted_shares": 59630326,
+  "split_basis_verified": false,
+  "float_verified": false,
+  "scope_partial": false,
+  "notes": [
+    "RabbitStock 10-day screen: 4 engines, entry $0.0986, integrated target $0.1426, ATM warning shown.",
+    "SEC 424B5: $4,347,826 senior 8% original issue discount convertible note and up to 110,070 commitment shares.",
+    "Conversion price is the lower of $0.9842 or 92% of the lowest seven-day VWAP, falling to 85% after default; floor-price shortfall may be paid in cash or added to note principal.",
+    "SEC maximum at the $0.158 floor: 27,517,886 conversion shares plus 110,070 commitment shares; 32,002,370 OS could become 59,630,326, an 86.33% potential increase.",
+    "Public float was 17,055,006 shares using an August 10 reference price, so it is not accepted as current Float for the November signal.",
+    "The authorized screen label was ATM, while the verified instrument was a variable-price CB. ATM remains UNKNOWN rather than being declared absent."
+  ]
+}
