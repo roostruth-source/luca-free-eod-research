@@ -18,6 +18,8 @@ DILUTION_FLAGS = ("atm", "eloc", "toxic_financing", "cb", "warrant", "shelf")
 SUPPLY_CHECKS = ("atm", "eloc", "cb", "warrant", "lockup", "reverse_split", "shelf")
 SUPPLY_STATES = {"CLEAR", "PRESENT", "UNKNOWN"}
 FLOAT_MISMATCH_TOLERANCE = 0.02
+HIGH_DILUTION_MULTIPLE = 2.0
+EXTREME_SPLIT_FACTOR = 250.0
 
 
 def _parse_time(value: str) -> datetime:
@@ -98,26 +100,65 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         float_ratio is not None and float_ratio > 1.0 + FLOAT_MISMATCH_TOLERANCE
     )
     split_factors = [float(value) for value in payload.get("reverse_split_factors", [])]
+    if any(factor <= 1.0 for factor in split_factors):
+        raise ValueError("invalid_reverse_split_factor")
+    cumulative_reverse_split_factor = 1.0
+    for factor in split_factors:
+        cumulative_reverse_split_factor *= factor
+    serial_reverse_split_extreme = bool(
+        len(split_factors) >= 2
+        and cumulative_reverse_split_factor >= EXTREME_SPLIT_FACTOR
+    )
     float_mismatch_matches_split_factor = bool(
         float_mismatch
         and any(abs(float_ratio - factor) / factor <= FLOAT_MISMATCH_TOLERANCE for factor in split_factors)
     )
     float_basis_reconciled = bool(payload.get("float_basis_reconciled", False))
-    unit_blocked = (
-        not bool(payload.get("split_basis_verified", False))
-        or bool(warnings.get("reverse_split", False))
-        or bool(warnings.get("dilution_unit_mismatch", False))
-        or not bool(payload.get("float_verified", False))
-        or (float_mismatch and not float_basis_reconciled)
+
+    official_os_baseline = payload.get("official_os_baseline")
+    official_fully_diluted_shares = payload.get("official_fully_diluted_shares")
+    if (official_os_baseline is None) != (official_fully_diluted_shares is None):
+        raise ValueError("dilution_share_pair_required")
+    fully_diluted_multiple = None
+    if official_os_baseline is not None:
+        official_os_baseline = float(official_os_baseline)
+        official_fully_diluted_shares = float(official_fully_diluted_shares)
+        if official_os_baseline <= 0 or official_fully_diluted_shares < official_os_baseline:
+            raise ValueError("invalid_dilution_share_counts")
+        fully_diluted_multiple = official_fully_diluted_shares / official_os_baseline
+    high_dilution_multiple = bool(
+        fully_diluted_multiple is not None
+        and fully_diluted_multiple >= HIGH_DILUTION_MULTIPLE
     )
+
     scope_partial = bool(payload.get("scope_partial", False))
+
+    block_reasons: list[str] = []
+    if not bool(payload.get("split_basis_verified", False)):
+        block_reasons.append("SPLIT_BASIS_UNVERIFIED")
+    if bool(warnings.get("reverse_split", False)):
+        block_reasons.append("SCREEN_REVERSE_SPLIT_WARNING")
+    if bool(warnings.get("dilution_unit_mismatch", False)):
+        block_reasons.append("DILUTION_UNIT_MISMATCH")
+    if not bool(payload.get("float_verified", False)):
+        block_reasons.append("FLOAT_UNVERIFIED")
+    if float_mismatch and not float_basis_reconciled:
+        block_reasons.append("CROSS_ENGINE_FLOAT_MISMATCH")
+    if scope_partial:
+        block_reasons.append("SCOPE_PARTIAL")
+    if not supply_evidence_complete:
+        block_reasons.append("SUPPLY_EVIDENCE_INCOMPLETE")
+    if high_dilution_multiple:
+        block_reasons.append("HIGH_FULLY_DILUTED_MULTIPLE")
+    if serial_reverse_split_extreme:
+        block_reasons.append("SERIAL_REVERSE_SPLIT_EXTREME")
 
     engine_count = len(ranks)
     target_median = median(targets) if targets else None
     target_range = [min(targets), max(targets)] if targets else None
     upside = None if target_median is None else (target_median / entry - 1.0) * 100.0
 
-    if unit_blocked or scope_partial or not supply_evidence_complete:
+    if block_reasons:
         state = "WATCH_ONLY_BLOCKED"
     elif engine_count >= 3 and not dilution_present:
         state = "WATCH_ONLY_STRONG"
@@ -138,6 +179,13 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "float_ratio": float_ratio,
         "float_mismatch_matches_split_factor": float_mismatch_matches_split_factor,
         "float_basis_reconciled": float_basis_reconciled,
+        "reverse_split_factors": split_factors,
+        "cumulative_reverse_split_factor": cumulative_reverse_split_factor,
+        "serial_reverse_split_extreme": serial_reverse_split_extreme,
+        "official_os_baseline": official_os_baseline,
+        "official_fully_diluted_shares": official_fully_diluted_shares,
+        "fully_diluted_multiple": fully_diluted_multiple,
+        "high_dilution_multiple": high_dilution_multiple,
         "target_median": target_median,
         "target_range": target_range,
         "upside_pct": upside,
@@ -153,6 +201,7 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "supply_evidence_complete": supply_evidence_complete,
         "supply_evidence_asof": None if supply_evidence_at is None else supply_evidence_at.isoformat(),
         "scope_partial": scope_partial,
+        "block_reasons": block_reasons,
         "state": state,
         "WATCH_ONLY": True,
         "NO_ORDERS": True,
