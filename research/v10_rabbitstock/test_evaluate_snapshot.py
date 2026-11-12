@@ -16,6 +16,16 @@ def base_payload():
             "best": {"rank": 6, "target": 1.3},
         },
         "warnings": {},
+        "official_supply_checks": {
+            "atm": "CLEAR",
+            "eloc": "CLEAR",
+            "cb": "CLEAR",
+            "warrant": "CLEAR",
+            "lockup": "CLEAR",
+            "reverse_split": "CLEAR",
+            "shelf": "CLEAR",
+        },
+        "supply_evidence_asof": "2026-11-12T13:50:00+09:00",
         "split_basis_verified": True,
         "float_verified": True,
         "scope_partial": False,
@@ -48,6 +58,29 @@ class SnapshotGateTests(unittest.TestCase):
         payload = base_payload()
         payload["warnings"] = {"atm": True}
         self.assertEqual(evaluate_snapshot(payload)["state"], "WATCH_ONLY")
+
+    def test_empty_screen_warning_does_not_replace_official_checks(self):
+        payload = base_payload()
+        payload["official_supply_checks"]["atm"] = "UNKNOWN"
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertFalse(result["screen_dilution_warning"])
+        self.assertIn("atm", result["unknown_supply_checks"])
+
+    def test_official_warrant_or_shelf_prevents_strong_label(self):
+        payload = base_payload()
+        payload["official_supply_checks"]["warrant"] = "PRESENT"
+        payload["official_supply_checks"]["shelf"] = "PRESENT"
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY")
+        self.assertTrue(result["official_dilution_warning"])
+        self.assertEqual(result["present_supply_checks"], ["warrant", "shelf"])
+
+    def test_future_supply_evidence_is_rejected(self):
+        payload = base_payload()
+        payload["supply_evidence_asof"] = "2026-11-12T14:00:00+09:00"
+        with self.assertRaisesRegex(ValueError, "future_supply_evidence_not_allowed"):
+            evaluate_snapshot(payload)
 
     def test_future_information_is_rejected(self):
         payload = base_payload()
