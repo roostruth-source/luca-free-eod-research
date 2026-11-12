@@ -55,6 +55,27 @@ class SnapshotGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "future_data_not_allowed"):
             evaluate_snapshot(payload)
 
+    def test_cross_engine_float_mismatch_blocks(self):
+        payload = base_payload()
+        payload["engine_hits"]["preview"]["float"] = 239_842
+        payload["engine_hits"]["signal"]["float"] = 239_842
+        payload["engine_hits"]["best"]["float"] = 39_973
+        payload["reverse_split_factors"] = [6]
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertTrue(result["cross_engine_float_mismatch"])
+        self.assertAlmostEqual(result["float_ratio"], 6.0, places=3)
+        self.assertTrue(result["float_mismatch_matches_split_factor"])
+
+    def test_small_float_rounding_difference_is_allowed(self):
+        payload = base_payload()
+        payload["engine_hits"]["preview"]["float"] = 100_000
+        payload["engine_hits"]["signal"]["float"] = 101_000
+        payload["engine_hits"]["best"]["float"] = 100_500
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_STRONG")
+        self.assertFalse(result["cross_engine_float_mismatch"])
+
 
 if __name__ == "__main__":
     unittest.main()
