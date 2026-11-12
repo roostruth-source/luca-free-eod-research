@@ -1,0 +1,38 @@
+{
+  "ticker": "INLF",
+  "snapshot_at": "2026-11-13T00:08:00+09:00",
+  "data_asof": "2026-11-11T16:00:00-05:00",
+  "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+  "entry": 0.5313,
+  "screen_target_median": 1.0311,
+  "screen_upside_pct": 94.1,
+  "engine_hits": {
+    "preview": {"rank": 7},
+    "hidden_pick": {"rank": 3},
+    "best": {"rank": 8},
+    "burning_up": {"rank": 8}
+  },
+  "warnings": {},
+  "official_supply_checks": {
+    "atm": "UNKNOWN",
+    "eloc": "UNKNOWN",
+    "cb": "UNKNOWN",
+    "warrant": "PRESENT",
+    "lockup": "PRESENT",
+    "reverse_split": "PRESENT",
+    "shelf": "PRESENT"
+  },
+  "supply_evidence_asof": "2026-10-21T16:30:03-04:00",
+  "reverse_split_factors": [16, 200],
+  "official_os_baseline": 1046390,
+  "official_fully_diluted_shares": 30458162,
+  "split_basis_verified": true,
+  "float_verified": false,
+  "scope_partial": false,
+  "notes": [
+    "RabbitStock 10-day screen: 4 engines, entry $0.5313, integrated target $1.0311, no ATM/ELOC/Toxic/reverse-split warning shown.",
+    "SEC 424B5: 1,046,390 Class A shares before offering and up to 30,458,162 after full pre-funded and ordinary warrant exercise.",
+    "SEC 424B5: warrants can reset downward to the lowest VWAP, with share counts increasing proportionately; some anti-dilution adjustments have no floor.",
+    "Nasdaq/SEC: 1-for-16 split effective 2026-04-06 and 1-for-200 split effective 2026-07-06; cumulative factor 1-for-3,200."
+  ]
+}
