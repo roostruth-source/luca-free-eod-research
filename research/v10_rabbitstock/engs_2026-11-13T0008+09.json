@@ -1,0 +1,33 @@
+{
+  "ticker": "ENGS",
+  "snapshot_at": "2026-11-13T00:08:00+09:00",
+  "data_asof": "2026-11-11T16:00:00-05:00",
+  "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+  "entry": 0.4885,
+  "engine_hits": {
+    "preview": {"rank": 3},
+    "signal": {"rank": 10},
+    "hidden_pick": {"rank": 21},
+    "best": {"rank": 1}
+  },
+  "warnings": {},
+  "official_supply_checks": {
+    "atm": "UNKNOWN",
+    "eloc": "UNKNOWN",
+    "cb": "UNKNOWN",
+    "warrant": "PRESENT",
+    "lockup": "UNKNOWN",
+    "reverse_split": "CLEAR",
+    "shelf": "PRESENT"
+  },
+  "supply_evidence_asof": "2026-09-10T16:00:00-04:00",
+  "split_basis_verified": true,
+  "float_verified": true,
+  "scope_partial": false,
+  "notes": [
+    "RabbitStock 10-day screen: 4 engines, no ATM/ELOC/Toxic warning shown.",
+    "SEC F-3: 54,176,536 ordinary shares outstanding and 44,526,536 public float as of 2026-07-28.",
+    "SEC F-3: all Series A/B warrants were cashlessly exercised between 2026-06-29 and 2026-07-13, issuing 22,923,122 Class A shares.",
+    "SEC EFFECT: up to $200,000,000 shelf became effective on 2026-09-10. No prospectus supplement was verified in this run."
+  ]
+}
