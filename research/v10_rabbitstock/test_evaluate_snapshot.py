@@ -19,6 +19,7 @@ def base_payload():
         "official_supply_checks": {
             "atm": "CLEAR",
             "eloc": "CLEAR",
+            "toxic_financing": "CLEAR",
             "cb": "CLEAR",
             "warrant": "CLEAR",
             "lockup": "CLEAR",
@@ -57,7 +58,18 @@ class SnapshotGateTests(unittest.TestCase):
     def test_dilution_warning_prevents_strong_label(self):
         payload = base_payload()
         payload["warnings"] = {"atm": True}
-        self.assertEqual(evaluate_snapshot(payload)["state"], "WATCH_ONLY")
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertEqual(result["screen_supply_unreconciled"], ["atm"])
+        self.assertIn("SCREEN_SUPPLY_LABEL_UNRECONCILED", result["block_reasons"])
+
+    def test_matched_screen_and_official_atm_is_watch_only(self):
+        payload = base_payload()
+        payload["warnings"] = {"atm": True}
+        payload["official_supply_checks"]["atm"] = "PRESENT"
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY")
+        self.assertEqual(result["screen_supply_unreconciled"], [])
 
     def test_empty_screen_warning_does_not_replace_official_checks(self):
         payload = base_payload()
@@ -153,6 +165,17 @@ class SnapshotGateTests(unittest.TestCase):
         payload["prefunded_warrants_unexercised_estimate"] = 1
         with self.assertRaisesRegex(ValueError, "prefunded_warrant_os_baseline_required"):
             evaluate_snapshot(payload)
+
+    def test_significant_potential_dilution_blocks_below_two_x(self):
+        payload = base_payload()
+        payload["official_os_baseline"] = 32_002_370
+        payload["official_fully_diluted_shares"] = 59_630_326
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertAlmostEqual(result["potential_dilution_pct"], 86.33, places=2)
+        self.assertTrue(result["significant_potential_dilution"])
+        self.assertFalse(result["high_dilution_multiple"])
+        self.assertIn("SIGNIFICANT_POTENTIAL_DILUTION", result["block_reasons"])
 
 
 if __name__ == "__main__":
