@@ -50,6 +50,27 @@ class ReconcileDailyBarsTests(unittest.TestCase):
         self.assertIn("close", result["conflicting_fields"])
         self.assertGreater(result["field_spread_pct"]["close"], 5.0)
 
+    def test_partial_close_source_can_prove_conflict(self):
+        full = source("A", 0.504)
+        full.update({"open": 0.452, "high": 0.534, "low": 0.421})
+        close_only = source("B", 0.68)
+        for field in ("open", "high", "low"):
+            close_only.pop(field)
+        result = reconcile_bar(payload(full, close_only))
+        self.assertEqual(result["reconciliation_status"], "SOURCE_CONFLICT")
+        self.assertEqual(result["conflicting_fields"], ["close"])
+        self.assertIsNone(result["canonical_bar"])
+
+    def test_partial_matching_source_cannot_make_full_bar(self):
+        full = source("A", 10.0)
+        close_only = source("B", 10.0)
+        for field in ("open", "high", "low"):
+            close_only.pop(field)
+        result = reconcile_bar(payload(full, close_only))
+        self.assertEqual(result["reconciliation_status"], "INSUFFICIENT_FIELD_COVERAGE")
+        self.assertIn("open", result["insufficient_fields"])
+        self.assertIsNone(result["canonical_bar"])
+
     def test_single_source_is_unverified(self):
         result = reconcile_bar(payload(source("A")))
         self.assertEqual(result["reconciliation_status"], "SINGLE_SOURCE_UNVERIFIED")
