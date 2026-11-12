@@ -14,7 +14,9 @@ from typing import Any
 
 
 ENGINES = ("preview", "signal", "hidden_pick", "best", "burning_up")
-DILUTION_FLAGS = ("atm", "eloc", "toxic_financing", "cb", "warrant")
+DILUTION_FLAGS = ("atm", "eloc", "toxic_financing", "cb", "warrant", "shelf")
+SUPPLY_CHECKS = ("atm", "eloc", "cb", "warrant", "lockup", "reverse_split", "shelf")
+SUPPLY_STATES = {"CLEAR", "PRESENT", "UNKNOWN"}
 FLOAT_MISMATCH_TOLERANCE = 0.02
 
 
@@ -62,7 +64,33 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("entry_must_be_positive")
 
     warnings = payload.get("warnings", {})
-    dilution_present = any(bool(warnings.get(flag, False)) for flag in DILUTION_FLAGS)
+    screen_dilution_present = any(bool(warnings.get(flag, False)) for flag in DILUTION_FLAGS)
+
+    official_supply_checks = payload.get("official_supply_checks", {})
+    unknown_supply_checks: list[str] = []
+    present_supply_checks: list[str] = []
+    for check in SUPPLY_CHECKS:
+        state = str(official_supply_checks.get(check, "UNKNOWN")).upper()
+        if state not in SUPPLY_STATES:
+            raise ValueError(f"invalid_supply_state:{check}")
+        if state == "UNKNOWN":
+            unknown_supply_checks.append(check)
+        elif state == "PRESENT":
+            present_supply_checks.append(check)
+
+    supply_evidence_at = None
+    if payload.get("supply_evidence_asof"):
+        supply_evidence_at = _parse_time(payload["supply_evidence_asof"])
+        if supply_evidence_at > snapshot_at:
+            raise ValueError("future_supply_evidence_not_allowed")
+    elif official_supply_checks:
+        raise ValueError("supply_evidence_timestamp_required")
+
+    supply_evidence_complete = not unknown_supply_checks and supply_evidence_at is not None
+    official_dilution_present = any(
+        check in present_supply_checks for check in ("atm", "eloc", "cb", "warrant", "shelf")
+    )
+    dilution_present = screen_dilution_present or official_dilution_present
     float_ratio = None
     if len(engine_floats) >= 2:
         float_ratio = max(engine_floats.values()) / min(engine_floats.values())
@@ -89,7 +117,7 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     target_range = [min(targets), max(targets)] if targets else None
     upside = None if target_median is None else (target_median / entry - 1.0) * 100.0
 
-    if unit_blocked or scope_partial:
+    if unit_blocked or scope_partial or not supply_evidence_complete:
         state = "WATCH_ONLY_BLOCKED"
     elif engine_count >= 3 and not dilution_present:
         state = "WATCH_ONLY_STRONG"
@@ -114,6 +142,16 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "target_range": target_range,
         "upside_pct": upside,
         "dilution_warning": dilution_present,
+        "screen_dilution_warning": screen_dilution_present,
+        "official_dilution_warning": official_dilution_present,
+        "official_supply_checks": {
+            check: str(official_supply_checks.get(check, "UNKNOWN")).upper()
+            for check in SUPPLY_CHECKS
+        },
+        "unknown_supply_checks": unknown_supply_checks,
+        "present_supply_checks": present_supply_checks,
+        "supply_evidence_complete": supply_evidence_complete,
+        "supply_evidence_asof": None if supply_evidence_at is None else supply_evidence_at.isoformat(),
         "scope_partial": scope_partial,
         "state": state,
         "WATCH_ONLY": True,
