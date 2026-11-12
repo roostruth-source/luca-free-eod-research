@@ -16,6 +16,9 @@
 - 여러 역분할 비율을 곱한 누적 계수가 250 이상이면 `SERIAL_REVERSE_SPLIT_EXTREME`로 차단한다.
 - Pre-funded Warrant(선납형 워런트)는 행사대금이 거의 0이면 경제적으로 주식과 비슷하다. 공시 숫자로 계산한 미행사 추정분은 확정치와 분리하고 `PREFUNDED_WARRANT_SHARE_EQUIVALENT`로 차단한다.
 - 완전희석 주식 수가 OS보다 얼마나 많은지 `potential_dilution_pct`로 함께 남긴다.
+- Toxic Financing(주가 하락 시 전환가가 함께 낮아져 새 주식이 늘 수 있는 불리한 자금조달)을 공식 공급 점검 항목에 추가한다.
+- 완전희석 잠재 증가율이 25% 이상이면 연구용 보수 기준 `SIGNIFICANT_POTENTIAL_DILUTION`으로 차단한다. 25%는 성능이 검증된 최적값이 아니라 이후 백테스트할 사전 고정 기준이다.
+- 화면의 ATM·ELOC·Toxic·CB·워런트 경고와 SEC에서 확인한 실제 자금조달 종류가 일치하지 않으면 `SCREEN_SUPPLY_LABEL_UNRECONCILED`로 남긴다.
 - 차단 이유는 `block_reasons` 배열로 남겨 같은 입력에서 같은 판정을 재현한다.
 - 모든 결과에 `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED`를 강제로 붙인다.
 
@@ -35,3 +38,5 @@ python evaluate_snapshot.py frozen_snapshot.json
 `inlf_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 INLF 10거래일 4엔진 사례다. SEC 기준 완전희석 주식 수는 직전 Class A OS의 약 29.1배이고, 2026년 두 역분할의 누적 계수는 1대3,200이다. `HIGH_FULLY_DILUTED_MULTIPLE`, `SERIAL_REVERSE_SPLIT_EXTREME` 및 미확인 공급 항목 때문에 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
 `huhu_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 HUHU 10거래일 4엔진 사례다. SEC에는 400,000주와 Pre-funded Warrant 1,600,000개의 등록직접공모가 확인된다. 2026-06-30 OS와 공모 발행 숫자를 맞대면 아직 주식으로 바뀌지 않은 선납형 워런트는 707,901개로 계산되지만, 이는 공시 숫자에서 얻은 추정치다. 거의 0인 행사가 때문에 주식처럼 취급하고 미확인 공급 항목과 함께 `WATCH_ONLY_BLOCKED`로 둔다.
+
+`bdmd_2026-11-13T0008+09.json`은 화면상 ATM 경고가 켜진 BDMD 10거래일 4엔진 사례다. SEC에서 확인된 핵심은 ATM이 아니라 VWAP 연동 전환가를 가진 CB다. 최대 전환 시 OS 대비 잠재 주식이 약 86.33% 늘 수 있어 `SIGNIFICANT_POTENTIAL_DILUTION`, `SCREEN_SUPPLY_LABEL_UNRECONCILED` 및 미확인 공급 항목으로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
