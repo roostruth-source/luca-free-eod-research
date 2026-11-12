@@ -6,6 +6,7 @@ from reconcile_daily_bars import reconcile_bar
 def source(name, close=10.0):
     return {
         "source_name": name,
+        "source_url": f"https://example.com/{name}",
         "retrieved_at": "2026-11-13T06:33:00+09:00",
         "session_close_at": "2026-11-12T16:00:00-05:00",
         "open": 9.8,
@@ -57,6 +58,19 @@ class ReconcileDailyBarsTests(unittest.TestCase):
     def test_duplicate_source_is_not_independent(self):
         with self.assertRaisesRegex(ValueError, "duplicate_source_not_independent"):
             reconcile_bar(payload(source("A"), source("A")))
+
+    def test_duplicate_source_url_is_not_independent(self):
+        first = source("A")
+        second = source("B")
+        second["source_url"] = first["source_url"]
+        with self.assertRaisesRegex(ValueError, "duplicate_source_url_not_independent"):
+            reconcile_bar(payload(first, second))
+
+    def test_https_source_url_is_required(self):
+        item = source("A")
+        item["source_url"] = "http://example.com/A"
+        with self.assertRaisesRegex(ValueError, "https_source_url_required"):
+            reconcile_bar(payload(item, source("B")))
 
     def test_future_source_retrieval_is_rejected(self):
         item = source("A")
