@@ -81,13 +81,20 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         if source.get("price_basis") != PRICE_BASIS:
             raise ValueError("split_adjusted_price_basis_required")
 
-        prices = {field: float(source[field]) for field in OHLC_FIELDS}
+        prices = {
+            field: float(source[field])
+            for field in OHLC_FIELDS
+            if source.get(field) is not None
+        }
+        if not prices:
+            raise ValueError("at_least_one_ohlc_field_required")
         if any(value <= 0 for value in prices.values()):
             raise ValueError("bar_price_must_be_positive")
-        if prices["low"] > min(prices["open"], prices["close"]):
-            raise ValueError("invalid_bar_low")
-        if prices["high"] < max(prices["open"], prices["close"]):
-            raise ValueError("invalid_bar_high")
+        if set(prices) == set(OHLC_FIELDS):
+            if prices["low"] > min(prices["open"], prices["close"]):
+                raise ValueError("invalid_bar_low")
+            if prices["high"] < max(prices["open"], prices["close"]):
+                raise ValueError("invalid_bar_high")
         normalized.append(
             {
                 "source_name": name,
@@ -117,9 +124,15 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
             "block_reasons": ["AT_LEAST_TWO_INDEPENDENT_SOURCES_REQUIRED"],
         }
 
-    spreads = {
-        field: _spread_pct([source[field] for source in normalized])
+    field_values = {
+        field: [source[field] for source in normalized if field in source]
         for field in OHLC_FIELDS
+    }
+    field_source_count = {field: len(values) for field, values in field_values.items()}
+    spreads = {
+        field: _spread_pct(values)
+        for field, values in field_values.items()
+        if len(values) >= 2
     }
     conflicts = [field for field, spread in spreads.items() if spread > tolerance_pct]
     if conflicts:
@@ -127,15 +140,26 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
             **base,
             "reconciliation_status": "SOURCE_CONFLICT",
             "field_spread_pct": spreads,
+            "field_source_count": field_source_count,
             "conflicting_fields": conflicts,
             "canonical_bar": None,
             "block_reasons": ["PUBLIC_PRICE_SOURCES_DISAGREE"],
         }
 
-    canonical = {
-        field: median([source[field] for source in normalized])
-        for field in OHLC_FIELDS
-    }
+    insufficient = [field for field, count in field_source_count.items() if count < 2]
+    if insufficient:
+        return {
+            **base,
+            "reconciliation_status": "INSUFFICIENT_FIELD_COVERAGE",
+            "field_spread_pct": spreads,
+            "field_source_count": field_source_count,
+            "insufficient_fields": insufficient,
+            "conflicting_fields": [],
+            "canonical_bar": None,
+            "block_reasons": ["TWO_SOURCES_REQUIRED_FOR_EACH_OHLC_FIELD"],
+        }
+
+    canonical = {field: median(field_values[field]) for field in OHLC_FIELDS}
     canonical.update(
         {
             "session_close_at": session_close_at.isoformat(),
@@ -148,6 +172,7 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         **base,
         "reconciliation_status": "VERIFIED",
         "field_spread_pct": spreads,
+        "field_source_count": field_source_count,
         "conflicting_fields": [],
         "canonical_bar": canonical,
         "block_reasons": [],
