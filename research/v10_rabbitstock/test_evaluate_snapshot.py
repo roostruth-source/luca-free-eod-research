@@ -133,6 +133,27 @@ class SnapshotGateTests(unittest.TestCase):
         self.assertEqual(result["state"], "WATCH_ONLY_STRONG")
         self.assertFalse(result["cross_engine_float_mismatch"])
 
+    def test_prefunded_warrants_are_treated_as_share_equivalent(self):
+        payload = base_payload()
+        payload["official_supply_checks"]["warrant"] = "PRESENT"
+        payload["official_os_baseline"] = 26_785_848
+        payload["official_fully_diluted_shares"] = 27_493_749
+        payload["prefunded_warrants_unexercised_estimate"] = 707_901
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertTrue(result["prefunded_share_equivalent"])
+        self.assertEqual(result["economic_share_count"], 27_493_749)
+        self.assertAlmostEqual(result["economic_share_uplift_pct"], 2.643, places=3)
+        self.assertIn(
+            "PREFUNDED_WARRANT_SHARE_EQUIVALENT", result["block_reasons"]
+        )
+
+    def test_prefunded_warrant_estimate_requires_os_baseline(self):
+        payload = base_payload()
+        payload["prefunded_warrants_unexercised_estimate"] = 1
+        with self.assertRaisesRegex(ValueError, "prefunded_warrant_os_baseline_required"):
+            evaluate_snapshot(payload)
+
 
 if __name__ == "__main__":
     unittest.main()
