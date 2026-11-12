@@ -47,6 +47,7 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
 
     normalized: list[dict[str, Any]] = []
     names: set[str] = set()
+    urls: set[str] = set()
     session_close_at: datetime | None = None
     for source in sources:
         name = str(source.get("source_name", "")).strip()
@@ -55,6 +56,13 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         if name in names:
             raise ValueError("duplicate_source_not_independent")
         names.add(name)
+
+        source_url = str(source.get("source_url", "")).strip()
+        if not source_url.startswith("https://"):
+            raise ValueError("https_source_url_required")
+        if source_url in urls:
+            raise ValueError("duplicate_source_url_not_independent")
+        urls.add(source_url)
 
         retrieved_at = _parse_time(source["retrieved_at"])
         if retrieved_at > evaluation_asof:
@@ -80,7 +88,14 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("invalid_bar_low")
         if prices["high"] < max(prices["open"], prices["close"]):
             raise ValueError("invalid_bar_high")
-        normalized.append({"source_name": name, **prices})
+        normalized.append(
+            {
+                "source_name": name,
+                "source_url": source_url,
+                "retrieved_at": retrieved_at.isoformat(),
+                **prices,
+            }
+        )
 
     base = {
         "ticker": str(payload["ticker"]).upper(),
@@ -88,6 +103,7 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         "signal_at": signal_at.isoformat(),
         "source_count": len(normalized),
         "source_names": sorted(names),
+        "source_observations": sorted(normalized, key=lambda item: item["source_name"]),
         "ohlc_tolerance_pct": tolerance_pct,
         "WATCH_ONLY": True,
         "NO_ORDERS": True,
