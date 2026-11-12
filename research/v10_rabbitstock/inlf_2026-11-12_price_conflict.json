@@ -1,0 +1,32 @@
+{
+  "ticker": "INLF",
+  "signal_at": "2026-11-13T00:08:00+09:00",
+  "evaluation_asof": "2026-11-13T06:47:00+09:00",
+  "ohlc_tolerance_pct": 1.0,
+  "sources": [
+    {
+      "source_name": "ChartExchange",
+      "source_url": "https://chartexchange.com/symbol/nasdaq-inlf/historical/",
+      "retrieved_at": "2026-11-13T06:47:00+09:00",
+      "session_close_at": "2026-11-12T16:00:00-05:00",
+      "open": 0.5100,
+      "high": 0.5500,
+      "low": 0.4300,
+      "close": 0.4300,
+      "complete": true,
+      "price_basis": "SPLIT_ADJUSTED_TO_SIGNAL"
+    },
+    {
+      "source_name": "Investing",
+      "source_url": "https://ca.investing.com/equities/inlif-historical-data",
+      "retrieved_at": "2026-11-13T06:47:00+09:00",
+      "session_close_at": "2026-11-12T16:00:00-05:00",
+      "open": 0.5214,
+      "high": 0.5543,
+      "low": 0.4901,
+      "close": 0.4943,
+      "complete": true,
+      "price_basis": "SPLIT_ADJUSTED_TO_SIGNAL"
+    }
+  ]
+}
