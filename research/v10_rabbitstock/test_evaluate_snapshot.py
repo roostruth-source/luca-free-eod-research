@@ -88,6 +88,29 @@ class SnapshotGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "future_data_not_allowed"):
             evaluate_snapshot(payload)
 
+    def test_high_fully_diluted_multiple_blocks(self):
+        payload = base_payload()
+        payload["official_os_baseline"] = 1_046_390
+        payload["official_fully_diluted_shares"] = 30_458_162
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertAlmostEqual(result["fully_diluted_multiple"], 29.1079, places=3)
+        self.assertIn("HIGH_FULLY_DILUTED_MULTIPLE", result["block_reasons"])
+
+    def test_extreme_serial_reverse_split_blocks(self):
+        payload = base_payload()
+        payload["reverse_split_factors"] = [16, 200]
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertEqual(result["cumulative_reverse_split_factor"], 3_200)
+        self.assertIn("SERIAL_REVERSE_SPLIT_EXTREME", result["block_reasons"])
+
+    def test_dilution_share_counts_must_be_paired(self):
+        payload = base_payload()
+        payload["official_os_baseline"] = 1_000_000
+        with self.assertRaisesRegex(ValueError, "dilution_share_pair_required"):
+            evaluate_snapshot(payload)
+
     def test_cross_engine_float_mismatch_blocks(self):
         payload = base_payload()
         payload["engine_hits"]["preview"]["float"] = 239_842
@@ -99,6 +122,7 @@ class SnapshotGateTests(unittest.TestCase):
         self.assertTrue(result["cross_engine_float_mismatch"])
         self.assertAlmostEqual(result["float_ratio"], 6.0, places=3)
         self.assertTrue(result["float_mismatch_matches_split_factor"])
+        self.assertIn("CROSS_ENGINE_FLOAT_MISMATCH", result["block_reasons"])
 
     def test_small_float_rounding_difference_is_allowed(self):
         payload = base_payload()
