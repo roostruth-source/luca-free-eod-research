@@ -130,6 +130,34 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         fully_diluted_multiple is not None
         and fully_diluted_multiple >= HIGH_DILUTION_MULTIPLE
     )
+    potential_dilution_pct = None
+    if fully_diluted_multiple is not None:
+        potential_dilution_pct = (fully_diluted_multiple - 1.0) * 100.0
+
+    prefunded_warrants_unexercised_estimate = payload.get(
+        "prefunded_warrants_unexercised_estimate"
+    )
+    if prefunded_warrants_unexercised_estimate is not None:
+        prefunded_warrants_unexercised_estimate = float(
+            prefunded_warrants_unexercised_estimate
+        )
+        if prefunded_warrants_unexercised_estimate < 0:
+            raise ValueError("invalid_prefunded_warrant_estimate")
+        if official_os_baseline is None:
+            raise ValueError("prefunded_warrant_os_baseline_required")
+    prefunded_share_equivalent = bool(
+        prefunded_warrants_unexercised_estimate is not None
+        and prefunded_warrants_unexercised_estimate > 0
+    )
+    economic_share_count = None
+    economic_share_uplift_pct = None
+    if prefunded_share_equivalent:
+        economic_share_count = (
+            official_os_baseline + prefunded_warrants_unexercised_estimate
+        )
+        economic_share_uplift_pct = (
+            prefunded_warrants_unexercised_estimate / official_os_baseline * 100.0
+        )
 
     scope_partial = bool(payload.get("scope_partial", False))
 
@@ -152,6 +180,8 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         block_reasons.append("HIGH_FULLY_DILUTED_MULTIPLE")
     if serial_reverse_split_extreme:
         block_reasons.append("SERIAL_REVERSE_SPLIT_EXTREME")
+    if prefunded_share_equivalent:
+        block_reasons.append("PREFUNDED_WARRANT_SHARE_EQUIVALENT")
 
     engine_count = len(ranks)
     target_median = median(targets) if targets else None
@@ -185,7 +215,12 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "official_os_baseline": official_os_baseline,
         "official_fully_diluted_shares": official_fully_diluted_shares,
         "fully_diluted_multiple": fully_diluted_multiple,
+        "potential_dilution_pct": potential_dilution_pct,
         "high_dilution_multiple": high_dilution_multiple,
+        "prefunded_warrants_unexercised_estimate": prefunded_warrants_unexercised_estimate,
+        "prefunded_share_equivalent": prefunded_share_equivalent,
+        "economic_share_count": economic_share_count,
+        "economic_share_uplift_pct": economic_share_uplift_pct,
         "target_median": target_median,
         "target_range": target_range,
         "upside_pct": upside,
