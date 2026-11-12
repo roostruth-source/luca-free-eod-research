@@ -31,6 +31,19 @@ python evaluate_snapshot.py frozen_snapshot.json
 
 현재 코드는 평가 계약의 첫 단계다. 실제 성능 향상이나 적중률은 검증하지 않았다.
 
+## 후속 수익률 평가
+
+`evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.
+
+각 기간의 종가 기준 수익률과 MFE(기간 중 최대 상승폭), MAE(기간 중 최대 하락폭)를 계산한다. 엔진 1개·2개·3개 이상, Preview+Signal, Signal+Burning Up, 희석 경고 유무로 분리해 표본 수·양수 종가 비율·평균·중앙값·가장 큰 수익 1건 제외 평균을 만든다.
+
+화면 진입가는 실제 체결가가 아니므로 `SCREEN_REFERENCE_PRICE` 결과를 적중률이나 실거래 수익률로 부르지 않는다. 완료된 일봉이 부족하면 `NOT_MATURE`로 남긴다.
+
+```bash
+python -m unittest -v test_evaluate_followups.py
+python evaluate_followups.py frozen_followups.json
+```
+
 `whlr_2026-11-13T0008+09.json`은 자정 화면에서 확인한 WHLR 10거래일 신호를 고정한 연구용 입력이다. 다섯 엔진 동시 포착이어도 Float 단위가 일치하지 않아 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
 `engs_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 ENGS 사례다. SEC에는 2026년 사모발행·워런트 전량 현금 없는 행사와 9월 10일 효력이 생긴 최대 2억 달러 Shelf가 확인된다. 미확인 항목까지 남아 있으므로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
