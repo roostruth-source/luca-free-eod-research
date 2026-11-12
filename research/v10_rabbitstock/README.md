@@ -14,6 +14,8 @@
 - SEC 근거 시각이 스냅숏 뒤면 `future_supply_evidence_not_allowed`로 거부해 미래 정보가 과거 신호에 섞이지 않게 한다.
 - 공식 OS(발행주식 수)와 완전희석 주식 수를 함께 고정해 `fully_diluted_multiple`을 계산한다. 2배 이상이면 `HIGH_FULLY_DILUTED_MULTIPLE`로 차단한다.
 - 여러 역분할 비율을 곱한 누적 계수가 250 이상이면 `SERIAL_REVERSE_SPLIT_EXTREME`로 차단한다.
+- Pre-funded Warrant(선납형 워런트)는 행사대금이 거의 0이면 경제적으로 주식과 비슷하다. 공시 숫자로 계산한 미행사 추정분은 확정치와 분리하고 `PREFUNDED_WARRANT_SHARE_EQUIVALENT`로 차단한다.
+- 완전희석 주식 수가 OS보다 얼마나 많은지 `potential_dilution_pct`로 함께 남긴다.
 - 차단 이유는 `block_reasons` 배열로 남겨 같은 입력에서 같은 판정을 재현한다.
 - 모든 결과에 `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED`를 강제로 붙인다.
 
@@ -31,3 +33,5 @@ python evaluate_snapshot.py frozen_snapshot.json
 `engs_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 ENGS 사례다. SEC에는 2026년 사모발행·워런트 전량 현금 없는 행사와 9월 10일 효력이 생긴 최대 2억 달러 Shelf가 확인된다. 미확인 항목까지 남아 있으므로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
 `inlf_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 INLF 10거래일 4엔진 사례다. SEC 기준 완전희석 주식 수는 직전 Class A OS의 약 29.1배이고, 2026년 두 역분할의 누적 계수는 1대3,200이다. `HIGH_FULLY_DILUTED_MULTIPLE`, `SERIAL_REVERSE_SPLIT_EXTREME` 및 미확인 공급 항목 때문에 `WATCH_ONLY_BLOCKED`가 되어야 한다.
+
+`huhu_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 HUHU 10거래일 4엔진 사례다. SEC에는 400,000주와 Pre-funded Warrant 1,600,000개의 등록직접공모가 확인된다. 2026-06-30 OS와 공모 발행 숫자를 맞대면 아직 주식으로 바뀌지 않은 선납형 워런트는 707,901개로 계산되지만, 이는 공시 숫자에서 얻은 추정치다. 거의 0인 행사가 때문에 주식처럼 취급하고 미확인 공급 항목과 함께 `WATCH_ONLY_BLOCKED`로 둔다.
