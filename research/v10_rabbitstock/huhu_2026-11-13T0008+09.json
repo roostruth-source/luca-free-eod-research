@@ -1,0 +1,39 @@
+{
+  "ticker": "HUHU",
+  "snapshot_at": "2026-11-13T00:08:00+09:00",
+  "data_asof": "2026-11-11T16:00:00-05:00",
+  "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+  "entry": 0.3173,
+  "screen_target_median": 0.4473,
+  "screen_upside_pct": 41.0,
+  "engine_hits": {
+    "preview": {"rank": 2},
+    "signal": {"rank": 6},
+    "hidden_pick": {"rank": 16},
+    "best": {"rank": 27}
+  },
+  "warnings": {},
+  "official_supply_checks": {
+    "atm": "UNKNOWN",
+    "eloc": "UNKNOWN",
+    "cb": "UNKNOWN",
+    "warrant": "PRESENT",
+    "lockup": "UNKNOWN",
+    "reverse_split": "UNKNOWN",
+    "shelf": "PRESENT"
+  },
+  "supply_evidence_asof": "2026-09-22T20:00:56-04:00",
+  "official_os_baseline": 26785848,
+  "official_fully_diluted_shares": 27493749,
+  "prefunded_warrants_unexercised_estimate": 707901,
+  "split_basis_verified": false,
+  "float_verified": false,
+  "scope_partial": false,
+  "notes": [
+    "RabbitStock 10-day screen: 4 engines, entry $0.3173, integrated target $0.4473, no ATM/ELOC/Toxic/reverse-split warning shown.",
+    "SEC: on 2026-05-05 the company closed a registered direct offering of 400,000 shares and 1,600,000 pre-funded warrants with a $0.0000025 exercise price.",
+    "SEC: the 1,600,000 pre-funded warrants were included in basic and diluted EPS from issuance because exercise required only nominal consideration.",
+    "SEC: June 30 OS was 26,785,848 and the equity roll-forward recorded 1,292,099 private-placement shares; 707,901 unexercised warrants is an arithmetic inference, not an explicitly reported balance.",
+    "No variable-price reset was verified, so this fixture does not label the financing toxic. ATM, ELOC, CB, lockup and reverse-split status remain UNKNOWN."
+  ]
+}
