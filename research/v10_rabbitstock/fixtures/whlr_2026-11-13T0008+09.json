@@ -1,0 +1,26 @@
+{
+  "ticker": "WHLR",
+  "snapshot_at": "2026-11-13T00:08:00+09:00",
+  "data_asof": "2026-11-11T16:00:00-05:00",
+  "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+  "entry": 657,
+  "engine_hits": {
+    "preview": {"rank": 16, "target": 1579, "float": 239842},
+    "signal": {"rank": 5, "target": 1258, "float": 239842},
+    "hidden_pick": {"rank": 2, "target": 1622, "float": 39973},
+    "best": {"rank": 2, "target": 1094, "float": 39973},
+    "burning_up": {"rank": 5, "target": 1690, "float": 239842}
+  },
+  "warnings": {
+    "atm": false,
+    "eloc": false,
+    "toxic_financing": true,
+    "reverse_split": false,
+    "dilution_unit_mismatch": false
+  },
+  "reverse_split_factors": [6],
+  "split_basis_verified": true,
+  "float_verified": true,
+  "float_basis_reconciled": false,
+  "scope_partial": false
+}
