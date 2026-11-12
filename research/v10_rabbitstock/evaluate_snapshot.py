@@ -15,10 +15,20 @@ from typing import Any
 
 ENGINES = ("preview", "signal", "hidden_pick", "best", "burning_up")
 DILUTION_FLAGS = ("atm", "eloc", "toxic_financing", "cb", "warrant", "shelf")
-SUPPLY_CHECKS = ("atm", "eloc", "cb", "warrant", "lockup", "reverse_split", "shelf")
+SUPPLY_CHECKS = (
+    "atm",
+    "eloc",
+    "toxic_financing",
+    "cb",
+    "warrant",
+    "lockup",
+    "reverse_split",
+    "shelf",
+)
 SUPPLY_STATES = {"CLEAR", "PRESENT", "UNKNOWN"}
 FLOAT_MISMATCH_TOLERANCE = 0.02
 HIGH_DILUTION_MULTIPLE = 2.0
+SIGNIFICANT_DILUTION_PCT = 25.0
 EXTREME_SPLIT_FACTOR = 250.0
 
 
@@ -90,8 +100,14 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
 
     supply_evidence_complete = not unknown_supply_checks and supply_evidence_at is not None
     official_dilution_present = any(
-        check in present_supply_checks for check in ("atm", "eloc", "cb", "warrant", "shelf")
+        check in present_supply_checks for check in DILUTION_FLAGS
     )
+    screen_supply_unreconciled = [
+        flag
+        for flag in DILUTION_FLAGS
+        if bool(warnings.get(flag, False))
+        and str(official_supply_checks.get(flag, "UNKNOWN")).upper() != "PRESENT"
+    ]
     dilution_present = screen_dilution_present or official_dilution_present
     float_ratio = None
     if len(engine_floats) >= 2:
@@ -133,6 +149,10 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     potential_dilution_pct = None
     if fully_diluted_multiple is not None:
         potential_dilution_pct = (fully_diluted_multiple - 1.0) * 100.0
+    significant_potential_dilution = bool(
+        potential_dilution_pct is not None
+        and potential_dilution_pct >= SIGNIFICANT_DILUTION_PCT
+    )
 
     prefunded_warrants_unexercised_estimate = payload.get(
         "prefunded_warrants_unexercised_estimate"
@@ -178,10 +198,14 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         block_reasons.append("SUPPLY_EVIDENCE_INCOMPLETE")
     if high_dilution_multiple:
         block_reasons.append("HIGH_FULLY_DILUTED_MULTIPLE")
+    if significant_potential_dilution:
+        block_reasons.append("SIGNIFICANT_POTENTIAL_DILUTION")
     if serial_reverse_split_extreme:
         block_reasons.append("SERIAL_REVERSE_SPLIT_EXTREME")
     if prefunded_share_equivalent:
         block_reasons.append("PREFUNDED_WARRANT_SHARE_EQUIVALENT")
+    if screen_supply_unreconciled:
+        block_reasons.append("SCREEN_SUPPLY_LABEL_UNRECONCILED")
 
     engine_count = len(ranks)
     target_median = median(targets) if targets else None
@@ -216,6 +240,7 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "official_fully_diluted_shares": official_fully_diluted_shares,
         "fully_diluted_multiple": fully_diluted_multiple,
         "potential_dilution_pct": potential_dilution_pct,
+        "significant_potential_dilution": significant_potential_dilution,
         "high_dilution_multiple": high_dilution_multiple,
         "prefunded_warrants_unexercised_estimate": prefunded_warrants_unexercised_estimate,
         "prefunded_share_equivalent": prefunded_share_equivalent,
@@ -227,6 +252,7 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "dilution_warning": dilution_present,
         "screen_dilution_warning": screen_dilution_present,
         "official_dilution_warning": official_dilution_present,
+        "screen_supply_unreconciled": screen_supply_unreconciled,
         "official_supply_checks": {
             check: str(official_supply_checks.get(check, "UNKNOWN")).upper()
             for check in SUPPLY_CHECKS
