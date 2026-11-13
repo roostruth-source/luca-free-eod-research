@@ -1,0 +1,51 @@
+{
+  "evaluation_asof": "2026-11-13T12:45:00+09:00",
+  "reference_at": "2026-11-12T13:55:00+09:00",
+  "reference_ticker": "YFOR",
+  "actions": [
+    {
+      "action_id": "YFOR_RS_20260323_1_50",
+      "action_type": "REVERSE_SPLIT",
+      "effective_at": "2026-03-23T09:30:00-04:00",
+      "evidence_available_at": "2026-03-19T23:59:59-04:00",
+      "ticker": "YYGH",
+      "shares_before_per_after": 50,
+      "source_url": "https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2026-174"
+    },
+    {
+      "action_id": "YFOR_RS_20260623_1_30",
+      "action_type": "REVERSE_SPLIT",
+      "effective_at": "2026-06-23T09:30:00-04:00",
+      "evidence_available_at": "2026-06-18T23:59:59-04:00",
+      "ticker": "YYGH",
+      "shares_before_per_after": 30,
+      "source_url": "https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2026-423"
+    },
+    {
+      "action_id": "YFOR_TICKER_20260902",
+      "action_type": "TICKER_CHANGE",
+      "effective_at": "2026-09-02T09:30:00-04:00",
+      "evidence_available_at": "2026-09-08T16:10:11-04:00",
+      "from_ticker": "YYGH",
+      "to_ticker": "YFOR",
+      "same_security": true,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1985337/000118518526003874/yfor6k090726.htm"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "unit_price_probe_not_market_data",
+      "metric_type": "PRICE",
+      "ticker": "YYGH",
+      "observed_at": "2026-03-20T16:00:00-04:00",
+      "value": 1.0
+    },
+    {
+      "observation_id": "unit_share_probe_not_company_os",
+      "metric_type": "SHARE_COUNT",
+      "ticker": "YYGH",
+      "observed_at": "2026-03-20T16:00:00-04:00",
+      "value": 1500000
+    }
+  ]
+}
