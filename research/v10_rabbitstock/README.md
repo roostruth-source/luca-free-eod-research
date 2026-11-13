@@ -66,6 +66,15 @@ python -m unittest -v test_evaluate_cb_reset_event.py
 python evaluate_cb_reset_event.py zbao_cb_reset_event_2026.json
 ```
 
+`build_cb_reset_cohort.py`는 “역분할 뒤 16번째 거래일”이라는 문구만 같다고 같은 사례로 묶지 않는다. 계산창 길이, 낮은 VWAP 선택 일수, 전환가가 내려가기만 하는지, Floor Constraint(최저 전환가 제한)가 있는지까지 모두 같아야 같은 Contract Fingerprint(계약 지문)로 인정한다. 계약 효력일 이전의 역분할도 후속 결과 표본에서 제외한다.
+
+ZBAO와 HUSA의 계약은 16거래일·15거래일 창·최저 5일 평균·하향만 가능·별도 바닥 제한 없음이 일치했다. 그러나 HUSA의 1대10 역분할은 2025년 6월 6일이고 해당 전환사채 발행일은 7월 10일이라 계약 적용 전 사건이다. NIVF는 같은 16·15·5 구조이지만 Floor Price(최저 전환가 바닥)가 있고, GCTK는 계산창이 20거래일이며 바닥 제한도 있어 ZBAO와 같은 집단에서 제외된다. 따라서 현재 독립 비교 사건은 0건이며, ZBAO 1건으로 “5~10일 펌핑 법칙”을 확정할 수 없다.
+
+```bash
+python -m unittest -v test_build_cb_reset_cohort.py
+python build_cb_reset_cohort.py cb_reset_contract_cohort_2026.json
+```
+
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
 공시가 과거의 주식 수·주당 수치를 역분할 후 단위로 소급해 다시 적은 경우에는 관측값의 `split_basis_effective_through`에 이미 반영된 마지막 역분할 시각을 넣는다. 이 시각 이전의 역분할은 다시 적용하지 않아 이중 조정을 막는다. `basis_effective_through`는 이전 입력 호환용 별칭이며 두 필드 값이 다르면 거부한다.
