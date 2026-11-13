@@ -6,6 +6,7 @@
   "sources": [
     {
       "source_name": "Investing",
+      "provider_id": "investing",
       "source_url": "https://ca.investing.com/equities/energys-historical-data",
       "retrieved_at": "2026-11-13T08:07:00+09:00",
       "source_data_asof": "2026-11-12T15:20:44-05:00",
@@ -19,6 +20,7 @@
     },
     {
       "source_name": "Public",
+      "provider_id": "public",
       "source_url": "https://public.com/stocks/engs/after-hours",
       "retrieved_at": "2026-11-13T08:07:00+09:00",
       "source_data_asof": "2026-11-12T20:00:00-05:00",
