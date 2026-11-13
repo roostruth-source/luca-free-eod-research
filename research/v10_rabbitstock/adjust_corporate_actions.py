@@ -96,6 +96,16 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
         observed_at = _parse_time(raw["observed_at"])
         if observed_at > reference_at:
             raise ValueError("observation_after_reference_not_allowed")
+        basis_effective_through_raw = raw.get("basis_effective_through")
+        basis_effective_through = (
+            _parse_time(basis_effective_through_raw)
+            if basis_effective_through_raw
+            else observed_at
+        )
+        if basis_effective_through < observed_at:
+            raise ValueError("basis_before_observation_not_allowed")
+        if basis_effective_through > reference_at:
+            raise ValueError("future_basis_not_allowed")
         metric_type = str(raw["metric_type"])
         if metric_type not in METRIC_TYPES:
             raise ValueError("unsupported_metric_type")
@@ -107,7 +117,7 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
         factor = 1.0
         applied: list[str] = []
         for action in actions:
-            if not (observed_at < action["effective_at"] <= reference_at):
+            if not (basis_effective_through < action["effective_at"] <= reference_at):
                 continue
             if action["action_type"] == "REVERSE_SPLIT":
                 if current_ticker == action["ticker"]:
@@ -127,6 +137,7 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
                 "original_ticker": str(raw["ticker"]).upper(),
                 "reference_ticker": reference_ticker,
                 "observed_at": observed_at.isoformat(),
+                "basis_effective_through": basis_effective_through.isoformat(),
                 "raw_value": value,
                 "cumulative_split_factor": factor,
                 "adjusted_value": adjusted_value,
