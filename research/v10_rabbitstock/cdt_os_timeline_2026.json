@@ -1,0 +1,45 @@
+{
+  "evaluation_asof": "2026-10-27T17:00:00-04:00",
+  "reference_at": "2026-10-27T16:58:52-04:00",
+  "ticker": "CDT",
+  "rapid_expansion_threshold_pct": 25.0,
+  "reverse_splits": [
+    {
+      "action_id": "cdt_2026_09_1_for_25",
+      "effective_at": "2026-09-28T17:00:00-04:00",
+      "evidence_available_at": "2026-09-25T16:05:00-04:00",
+      "shares_before_per_after": 25,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1896212/000149315226044248/form8-k.htm"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "cdt_os_2026_08_12",
+      "observation_date": "2026-08-12",
+      "evidence_available_at": "2026-08-12T17:29:38-04:00",
+      "shares_outstanding": 786670,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1896212/000149315226037458/form10-q.htm"
+    },
+    {
+      "checkpoint_id": "cdt_os_2026_08_31",
+      "observation_date": "2026-08-31",
+      "evidence_available_at": "2026-09-01T16:15:24-04:00",
+      "shares_outstanding": 13693866,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1896212/000149315226041016/form8-k.htm"
+    },
+    {
+      "checkpoint_id": "cdt_os_2026_09_30",
+      "observation_date": "2026-09-30",
+      "evidence_available_at": "2026-10-07T16:05:14-04:00",
+      "shares_outstanding": 1477789,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1896212/000175392626001909/primary_doc.xml"
+    },
+    {
+      "checkpoint_id": "cdt_os_2026_10_23",
+      "observation_date": "2026-10-23",
+      "evidence_available_at": "2026-10-27T16:58:52-04:00",
+      "shares_outstanding": 9322805,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1896212/000149315226048693/formdef14a.htm"
+    }
+  ]
+}
