@@ -103,6 +103,27 @@ class FollowupEvaluationTests(unittest.TestCase):
         self.assertIn("combo:preview+signal", groups)
         self.assertIn("combo:signal+burning_up", groups)
 
+    def test_screen_and_official_dilution_warnings_are_separated(self):
+        item = signal()
+        item.pop("dilution_warning")
+        item["screen_dilution_warning"] = False
+        item["official_dilution_warning"] = True
+        result = evaluate_followups(payload(item))
+        record = result["records"][0]
+        self.assertFalse(record["screen_dilution_warning"])
+        self.assertTrue(record["official_dilution_warning"])
+        self.assertTrue(record["dilution_warning"])
+        self.assertIn("screen_dilution_warning:NO", record["groups"])
+        self.assertIn("official_dilution_warning:YES", record["groups"])
+        self.assertIn("dilution_warning:YES", record["groups"])
+
+    def test_legacy_dilution_warning_remains_compatible(self):
+        item = signal()
+        item["dilution_warning"] = True
+        record = evaluate_followups(payload(item))["records"][0]
+        self.assertTrue(record["screen_dilution_warning"])
+        self.assertTrue(record["official_dilution_warning"])
+
 
 if __name__ == "__main__":
     unittest.main()
