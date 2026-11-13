@@ -61,6 +61,8 @@ python reconcile_daily_bars.py whlr_2026-11-12_price_conflict.json
 
 자료를 조회한 시각과 자료 자체가 가리키는 시각은 다르다. 각 출처의 `source_data_asof`가 정규장 마감보다 이르면 페이지가 일별 표처럼 보여도 `SOURCE_NOT_FINAL`로 차단한다. 출처 자체의 기준시각을 확인할 수 없으면 `SOURCE_TIMESTAMP_UNVERIFIED`로 남긴다. 자료 기준시각이 실제 조회시각보다 뒤라면 미래 자료이므로 `source_data_asof_after_retrieval` 오류로 거부한다. 이 규칙을 적용하면 ENGS의 Investing 값은 오후 3시 20분 장중 스냅숏이고, Public의 오후 8시 표시는 당시 조회시각 오후 6시 7분보다 미래다. INLF의 Investing 값도 오전 10시 10분 장중 스냅숏이므로 완료 일봉 충돌 증거가 아니라 미완성 자료다.
 
+`audit_source_revisions.py`는 같은 URL의 반복 조회값이 바뀌는 과정을 보존한다. 같은 출처를 여러 번 조회해도 독립 출처 수는 1개다. `inlf_yahoo_revision_2026-11-12.json`에서는 Yahoo의 장중 종가 $0.4285가 마감 $0.4110으로 약 4.08% 수정됐다. 이 수정은 오류 적중이나 별도 표본으로 세지 않고, 마감 뒤 최신값만 교차검증 후보로 넘긴다.
+
 `whlr_2026-11-13T0008+09.json`은 자정 화면에서 확인한 WHLR 10거래일 신호를 고정한 연구용 입력이다. 다섯 엔진 동시 포착이어도 Float 단위가 일치하지 않아 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
 `engs_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 ENGS 사례다. SEC에는 2026년 사모발행·워런트 전량 현금 없는 행사와 9월 10일 효력이 생긴 최대 2억 달러 Shelf가 확인된다. 미확인 항목까지 남아 있으므로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
