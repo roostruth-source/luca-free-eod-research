@@ -52,6 +52,14 @@ def _groups(record: dict[str, Any]) -> list[str]:
     groups = [
         f"engine_count:{'3+' if count >= 3 else count}",
         f"dilution_warning:{'YES' if record['dilution_warning'] else 'NO'}",
+        (
+            "screen_dilution_warning:"
+            f"{'YES' if record['screen_dilution_warning'] else 'NO'}"
+        ),
+        (
+            "official_dilution_warning:"
+            f"{'YES' if record['official_dilution_warning'] else 'NO'}"
+        ),
     ]
     if {"preview", "signal"}.issubset(engines):
         groups.append("combo:preview+signal")
@@ -97,6 +105,13 @@ def evaluate_followups(payload: dict[str, Any]) -> dict[str, Any]:
         if entry_rule not in ENTRY_RULES:
             raise ValueError("unsupported_entry_rule")
         engines = _engine_names(item.get("engine_hits", []))
+        legacy_dilution_warning = bool(item.get("dilution_warning", False))
+        screen_dilution_warning = bool(
+            item.get("screen_dilution_warning", legacy_dilution_warning)
+        )
+        official_dilution_warning = bool(
+            item.get("official_dilution_warning", legacy_dilution_warning)
+        )
 
         bars: list[dict[str, Any]] = []
         previous_close_at: datetime | None = None
@@ -148,7 +163,9 @@ def evaluate_followups(payload: dict[str, Any]) -> dict[str, Any]:
             "reference_only": entry_rule == "SCREEN_REFERENCE_PRICE",
             "engines": engines,
             "engine_count": len(engines),
-            "dilution_warning": bool(item.get("dilution_warning", False)),
+            "screen_dilution_warning": screen_dilution_warning,
+            "official_dilution_warning": official_dilution_warning,
+            "dilution_warning": screen_dilution_warning or official_dilution_warning,
             "outcomes": outcomes,
         }
         record["groups"] = _groups(record)
