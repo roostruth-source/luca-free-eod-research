@@ -59,6 +59,8 @@ python reconcile_daily_bars.py whlr_2026-11-12_price_conflict.json
 
 `engs_2026-11-12_price_conflict.json`은 Investing의 정규장 종가 $0.504와 Public의 정규장 종가 $0.68이 약 34.92% 다른 사례다. 종가만 제공하는 보조 출처도 이미 관측된 필드의 충돌을 입증하는 데 쓸 수 있다. 다만 두 출처가 종가만 일치하더라도 시가·고가·저가가 각각 2개 출처에서 확인되지 않으면 `INSUFFICIENT_FIELD_COVERAGE`로 막아 완성 일봉을 만들지 않는다.
 
+자료를 조회한 시각과 자료 자체가 가리키는 시각은 다르다. 각 출처의 `source_data_asof`가 정규장 마감보다 이르면 페이지가 일별 표처럼 보여도 `SOURCE_NOT_FINAL`로 차단한다. 출처 자체의 기준시각을 확인할 수 없으면 `SOURCE_TIMESTAMP_UNVERIFIED`로 남긴다. 자료 기준시각이 실제 조회시각보다 뒤라면 미래 자료이므로 `source_data_asof_after_retrieval` 오류로 거부한다. 이 규칙을 적용하면 ENGS의 Investing 값은 오후 3시 20분 장중 스냅숏이고, Public의 오후 8시 표시는 당시 조회시각 오후 6시 7분보다 미래다. INLF의 Investing 값도 오전 10시 10분 장중 스냅숏이므로 완료 일봉 충돌 증거가 아니라 미완성 자료다.
+
 `whlr_2026-11-13T0008+09.json`은 자정 화면에서 확인한 WHLR 10거래일 신호를 고정한 연구용 입력이다. 다섯 엔진 동시 포착이어도 Float 단위가 일치하지 않아 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
 `engs_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 ENGS 사례다. SEC에는 2026년 사모발행·워런트 전량 현금 없는 행사와 9월 10일 효력이 생긴 최대 2억 달러 Shelf가 확인된다. 미확인 항목까지 남아 있으므로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
