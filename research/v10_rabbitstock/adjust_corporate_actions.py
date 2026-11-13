@@ -167,7 +167,66 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
 
         if current_ticker != reference_ticker:
             raise ValueError("ticker_lineage_not_resolved")
-        adjusted_value = value * factor if metric_type == "PRICE" else value / factor
+        mechanical_adjusted_value = (
+            value * factor if metric_type == "PRICE" else value / factor
+        )
+        adjusted_value = mechanical_adjusted_value
+        official_restatement = None
+        restatement_difference = None
+        restatement_difference_pct = None
+        if raw.get("official_restated_value") is not None:
+            if metric_type != "SHARE_COUNT":
+                raise ValueError("official_restatement_share_count_only")
+            official_value = float(raw["official_restated_value"])
+            if official_value <= 0:
+                raise ValueError("official_restatement_value_must_be_positive")
+            restatement_scope = str(raw.get("official_restatement_scope", ""))
+            if restatement_scope != "OFFICIAL_POST_SPLIT_RESTATEMENT":
+                raise ValueError("official_restatement_scope_required")
+            restatement_source_url = str(
+                raw.get("official_restatement_source_url", "")
+            )
+            if not restatement_source_url.startswith("https://"):
+                raise ValueError("official_restatement_https_source_required")
+            restatement_evidence_raw = raw.get(
+                "official_restatement_evidence_available_at"
+            )
+            if not restatement_evidence_raw:
+                raise ValueError("official_restatement_evidence_at_required")
+            restatement_evidence_at = _parse_time(str(restatement_evidence_raw))
+            if restatement_evidence_at > evaluation_asof:
+                raise ValueError("future_official_restatement_evidence_not_allowed")
+            if restatement_evidence_at > reference_at:
+                raise ValueError("post_reference_official_restatement_not_allowed")
+            restatement_basis_raw = raw.get(
+                "official_restatement_basis_effective_through"
+            )
+            if not restatement_basis_raw:
+                raise ValueError("official_restatement_basis_required")
+            restatement_basis = _parse_time(str(restatement_basis_raw))
+            verified_split_times = [
+                action["effective_at"]
+                for action in actions
+                if action["action_type"] == "REVERSE_SPLIT"
+                and action["effective_at"] <= reference_at
+            ]
+            latest_verified_split = max(verified_split_times, default=None)
+            if restatement_basis != latest_verified_split:
+                raise ValueError("official_restatement_latest_split_required")
+            restatement_difference = round(
+                official_value - mechanical_adjusted_value, 8
+            )
+            restatement_difference_pct = round(
+                restatement_difference / mechanical_adjusted_value * 100.0, 8
+            )
+            adjusted_value = official_value
+            official_restatement = {
+                "scope": restatement_scope,
+                "value": official_value,
+                "basis_effective_through": restatement_basis.isoformat(),
+                "source_url": restatement_source_url,
+                "evidence_available_at": restatement_evidence_at.isoformat(),
+            }
         adjusted.append(
             {
                 "observation_id": str(raw["observation_id"]),
@@ -182,7 +241,11 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
                 "split_basis_provenance": split_basis_provenance,
                 "raw_value": value,
                 "cumulative_split_factor": factor,
+                "mechanical_adjusted_value": mechanical_adjusted_value,
                 "adjusted_value": adjusted_value,
+                "official_restatement": official_restatement,
+                "restatement_difference": restatement_difference,
+                "restatement_difference_pct": restatement_difference_pct,
                 "applied_action_ids": applied,
             }
         )
