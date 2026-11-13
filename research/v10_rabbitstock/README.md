@@ -22,6 +22,17 @@
 - 차단 이유는 `block_reasons` 배열로 남겨 같은 입력에서 같은 판정을 재현한다.
 - 모든 결과에 `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED`를 강제로 붙인다.
 
+## 기업행사 연쇄 조정
+
+`adjust_corporate_actions.py`는 Reverse Split(역분할)과 Ticker Change(티커 변경)를 시간순으로 연결해 과거 가격·주식 수를 신호 시점 단위로 바꾼다. 가격은 역분할 누적계수를 곱하고, OS·Float·워런트 같은 주식 수는 같은 계수로 나눈다. 티커 변경은 `same_security=true`가 확인된 경우에만 같은 증권으로 잇는다. `evidence_available_at`에는 SEC 접수시각이나 공식 발표일의 보수적 마감시각을 넣는다. 신호 뒤에 이용 가능해진 근거, 신호 뒤 기업행사, 끊어진 티커 계보는 모두 거부한다.
+
+YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
+
+```bash
+python -m unittest -v test_adjust_corporate_actions.py
+python adjust_corporate_actions.py yfor_corporate_actions_2026.json
+```
+
 ## 실행
 
 ```bash
