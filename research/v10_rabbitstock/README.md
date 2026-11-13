@@ -48,6 +48,15 @@ python -m unittest -v test_reconcile_supply_bundles.py
 python reconcile_supply_bundles.py cdt_supply_bundle_reconciliation_2026.json
 ```
 
+`reconcile_os_timeline.py`는 공식 OS(발행주식 수) 체크포인트를 역분할 뒤 단위로 맞춘다. CDT는 2026년 8월 12일 786,670주에서 8월 31일 13,693,866주로 1,640.74% 늘었다. 이 기간 순증가 12,907,196주 중 공식 확인된 Pre-funded Warrant(선납형 워런트) 행사 12,131,122주가 93.99%를 차지한다. 9월 1대25 역분할을 반영한 8월 31일 기준값 547,754.64주와 9월 30일 1,477,789주를 비교하면 순증가율은 169.79%다. 이어 10월 23일에는 9,322,805주로 다시 530.86% 늘었다. 이것은 Gross Issuance(총 신규발행)가 아니라 취소·단주 처리까지 합쳐진 Net OS Change(순 발행주식 수 변화)다.
+
+각 수치는 관측일과 SEC 공개시각을 별도로 저장한다. 예를 들어 9월 30일 수치는 10월 7일 공시 전 신호에는 쓸 수 없다. 25% 급증 기준은 성능 최적값이 아니라 공급 불안정을 막기 위한 연구용 안전선이며, 해당 구간은 `RAPID_OS_EXPANSION`과 `OS_MORE_THAN_DOUBLED`로 관찰 전용 차단한다.
+
+```bash
+python -m unittest -v test_reconcile_os_timeline.py
+python reconcile_os_timeline.py cdt_os_timeline_2026.json
+```
+
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
 공시가 과거의 주식 수·주당 수치를 역분할 후 단위로 소급해 다시 적은 경우에는 관측값의 `split_basis_effective_through`에 이미 반영된 마지막 역분할 시각을 넣는다. 이 시각 이전의 역분할은 다시 적용하지 않아 이중 조정을 막는다. `basis_effective_through`는 이전 입력 호환용 별칭이며 두 필드 값이 다르면 거부한다.
