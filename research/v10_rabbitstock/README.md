@@ -114,6 +114,24 @@ python evaluate_snapshot.py frozen_snapshot.json
 
 현재 코드는 평가 계약의 첫 단계다. 실제 성능 향상이나 적중률은 검증하지 않았다.
 
+## 실행 가능한 통합 연구판
+
+`run_research_build.py`는 이 폴더의 동결 스냅숏 중 필수 필드가 있는 자료를 자동으로 읽어 NASDAQ 7.0과 중국계 1.0 연구 경로로 나눈 뒤 한 번에 평가한다. 중국계 1.0은 SEC 원문에서 PRC Operations(중국 사업)가 확인되고 그 근거가 스냅숏 시각보다 먼저 공개됐을 때만 사용한다. 공통 평가에는 5개 엔진 동시 포착, SEC 공급·희석, Float(실제 유통주식 수), 역분할, 거래상태, 미래정보 차단이 들어간다.
+
+후보 정렬은 엔진 수가 많은 순서, 같은 수면 최고 엔진 순위가 높은 순서다. 이것은 급등 확률이나 추천 점수가 아니다. 위험 확인이 끝나지 않은 종목은 순위에 보여도 `WATCH_ONLY_BLOCKED`로 남는다.
+
+```bash
+python -m unittest discover -v
+python run_research_build.py \
+  --input-dir . \
+  --output build_outputs/latest_research_build.json \
+  --built-at "2026-11-14T00:30:00+09:00"
+```
+
+2026년 11월 14일 00:30 KST 동결 실행에서는 실제 래빗스탁 화면 기반 스냅숏 6개를 오류 없이 평가했다. NASDAQ 7.0 경로 4개, 중국계 1.0 경로 2개였으며 WHLR 5개 엔진, ENGS·HUHU·BDMD·INLF 4개 엔진, NXXT 2개 엔진 순으로 정렬됐다. 그러나 6개 모두 거래상태·Float·희석·역분할 등 미해결 위험 때문에 관찰 전용 차단 상태다. 전체 자동검사 100개가 통과했다.
+
+GitHub Actions용 `.github/workflows/luca-v10-research-build-ci.yml`은 모든 검사를 실행하고 같은 동결 실데이터 보고서를 만든 뒤 `WATCH_ONLY`, `NO_ORDERS`, `NOT_VALIDATED`를 다시 확인한다. 라이브 전 종목 탐색, SEC 문서 자동 추출, 예측 정확도 검증, 체결·슬리피지 모델은 아직 미완성이다.
+
 ## 후속 수익률 평가
 
 `evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.

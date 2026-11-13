@@ -1,0 +1,50 @@
+name: LUCA V10 Executable Research Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/v10-rabbitstock-eval
+    paths:
+      - "research/v10_rabbitstock/**"
+      - ".github/workflows/luca-v10-research-build-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: research/v10_rabbitstock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run all research safety tests
+        run: python -m unittest discover -v
+      - name: Build frozen actual-snapshot report
+        run: |
+          python run_research_build.py \
+            --input-dir . \
+            --output build_outputs/latest_research_build.json \
+            --built-at "2026-11-14T00:30:00+09:00"
+      - name: Verify order safety flags
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("build_outputs/latest_research_build.json").read_text())
+          assert data["WATCH_ONLY"] is True
+          assert data["NO_ORDERS"] is True
+          assert data["validation_status"] == "NOT_VALIDATED"
+          assert all(x["NO_ORDERS"] is True for x in data["candidates"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: luca-v10-executable-research-build
+          path: research/v10_rabbitstock/build_outputs/latest_research_build.json
+          retention-days: 14

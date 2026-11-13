@@ -1,0 +1,304 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "built_at": "2026-11-13T15:30:00+00:00",
+  "candidates": [
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "best_engine_rank": 2,
+      "block_reasons": [
+        "TRADING_STATUS_UNVERIFIED",
+        "CROSS_ENGINE_FLOAT_MISMATCH",
+        "SUPPLY_EVIDENCE_INCOMPLETE",
+        "SCREEN_SUPPLY_LABEL_UNRECONCILED"
+      ],
+      "cumulative_reverse_split_factor": 6.0,
+      "data_asof": "2026-11-11T21:00:00+00:00",
+      "detector_profile": "NASDAQ_7_0",
+      "engine_count": 5,
+      "engine_ranks": {
+        "best": 2,
+        "burning_up": 5,
+        "hidden_pick": 2,
+        "preview": 16,
+        "signal": 5
+      },
+      "potential_dilution_pct": null,
+      "present_supply_checks": [],
+      "profile_reasons": [
+        "NASDAQ_CORE_PROFILE"
+      ],
+      "screen_upside_pct": null,
+      "selection_reason": "5개 엔진 동시 포착; 최고 순위 2; 위험 차단 4개",
+      "snapshot_at": "2026-11-12T15:08:00+00:00",
+      "state": "WATCH_ONLY_BLOCKED",
+      "target_median": 1579.0,
+      "target_range": [
+        1094.0,
+        1690.0
+      ],
+      "ticker": "WHLR",
+      "unknown_supply_checks": [
+        "atm",
+        "eloc",
+        "toxic_financing",
+        "cb",
+        "warrant",
+        "lockup",
+        "reverse_split",
+        "shelf"
+      ],
+      "validation_status": "NOT_VALIDATED"
+    },
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "best_engine_rank": 1,
+      "block_reasons": [
+        "TRADING_STATUS_UNVERIFIED",
+        "SUPPLY_EVIDENCE_INCOMPLETE"
+      ],
+      "cumulative_reverse_split_factor": 1.0,
+      "data_asof": "2026-11-11T21:00:00+00:00",
+      "detector_profile": "NASDAQ_7_0",
+      "engine_count": 4,
+      "engine_ranks": {
+        "best": 1,
+        "hidden_pick": 21,
+        "preview": 3,
+        "signal": 10
+      },
+      "potential_dilution_pct": null,
+      "present_supply_checks": [
+        "warrant",
+        "shelf"
+      ],
+      "profile_reasons": [
+        "NASDAQ_CORE_PROFILE"
+      ],
+      "screen_upside_pct": null,
+      "selection_reason": "4개 엔진 동시 포착; 최고 순위 1; 위험 차단 2개",
+      "snapshot_at": "2026-11-12T15:08:00+00:00",
+      "state": "WATCH_ONLY_BLOCKED",
+      "target_median": null,
+      "target_range": null,
+      "ticker": "ENGS",
+      "unknown_supply_checks": [
+        "atm",
+        "eloc",
+        "toxic_financing",
+        "cb",
+        "lockup"
+      ],
+      "validation_status": "NOT_VALIDATED"
+    },
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "best_engine_rank": 2,
+      "block_reasons": [
+        "TRADING_STATUS_UNVERIFIED",
+        "SPLIT_BASIS_UNVERIFIED",
+        "FLOAT_UNVERIFIED",
+        "SUPPLY_EVIDENCE_INCOMPLETE",
+        "PREFUNDED_WARRANT_SHARE_EQUIVALENT"
+      ],
+      "cumulative_reverse_split_factor": 1.0,
+      "data_asof": "2026-11-11T21:00:00+00:00",
+      "detector_profile": "CHINA_1_0",
+      "engine_count": 4,
+      "engine_ranks": {
+        "best": 27,
+        "hidden_pick": 16,
+        "preview": 2,
+        "signal": 6
+      },
+      "potential_dilution_pct": 2.6428172070565026,
+      "present_supply_checks": [
+        "warrant",
+        "shelf"
+      ],
+      "profile_reasons": [
+        "SEC_VERIFIED_PRC_OPERATIONS"
+      ],
+      "screen_upside_pct": 41.0,
+      "selection_reason": "4개 엔진 동시 포착; 최고 순위 2; 위험 차단 5개",
+      "snapshot_at": "2026-11-12T15:08:00+00:00",
+      "state": "WATCH_ONLY_BLOCKED",
+      "target_median": null,
+      "target_range": null,
+      "ticker": "HUHU",
+      "unknown_supply_checks": [
+        "atm",
+        "eloc",
+        "toxic_financing",
+        "cb",
+        "lockup",
+        "reverse_split"
+      ],
+      "validation_status": "NOT_VALIDATED"
+    },
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "best_engine_rank": 3,
+      "block_reasons": [
+        "TRADING_STATUS_UNVERIFIED",
+        "SPLIT_BASIS_UNVERIFIED",
+        "FLOAT_UNVERIFIED",
+        "SUPPLY_EVIDENCE_INCOMPLETE",
+        "SIGNIFICANT_POTENTIAL_DILUTION",
+        "SCREEN_SUPPLY_LABEL_UNRECONCILED"
+      ],
+      "cumulative_reverse_split_factor": 1.0,
+      "data_asof": "2026-11-11T21:00:00+00:00",
+      "detector_profile": "NASDAQ_7_0",
+      "engine_count": 4,
+      "engine_ranks": {
+        "best": 39,
+        "hidden_pick": 10,
+        "preview": 9,
+        "signal": 3
+      },
+      "potential_dilution_pct": 86.33096861263712,
+      "present_supply_checks": [
+        "toxic_financing",
+        "cb",
+        "warrant",
+        "shelf"
+      ],
+      "profile_reasons": [
+        "NASDAQ_CORE_PROFILE"
+      ],
+      "screen_upside_pct": 44.7,
+      "selection_reason": "4개 엔진 동시 포착; 최고 순위 3; 위험 차단 6개",
+      "snapshot_at": "2026-11-12T15:08:00+00:00",
+      "state": "WATCH_ONLY_BLOCKED",
+      "target_median": null,
+      "target_range": null,
+      "ticker": "BDMD",
+      "unknown_supply_checks": [
+        "atm",
+        "eloc",
+        "lockup",
+        "reverse_split"
+      ],
+      "validation_status": "NOT_VALIDATED"
+    },
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "best_engine_rank": 3,
+      "block_reasons": [
+        "TRADING_STATUS_UNVERIFIED",
+        "FLOAT_UNVERIFIED",
+        "SUPPLY_EVIDENCE_INCOMPLETE",
+        "HIGH_FULLY_DILUTED_MULTIPLE",
+        "SIGNIFICANT_POTENTIAL_DILUTION",
+        "SERIAL_REVERSE_SPLIT_EXTREME"
+      ],
+      "cumulative_reverse_split_factor": 3200.0,
+      "data_asof": "2026-11-11T21:00:00+00:00",
+      "detector_profile": "CHINA_1_0",
+      "engine_count": 4,
+      "engine_ranks": {
+        "best": 8,
+        "burning_up": 8,
+        "hidden_pick": 3,
+        "preview": 7
+      },
+      "potential_dilution_pct": 2810.7848889993215,
+      "present_supply_checks": [
+        "warrant",
+        "lockup",
+        "reverse_split",
+        "shelf"
+      ],
+      "profile_reasons": [
+        "SEC_VERIFIED_PRC_OPERATIONS"
+      ],
+      "screen_upside_pct": 94.1,
+      "selection_reason": "4개 엔진 동시 포착; 최고 순위 3; 위험 차단 6개",
+      "snapshot_at": "2026-11-12T15:08:00+00:00",
+      "state": "WATCH_ONLY_BLOCKED",
+      "target_median": null,
+      "target_range": null,
+      "ticker": "INLF",
+      "unknown_supply_checks": [
+        "atm",
+        "eloc",
+        "toxic_financing",
+        "cb"
+      ],
+      "validation_status": "NOT_VALIDATED"
+    },
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "best_engine_rank": 1,
+      "block_reasons": [
+        "TRADING_UNAVAILABLE",
+        "SPLIT_BASIS_UNVERIFIED",
+        "FLOAT_UNVERIFIED",
+        "SCOPE_PARTIAL",
+        "SUPPLY_EVIDENCE_INCOMPLETE"
+      ],
+      "cumulative_reverse_split_factor": 100.0,
+      "data_asof": "2026-11-12T04:55:00+00:00",
+      "detector_profile": "NASDAQ_7_0",
+      "engine_count": 2,
+      "engine_ranks": {
+        "best": 2,
+        "signal": 1
+      },
+      "potential_dilution_pct": null,
+      "present_supply_checks": [],
+      "profile_reasons": [
+        "NASDAQ_CORE_PROFILE"
+      ],
+      "screen_upside_pct": null,
+      "selection_reason": "2개 엔진 동시 포착; 최고 순위 1; 위험 차단 5개",
+      "snapshot_at": "2026-11-12T04:55:00+00:00",
+      "state": "WATCH_ONLY_BLOCKED",
+      "target_median": null,
+      "target_range": null,
+      "ticker": "NXXT",
+      "unknown_supply_checks": [
+        "atm",
+        "eloc",
+        "toxic_financing",
+        "cb",
+        "warrant",
+        "lockup",
+        "reverse_split",
+        "shelf"
+      ],
+      "validation_status": "NOT_VALIDATED"
+    }
+  ],
+  "completed_features": [
+    "NASDAQ_7_0_AND_CHINA_1_0_PROFILE_ROUTING",
+    "FIVE_ENGINE_CONSENSUS_CAPTURE",
+    "SEC_SUPPLY_AND_DILUTION_GATES",
+    "FLOAT_AND_REVERSE_SPLIT_GATES",
+    "EXCHANGE_STATUS_AND_FUTURE_DATA_GATES"
+  ],
+  "error_count": 0,
+  "errors": [],
+  "evaluated_count": 6,
+  "incomplete_features": [
+    "LIVE_MARKET_WIDE_DISCOVERY",
+    "FULL_SEC_AUTOMATIC_EXTRACTION",
+    "PREDICTIVE_ACCURACY_VALIDATION",
+    "INTRADAY_EXECUTION_OR_SLIPPAGE_MODEL"
+  ],
+  "input_count": 6,
+  "profile_counts": {
+    "CHINA_1_0": 2,
+    "NASDAQ_7_0": 4
+  },
+  "ranking_rule": "engine_count_desc_then_best_rank_asc_not_probability",
+  "schema_version": "LUCA_V10_EXECUTABLE_RESEARCH_1",
+  "validation_status": "NOT_VALIDATED"
+}
