@@ -9,6 +9,12 @@ def base_payload():
         "snapshot_at": "2026-11-12T13:55:00+09:00",
         "data_asof": "2026-11-11T16:00:00-05:00",
         "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+        "exchange_status": {
+            "status": "TRADING",
+            "effective_at": "2026-11-12T13:45:00+09:00",
+            "evidence_available_at": "2026-11-12T13:50:00+09:00",
+            "source_url": "https://www.nasdaqtrader.com/status",
+        },
         "entry": 1.0,
         "engine_hits": {
             "preview": {"rank": 2, "target": 1.2},
@@ -98,6 +104,48 @@ class SnapshotGateTests(unittest.TestCase):
         payload = base_payload()
         payload["data_asof"] = "2026-11-13T00:00:00+09:00"
         with self.assertRaisesRegex(ValueError, "future_data_not_allowed"):
+            evaluate_snapshot(payload)
+
+    def test_missing_exchange_status_blocks_strength_claim(self):
+        payload = base_payload()
+        del payload["exchange_status"]
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertIn("TRADING_STATUS_UNVERIFIED", result["block_reasons"])
+
+    def test_active_exchange_suspension_blocks(self):
+        payload = base_payload()
+        payload["exchange_status"] = {
+            "status": "SUSPENDED",
+            "effective_at": "2026-11-11T09:30:00-05:00",
+            "evidence_available_at": "2026-11-10T16:35:44-05:00",
+            "source_url": "https://www.sec.gov/nxxt",
+        }
+        result = evaluate_snapshot(payload)
+        self.assertEqual(result["state"], "WATCH_ONLY_BLOCKED")
+        self.assertTrue(result["exchange_restriction_active"])
+        self.assertIn("TRADING_UNAVAILABLE", result["block_reasons"])
+
+    def test_announced_future_suspension_blocks(self):
+        payload = base_payload()
+        payload["exchange_status"] = {
+            "status": "SUSPENDED",
+            "effective_at": "2026-11-13T09:30:00-05:00",
+            "evidence_available_at": "2026-11-12T12:00:00+09:00",
+            "source_url": "https://www.sec.gov/pending",
+        }
+        result = evaluate_snapshot(payload)
+        self.assertTrue(result["exchange_restriction_pending"])
+        self.assertIn("TRADING_RESTRICTION_PENDING", result["block_reasons"])
+
+    def test_future_exchange_status_evidence_is_rejected(self):
+        payload = base_payload()
+        payload["exchange_status"]["evidence_available_at"] = (
+            "2026-11-12T14:00:00+09:00"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "future_exchange_status_evidence_not_allowed"
+        ):
             evaluate_snapshot(payload)
 
     def test_high_fully_diluted_multiple_blocks(self):
