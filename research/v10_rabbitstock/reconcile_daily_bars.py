@@ -47,6 +47,7 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
 
     normalized: list[dict[str, Any]] = []
     names: set[str] = set()
+    providers: set[str] = set()
     urls: set[str] = set()
     session_close_at: datetime | None = None
     for source in sources:
@@ -56,6 +57,13 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         if name in names:
             raise ValueError("duplicate_source_not_independent")
         names.add(name)
+
+        provider_id = str(source.get("provider_id", "")).strip().lower()
+        if not provider_id:
+            raise ValueError("provider_id_required")
+        if provider_id in providers:
+            raise ValueError("duplicate_provider_not_independent")
+        providers.add(provider_id)
 
         source_url = str(source.get("source_url", "")).strip()
         if not source_url.startswith("https://"):
@@ -104,6 +112,7 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         normalized.append(
             {
                 "source_name": name,
+                "provider_id": provider_id,
                 "source_url": source_url,
                 "retrieved_at": retrieved_at.isoformat(),
                 "source_data_asof": (
@@ -119,6 +128,8 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         "signal_at": signal_at.isoformat(),
         "source_count": len(normalized),
         "source_names": sorted(names),
+        "provider_count": len(providers),
+        "provider_ids": sorted(providers),
         "source_observations": sorted(normalized, key=lambda item: item["source_name"]),
         "ohlc_tolerance_pct": tolerance_pct,
         "WATCH_ONLY": True,
