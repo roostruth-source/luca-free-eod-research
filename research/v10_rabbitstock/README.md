@@ -28,6 +28,8 @@
 
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
+공시가 과거 숫자를 이후 역분할 기준으로 이미 소급 수정한 경우도 있다. 관측값의 `basis_effective_through`에 공시가 반영한 마지막 기업행사 시각을 기록하고, 그 시각 이전 역분할은 다시 적용하지 않는다. `yfor_retroactive_basis_guard_2026.json`은 6월 16일 자료가 6월 23일 1대30까지 이미 반영됐다고 표시된 단위 시험이다. 이 경우 1대30을 다시 나누지 않고 9월 티커 변경만 연결한다.
+
 ```bash
 python -m unittest -v test_adjust_corporate_actions.py
 python adjust_corporate_actions.py yfor_corporate_actions_2026.json
