@@ -37,8 +37,11 @@
       "observation_id": "retroactive_share_unit_probe_not_company_os",
       "metric_type": "SHARE_COUNT",
       "ticker": "YYGH",
-      "observed_at": "2026-06-16T16:00:00-04:00",
-      "basis_effective_through": "2026-06-23T09:30:00-04:00",
+      "observed_at": "2025-12-31T23:59:59+08:00",
+      "split_basis_effective_through": "2026-06-23T09:30:00-04:00",
+      "split_basis_scope": "RETROACTIVE_SPLIT_ADJUSTED",
+      "split_basis_source_url": "https://www.sec.gov/Archives/edgar/data/1985337/000118518526004297/yyforceex99-3.htm",
+      "split_basis_evidence_available_at": "2026-09-24T20:16:42-04:00",
       "value": 3000
     }
   ]
