@@ -1,0 +1,22 @@
+{
+  "ticker": "NXXT",
+  "snapshot_at": "2026-11-12T13:55:00+09:00",
+  "data_asof": "2026-11-12T13:55:00+09:00",
+  "source_type": "RABBITSTOCK_AUTHORIZED_SCREEN",
+  "entry": 1.1117,
+  "engine_hits": {
+    "signal": {"rank": 1},
+    "best": {"rank": 2}
+  },
+  "warnings": {},
+  "exchange_status": {
+    "status": "SUSPENDED",
+    "effective_at": "2026-11-11T09:30:00-05:00",
+    "evidence_available_at": "2026-11-10T16:35:44-05:00",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/1817004/000149315226050998/form8-k.htm"
+  },
+  "reverse_split_factors": [10, 10],
+  "split_basis_verified": false,
+  "float_verified": false,
+  "scope_partial": true
+}
