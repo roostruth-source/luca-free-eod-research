@@ -96,16 +96,48 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
         observed_at = _parse_time(raw["observed_at"])
         if observed_at > reference_at:
             raise ValueError("observation_after_reference_not_allowed")
-        basis_effective_through_raw = raw.get("basis_effective_through")
-        basis_effective_through = (
-            _parse_time(basis_effective_through_raw)
-            if basis_effective_through_raw
-            else observed_at
+        legacy_basis_raw = raw.get("basis_effective_through")
+        split_basis_raw = raw.get("split_basis_effective_through")
+        if legacy_basis_raw and split_basis_raw:
+            if _parse_time(legacy_basis_raw) != _parse_time(split_basis_raw):
+                raise ValueError("conflicting_split_basis_fields")
+        selected_basis_raw = split_basis_raw or legacy_basis_raw
+        split_basis_effective_through = (
+            _parse_time(selected_basis_raw) if selected_basis_raw else observed_at
         )
-        if basis_effective_through < observed_at:
+        if split_basis_effective_through < observed_at:
             raise ValueError("basis_before_observation_not_allowed")
-        if basis_effective_through > reference_at:
+        if split_basis_effective_through > reference_at:
             raise ValueError("future_basis_not_allowed")
+
+        split_basis_provenance: dict[str, str] | None = None
+        if split_basis_effective_through > observed_at:
+            scope = str(raw.get("split_basis_scope", ""))
+            if scope != "RETROACTIVE_SPLIT_ADJUSTED":
+                raise ValueError("split_basis_scope_required")
+            source_url = str(raw.get("split_basis_source_url", ""))
+            if not source_url.startswith("https://"):
+                raise ValueError("split_basis_https_source_required")
+            evidence_raw = raw.get("split_basis_evidence_available_at")
+            if not evidence_raw:
+                raise ValueError("split_basis_evidence_available_at_required")
+            evidence_available_at = _parse_time(str(evidence_raw))
+            if evidence_available_at > evaluation_asof:
+                raise ValueError("future_split_basis_evidence_not_allowed")
+            if evidence_available_at > reference_at:
+                raise ValueError("post_reference_split_basis_evidence_not_allowed")
+            verified_split_times = {
+                action["effective_at"]
+                for action in actions
+                if action["action_type"] == "REVERSE_SPLIT"
+            }
+            if split_basis_effective_through not in verified_split_times:
+                raise ValueError("split_basis_action_not_found")
+            split_basis_provenance = {
+                "scope": scope,
+                "source_url": source_url,
+                "evidence_available_at": evidence_available_at.isoformat(),
+            }
         metric_type = str(raw["metric_type"])
         if metric_type not in METRIC_TYPES:
             raise ValueError("unsupported_metric_type")
@@ -117,12 +149,18 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
         factor = 1.0
         applied: list[str] = []
         for action in actions:
-            if not (basis_effective_through < action["effective_at"] <= reference_at):
-                continue
             if action["action_type"] == "REVERSE_SPLIT":
+                if not (
+                    split_basis_effective_through
+                    < action["effective_at"]
+                    <= reference_at
+                ):
+                    continue
                 if current_ticker == action["ticker"]:
                     factor *= action["shares_before_per_after"]
                     applied.append(action["action_id"])
+            elif not (observed_at < action["effective_at"] <= reference_at):
+                continue
             elif current_ticker == action["from_ticker"]:
                 current_ticker = action["to_ticker"]
                 applied.append(action["action_id"])
@@ -137,7 +175,11 @@ def adjust_corporate_actions(payload: dict[str, Any]) -> dict[str, Any]:
                 "original_ticker": str(raw["ticker"]).upper(),
                 "reference_ticker": reference_ticker,
                 "observed_at": observed_at.isoformat(),
-                "basis_effective_through": basis_effective_through.isoformat(),
+                "basis_effective_through": split_basis_effective_through.isoformat(),
+                "split_basis_effective_through": (
+                    split_basis_effective_through.isoformat()
+                ),
+                "split_basis_provenance": split_basis_provenance,
                 "raw_value": value,
                 "cumulative_split_factor": factor,
                 "adjusted_value": adjusted_value,
