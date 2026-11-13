@@ -65,6 +65,15 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
     if not bool(contract.get("reduction_only")):
         raise ValueError("reset_direction_must_be_explicit")
 
+    floor_constraint = str(contract.get("floor_constraint", "NONE"))
+    if floor_constraint not in {"NONE", "PRESENT", "UNKNOWN"}:
+        raise ValueError("invalid_floor_constraint")
+    floor_price = contract.get("floor_price")
+    if floor_constraint == "PRESENT":
+        if floor_price is None or float(floor_price) <= 0:
+            raise ValueError("positive_floor_price_required")
+        floor_price = float(floor_price)
+
     event_date = _date(contract["share_combination_event_date"])
     sessions = [_date(value) for value in payload["trading_sessions_after_event"]]
     if not sessions or sessions != sorted(set(sessions)):
@@ -91,6 +100,33 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
         reset_price = sum(sorted(values)[:lowest_count]) / lowest_count
     else:
         reset_reasons.append("RESET_PRICE_UNVERIFIED_VWAP_MISSING")
+
+    floor_binding_status = "NOT_APPLICABLE"
+    if floor_constraint == "UNKNOWN":
+        floor_binding_status = "UNVERIFIED"
+    elif floor_constraint == "PRESENT":
+        highs = [float(value) for value in payload.get("measurement_window_highs", [])]
+        if len(highs) != measurement_window or min(highs) <= 0:
+            floor_binding_status = "UNVERIFIED"
+        elif max(highs) < float(floor_price):
+            floor_binding_status = "PROVEN_BY_PRICE_UPPER_BOUND"
+        elif reset_price is not None and reset_price < float(floor_price):
+            floor_binding_status = "PROVEN_BY_VWAP"
+        else:
+            floor_binding_status = "NOT_PROVEN"
+
+    retrospective_disposition = None
+    disposition = payload.get("post_event_disposition")
+    if disposition is not None:
+        _official_url(str(disposition.get("source_url", "")))
+        disposition_at = _time(disposition["evidence_available_at"])
+        if disposition_at > evaluation_asof:
+            raise ValueError("future_disposition_evidence_not_allowed")
+        retrospective_disposition = {
+            "status": disposition["status"],
+            "evidence_available_at": disposition_at.isoformat(),
+            "known_at_reference": disposition_at <= reference_at,
+        }
 
     bars = payload["bars"]
     bar_dates = [_date(bar["date"]) for bar in bars]
@@ -130,6 +166,12 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     reasons = [*reset_reasons]
+    if floor_binding_status in {"PROVEN_BY_PRICE_UPPER_BOUND", "PROVEN_BY_VWAP"}:
+        reasons.append("FLOOR_BINDING_RESET_NOT_COMPARABLE")
+    elif floor_binding_status == "UNVERIFIED":
+        reasons.append("FLOOR_CONSTRAINT_UNVERIFIED")
+    if retrospective_disposition is not None and retrospective_disposition["status"] == "NOTE_REDEMPTION_ELECTED":
+        reasons.append("NOTE_REDEMPTION_CONFIRMED_RETROSPECTIVELY")
     if any(value.get("status") == "NOT_MATURE" for value in horizons.values()):
         reasons.append("FOLLOWUP_HORIZON_NOT_MATURE")
     return {
@@ -141,6 +183,15 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
         "reset_price_status": reset_price_status,
         "reset_price": reset_price,
         "reset_price_reasons": reset_reasons,
+        "floor_constraint": floor_constraint,
+        "floor_price": floor_price,
+        "floor_binding_status": floor_binding_status,
+        "retrospective_disposition": retrospective_disposition,
+        "reset_outcome_cohort_eligible": floor_binding_status not in {
+            "PROVEN_BY_PRICE_UPPER_BOUND",
+            "PROVEN_BY_VWAP",
+            "UNVERIFIED",
+        },
         "baseline_close": baseline,
         "first_post_session_volume_multiple": (
             round(first_day_volume_multiple, 8)
