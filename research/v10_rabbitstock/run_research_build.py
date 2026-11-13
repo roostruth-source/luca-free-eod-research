@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from evaluate_snapshot import evaluate_snapshot
+from evaluate_volume_anomaly import evaluate_volume_anomaly
 
 
 PROFILES = {"NASDAQ_7_0", "CHINA_1_0"}
@@ -56,7 +57,11 @@ def is_snapshot_payload(payload: object) -> bool:
     }.issubset(payload)
 
 
-def build_report(payloads: list[dict[str, Any]], built_at: str) -> dict[str, Any]:
+def build_report(
+    payloads: list[dict[str, Any]],
+    built_at: str,
+    volume_payloads: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     built_at_dt = _time(built_at)
     candidates: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
@@ -104,6 +109,13 @@ def build_report(payloads: list[dict[str, Any]], built_at: str) -> dict[str, Any
         profile: sum(1 for item in candidates if item["detector_profile"] == profile)
         for profile in sorted(PROFILES)
     }
+    volume_events: list[dict[str, Any]] = []
+    for payload in volume_payloads or []:
+        try:
+            volume_events.append(evaluate_volume_anomaly(payload))
+        except (KeyError, TypeError, ValueError) as exc:
+            errors.append({"ticker": str(payload.get("ticker", "UNKNOWN")), "error": str(exc)})
+
     return {
         "schema_version": "LUCA_V10_EXECUTABLE_RESEARCH_1",
         "built_at": built_at_dt.isoformat(),
@@ -113,6 +125,7 @@ def build_report(payloads: list[dict[str, Any]], built_at: str) -> dict[str, Any
         "profile_counts": profile_counts,
         "ranking_rule": "engine_count_desc_then_best_rank_asc_not_probability",
         "candidates": candidates,
+        "volume_events": volume_events,
         "errors": errors,
         "completed_features": [
             "NASDAQ_7_0_AND_CHINA_1_0_PROFILE_ROUTING",
@@ -120,6 +133,7 @@ def build_report(payloads: list[dict[str, Any]], built_at: str) -> dict[str, Any
             "SEC_SUPPLY_AND_DILUTION_GATES",
             "FLOAT_AND_REVERSE_SPLIT_GATES",
             "EXCHANGE_STATUS_AND_FUTURE_DATA_GATES",
+            "TWO_PROVIDER_VOLUME_ANOMALY_AND_ALREADY_SURGED_GATE",
         ],
         "incomplete_features": [
             "LIVE_MARKET_WIDE_DISCOVERY",
@@ -131,8 +145,9 @@ def build_report(payloads: list[dict[str, Any]], built_at: str) -> dict[str, Any
     }
 
 
-def load_payloads(input_dir: Path) -> list[dict[str, Any]]:
+def load_payloads(input_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     payloads: list[dict[str, Any]] = []
+    volume_payloads: list[dict[str, Any]] = []
     for path in sorted(input_dir.glob("*.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -140,7 +155,9 @@ def load_payloads(input_dir: Path) -> list[dict[str, Any]]:
             continue
         if is_snapshot_payload(payload):
             payloads.append(payload)
-    return payloads
+        elif isinstance(payload, dict) and payload.get("event_type") == "VOLUME_ANOMALY":
+            volume_payloads.append(payload)
+    return payloads, volume_payloads
 
 
 def main() -> int:
@@ -149,7 +166,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--built-at", required=True)
     args = parser.parse_args()
-    report = build_report(load_payloads(args.input_dir), args.built_at)
+    snapshots, volume_payloads = load_payloads(args.input_dir)
+    report = build_report(snapshots, args.built_at, volume_payloads)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

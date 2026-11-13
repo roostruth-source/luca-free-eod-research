@@ -81,6 +81,16 @@ class ResearchBuildTests(unittest.TestCase):
         result = build_report([item], "2026-11-14T00:30:00+09:00")
         self.assertEqual(result["errors"][0]["error"], "future_snapshot_not_allowed")
 
+    def test_volume_events_are_integrated(self):
+        volume = {
+            "event_type": "VOLUME_ANOMALY", "ticker": "VOL",
+            "evaluation_asof": "2026-11-11T23:00:00-05:00",
+            "price_volume_basis": "SPLIT_ADJUSTED_TO_EVENT", "float_verified": False,
+            "prior_bars": [], "current_bar": {},
+        }
+        result = build_report([snapshot()], "2026-11-14T00:30:00+09:00", [volume])
+        self.assertEqual(result["errors"][0]["error"], "exactly_ten_prior_sessions_required")
+
 
 if __name__ == "__main__":
     unittest.main()

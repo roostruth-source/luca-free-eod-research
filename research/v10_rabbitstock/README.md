@@ -132,6 +132,21 @@ python run_research_build.py \
 
 GitHub Actions용 `.github/workflows/luca-v10-research-build-ci.yml`은 모든 검사를 실행하고 같은 동결 실데이터 보고서를 만든 뒤 `WATCH_ONLY`, `NO_ORDERS`, `NOT_VALIDATED`를 다시 확인한다. 라이브 전 종목 탐색, SEC 문서 자동 추출, 예측 정확도 검증, 체결·슬리피지 모델은 아직 미완성이다.
 
+## 거래량 이상 급증과 늦은 신호 차단
+
+`evaluate_volume_anomaly.py`는 정규장이 끝난 일봉 거래량을 서로 다른 공개 제공자 2곳에서 확인한 뒤, 직전 10거래일 평균의 5배 이상인지 계산한다. 5배 기준은 성능을 맞춘 최적값이 아니라 이후 검증할 사전 고정 기준이다. 두 출처가 1% 넘게 다르거나, 출처 공개시각이 평가시각보다 늦거나, 장중 미완성 자료이면 결과를 만들지 않는다.
+
+거래량이 커도 직전 거래일 주가가 이미 20% 이상 올랐다면 `ALREADY_SURGED_PREVIOUS_SESSION`으로 막는다. 이는 급등 전에 잡은 신호와 이미 오른 뒤 따라붙은 신호를 섞지 않기 위한 오탐 차단이다. Float(실제 유통주식 수)가 공식적으로 확인되지 않으면 거래량 회전율을 계산하지 않고 `FLOAT_TURNOVER_UNVERIFIED`로 둔다.
+
+CODX 2026년 11월 10일 동결 사례에서 거래량은 74,930,653주, 직전 10거래일 평균은 2,946,651.55주로 25.429배였다. 하지만 전날인 11월 9일 주가가 이미 24.221% 올라 있었고 Float도 확인되지 않아 `WATCH_ONLY_BLOCKED`로 판정했다. 즉 거래량 이상은 확인했지만 급등 전 조기포착 성공으로 세지 않는다.
+
+```bash
+python -m unittest -v test_evaluate_volume_anomaly.py
+python evaluate_volume_anomaly.py codx_volume_anomaly_2026-11-10.json
+```
+
+V40 전체 자동검사 107개와 동결 실데이터 통합 실행은 통과했다. 통합 보고서에는 기존 엔진 후보 6개와 CODX 거래량 사건 1개가 함께 저장되며, 주문 안전장치는 계속 강제된다.
+
 ## 후속 수익률 평가
 
 `evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.

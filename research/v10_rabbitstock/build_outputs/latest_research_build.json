@@ -1,7 +1,7 @@
 {
   "NO_ORDERS": true,
   "WATCH_ONLY": true,
-  "built_at": "2026-11-13T15:30:00+00:00",
+  "built_at": "2026-11-13T16:00:00+00:00",
   "candidates": [
     {
       "NO_ORDERS": true,
@@ -282,7 +282,8 @@
     "FIVE_ENGINE_CONSENSUS_CAPTURE",
     "SEC_SUPPLY_AND_DILUTION_GATES",
     "FLOAT_AND_REVERSE_SPLIT_GATES",
-    "EXCHANGE_STATUS_AND_FUTURE_DATA_GATES"
+    "EXCHANGE_STATUS_AND_FUTURE_DATA_GATES",
+    "TWO_PROVIDER_VOLUME_ANOMALY_AND_ALREADY_SURGED_GATE"
   ],
   "error_count": 0,
   "errors": [],
@@ -300,5 +301,32 @@
   },
   "ranking_rule": "engine_count_desc_then_best_rank_asc_not_probability",
   "schema_version": "LUCA_V10_EXECUTABLE_RESEARCH_1",
-  "validation_status": "NOT_VALIDATED"
+  "validation_status": "NOT_VALIDATED",
+  "volume_events": [
+    {
+      "NO_ORDERS": true,
+      "WATCH_ONLY": true,
+      "already_surged_previous_session": true,
+      "block_reasons": [
+        "ALREADY_SURGED_PREVIOUS_SESSION",
+        "FLOAT_TURNOVER_UNVERIFIED"
+      ],
+      "close_return_pct": -9.4984326,
+      "current_volume": 74930653.0,
+      "early_volume_candidate": false,
+      "evaluation_asof": "2026-11-12T04:00:00+00:00",
+      "event_date": "2026-11-10",
+      "float_turnover_multiple": null,
+      "prior_10_average_volume": 2946651.55,
+      "prior_10_sum_volume": 29466515.5,
+      "prior_session_return_pct": 24.221,
+      "state": "WATCH_ONLY_BLOCKED",
+      "thresholds_are_predeclared_not_optimized": true,
+      "ticker": "CODX",
+      "validation_status": "NOT_VALIDATED",
+      "volume_anomaly_confirmed": true,
+      "volume_vs_average_multiple": 25.42908509,
+      "volume_vs_sum_multiple": 2.54290851
+    }
+  ]
 }
