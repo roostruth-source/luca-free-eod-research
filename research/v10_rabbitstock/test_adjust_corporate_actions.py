@@ -161,6 +161,70 @@ class CorporateActionAdjustmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "conflicting_split_basis_fields"):
             adjust_corporate_actions(item)
 
+    def test_official_restatement_overrides_fractional_mechanical_result(self):
+        item = payload()
+        observation = item["observations"][1]
+        observation["official_restated_value"] = 999
+        observation["official_restatement_scope"] = (
+            "OFFICIAL_POST_SPLIT_RESTATEMENT"
+        )
+        observation["official_restatement_basis_effective_through"] = (
+            "2026-06-23T09:30:00-04:00"
+        )
+        observation["official_restatement_source_url"] = (
+            "https://www.sec.gov/restated-after-split"
+        )
+        observation["official_restatement_evidence_available_at"] = (
+            "2026-09-24T20:16:42-04:00"
+        )
+        result = adjust_corporate_actions(item)
+        shares = result["adjusted_observations"][1]
+        self.assertEqual(shares["mechanical_adjusted_value"], 1000)
+        self.assertEqual(shares["adjusted_value"], 999)
+        self.assertEqual(shares["restatement_difference"], -1)
+
+    def test_future_official_restatement_evidence_is_rejected(self):
+        item = payload()
+        observation = item["observations"][1]
+        observation["official_restated_value"] = 999
+        observation["official_restatement_scope"] = (
+            "OFFICIAL_POST_SPLIT_RESTATEMENT"
+        )
+        observation["official_restatement_basis_effective_through"] = (
+            "2026-06-23T09:30:00-04:00"
+        )
+        observation["official_restatement_source_url"] = (
+            "https://www.sec.gov/restated-after-split"
+        )
+        observation["official_restatement_evidence_available_at"] = (
+            "2026-11-13T14:00:00+09:00"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "future_official_restatement_evidence_not_allowed"
+        ):
+            adjust_corporate_actions(item)
+
+    def test_official_restatement_must_match_latest_split(self):
+        item = payload()
+        observation = item["observations"][1]
+        observation["official_restated_value"] = 999
+        observation["official_restatement_scope"] = (
+            "OFFICIAL_POST_SPLIT_RESTATEMENT"
+        )
+        observation["official_restatement_basis_effective_through"] = (
+            "2026-03-23T09:30:00-04:00"
+        )
+        observation["official_restatement_source_url"] = (
+            "https://www.sec.gov/restated-after-split"
+        )
+        observation["official_restatement_evidence_available_at"] = (
+            "2026-09-24T20:16:42-04:00"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "official_restatement_latest_split_required"
+        ):
+            adjust_corporate_actions(item)
+
 
 if __name__ == "__main__":
     unittest.main()
