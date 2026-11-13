@@ -8,6 +8,7 @@ def source(name, close=10.0):
         "source_name": name,
         "source_url": f"https://example.com/{name}",
         "retrieved_at": "2026-11-13T06:33:00+09:00",
+        "source_data_asof": "2026-11-12T16:01:00-05:00",
         "session_close_at": "2026-11-12T16:00:00-05:00",
         "open": 9.8,
         "high": 10.5,
@@ -98,6 +99,28 @@ class ReconcileDailyBarsTests(unittest.TestCase):
         item["retrieved_at"] = "2026-11-13T07:00:00+09:00"
         with self.assertRaisesRegex(ValueError, "future_source_retrieval_not_allowed"):
             reconcile_bar(payload(item, source("B")))
+
+    def test_intraday_source_cannot_be_used_as_completed_bar(self):
+        item = source("A")
+        item["source_data_asof"] = "2026-11-12T15:20:44-05:00"
+        result = reconcile_bar(payload(item, source("B")))
+        self.assertEqual(result["reconciliation_status"], "SOURCE_NOT_FINAL")
+        self.assertIn("A", result["premature_sources"])
+        self.assertIsNone(result["canonical_bar"])
+
+    def test_source_data_timestamp_after_retrieval_is_rejected(self):
+        item = source("A")
+        item["source_data_asof"] = "2026-11-13T07:00:00+09:00"
+        with self.assertRaisesRegex(ValueError, "source_data_asof_after_retrieval"):
+            reconcile_bar(payload(item, source("B")))
+
+    def test_missing_source_data_asof_is_unverified(self):
+        item = source("A")
+        item.pop("source_data_asof")
+        result = reconcile_bar(payload(item, source("B")))
+        self.assertEqual(result["reconciliation_status"], "SOURCE_TIMESTAMP_UNVERIFIED")
+        self.assertIn("A", result["missing_source_data_asof"])
+        self.assertIsNone(result["canonical_bar"])
 
     def test_split_adjusted_basis_is_required(self):
         item = source("A")
