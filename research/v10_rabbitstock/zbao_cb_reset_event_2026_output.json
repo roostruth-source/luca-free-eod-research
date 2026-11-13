@@ -1,0 +1,48 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "baseline_close": 0.26,
+  "block_reasons": [
+    "RESET_PRICE_UNVERIFIED_VWAP_MISSING",
+    "FOLLOWUP_HORIZON_NOT_MATURE"
+  ],
+  "causality_status": "NOT_ESTABLISHED_SINGLE_EVENT",
+  "derived_reset_date": "2026-11-02",
+  "evaluation_asof": "2026-11-10T02:00:00+00:00",
+  "first_post_session_volume_multiple": 228.7998353,
+  "horizons": {
+    "1": {
+      "MAE_pct": -15.34615385,
+      "MFE_pct": 73.84615385,
+      "close_return_pct": 0.0,
+      "end_date": "2026-11-03",
+      "status": "MATURE"
+    },
+    "10": {
+      "status": "NOT_MATURE"
+    },
+    "3": {
+      "MAE_pct": -15.38461538,
+      "MFE_pct": 73.84615385,
+      "close_return_pct": -12.69230769,
+      "end_date": "2026-11-05",
+      "status": "MATURE"
+    },
+    "5": {
+      "MAE_pct": -15.38461538,
+      "MFE_pct": 73.84615385,
+      "close_return_pct": -11.61538462,
+      "end_date": "2026-11-09",
+      "status": "MATURE"
+    }
+  },
+  "reference_at": "2026-11-10T02:00:00+00:00",
+  "reset_date_is_contract_derived": true,
+  "reset_price": null,
+  "reset_price_reasons": [
+    "RESET_PRICE_UNVERIFIED_VWAP_MISSING"
+  ],
+  "reset_price_status": "UNVERIFIED",
+  "ticker": "ZBAO",
+  "validation_status": "NOT_VALIDATED"
+}
