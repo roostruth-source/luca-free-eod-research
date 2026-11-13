@@ -1,0 +1,25 @@
+{
+  "evaluation_asof": "2026-11-13T10:54:00+09:00",
+  "signals": [
+    {
+      "ticker": "INLF",
+      "signal_at": "2026-11-13T00:08:00+09:00",
+      "entry_price": 0.5313,
+      "entry_rule": "SCREEN_REFERENCE_PRICE",
+      "engine_hits": ["preview", "hidden_pick", "best", "burning_up"],
+      "screen_dilution_warning": false,
+      "official_dilution_warning": true,
+      "bars": [
+        {
+          "session_close_at": "2026-11-12T16:00:00-05:00",
+          "open": 0.5299,
+          "high": 0.5590,
+          "low": 0.4000,
+          "close": 0.4110,
+          "complete": true,
+          "price_basis": "SPLIT_ADJUSTED_TO_SIGNAL"
+        }
+      ]
+    }
+  ]
+}
