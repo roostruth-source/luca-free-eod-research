@@ -1,0 +1,62 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "baseline_close": 1.07,
+  "block_reasons": [
+    "RESET_PRICE_UNVERIFIED_VWAP_MISSING",
+    "FLOOR_BINDING_RESET_NOT_COMPARABLE",
+    "NOTE_REDEMPTION_CONFIRMED_RETROSPECTIVELY"
+  ],
+  "causality_status": "NOT_ESTABLISHED_SINGLE_EVENT",
+  "derived_reset_date": "2026-07-16",
+  "evaluation_asof": "2026-08-21T01:00:00+00:00",
+  "first_post_session_volume_multiple": 0.35600571,
+  "floor_binding_status": "PROVEN_BY_PRICE_UPPER_BOUND",
+  "floor_constraint": "PRESENT",
+  "floor_price": 138.0,
+  "horizons": {
+    "1": {
+      "MAE_pct": -4.6728972,
+      "MFE_pct": 0.92523364,
+      "close_return_pct": -0.93457944,
+      "end_date": "2026-07-17",
+      "status": "MATURE"
+    },
+    "10": {
+      "MAE_pct": -4.6728972,
+      "MFE_pct": 45.79439252,
+      "close_return_pct": 16.82242991,
+      "end_date": "2026-07-30",
+      "status": "MATURE"
+    },
+    "3": {
+      "MAE_pct": -4.6728972,
+      "MFE_pct": 22.89719626,
+      "close_return_pct": 19.62616822,
+      "end_date": "2026-07-21",
+      "status": "MATURE"
+    },
+    "5": {
+      "MAE_pct": -4.6728972,
+      "MFE_pct": 28.97196262,
+      "close_return_pct": 19.62616822,
+      "end_date": "2026-07-23",
+      "status": "MATURE"
+    }
+  },
+  "reference_at": "2026-07-17T01:00:00+00:00",
+  "reset_date_is_contract_derived": true,
+  "reset_outcome_cohort_eligible": false,
+  "reset_price": null,
+  "reset_price_reasons": [
+    "RESET_PRICE_UNVERIFIED_VWAP_MISSING"
+  ],
+  "reset_price_status": "UNVERIFIED",
+  "retrospective_disposition": {
+    "evidence_available_at": "2026-08-20T20:00:00+00:00",
+    "known_at_reference": false,
+    "status": "NOTE_REDEMPTION_ELECTED"
+  },
+  "ticker": "YYGH",
+  "validation_status": "NOT_VALIDATED"
+}
