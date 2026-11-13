@@ -35,7 +35,7 @@ python evaluate_snapshot.py frozen_snapshot.json
 
 `evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.
 
-각 기간의 종가 기준 수익률과 MFE(기간 중 최대 상승폭), MAE(기간 중 최대 하락폭)를 계산한다. 엔진 1개·2개·3개 이상, Preview+Signal, Signal+Burning Up, 희석 경고 유무로 분리해 표본 수·양수 종가 비율·평균·중앙값·가장 큰 수익 1건 제외 평균을 만든다.
+각 기간의 종가 기준 수익률과 MFE(기간 중 최대 상승폭), MAE(기간 중 최대 하락폭)를 계산한다. 엔진 1개·2개·3개 이상, Preview+Signal, Signal+Burning Up, 희석 경고 유무로 분리해 표본 수·양수 종가 비율·평균·중앙값·가장 큰 수익 1건 제외 평균을 만든다. 희석 경고는 화면 표시인 `screen_dilution_warning`과 SEC 등 공식 자료에서 확인한 `official_dilution_warning`을 따로 집계한다. 둘 중 하나라도 켜지면 통합 `dilution_warning`은 `YES`가 된다.
 
 화면 진입가는 실제 체결가가 아니므로 `SCREEN_REFERENCE_PRICE` 결과를 적중률이나 실거래 수익률로 부르지 않는다. 완료된 일봉이 부족하면 `NOT_MATURE`로 남긴다.
 
@@ -62,6 +62,8 @@ python reconcile_daily_bars.py whlr_2026-11-12_price_conflict.json
 자료를 조회한 시각과 자료 자체가 가리키는 시각은 다르다. 각 출처의 `source_data_asof`가 정규장 마감보다 이르면 페이지가 일별 표처럼 보여도 `SOURCE_NOT_FINAL`로 차단한다. 출처 자체의 기준시각을 확인할 수 없으면 `SOURCE_TIMESTAMP_UNVERIFIED`로 남긴다. 자료 기준시각이 실제 조회시각보다 뒤라면 미래 자료이므로 `source_data_asof_after_retrieval` 오류로 거부한다. 이 규칙을 적용하면 ENGS의 Investing 값은 오후 3시 20분 장중 스냅숏이고, Public의 오후 8시 표시는 당시 조회시각 오후 6시 7분보다 미래다. INLF의 Investing 값도 오전 10시 10분 장중 스냅숏이므로 완료 일봉 충돌 증거가 아니라 미완성 자료다.
 
 `audit_source_revisions.py`는 같은 URL의 반복 조회값이 바뀌는 과정을 보존한다. 같은 출처를 여러 번 조회해도 독립 출처 수는 1개다. `inlf_yahoo_revision_2026-11-12.json`에서는 Yahoo의 장중 종가 $0.4285가 마감 $0.4110으로 약 4.08% 수정됐다. 이 수정은 오류 적중이나 별도 표본으로 세지 않고, 마감 뒤 최신값만 교차검증 후보로 넘긴다.
+
+`inlf_2026-11-12_verified.json`은 Yahoo와 MarketScreener가 정규장 마감 뒤 공개한 INLF 일봉을 교차검증한 입력이다. 두 출처의 종가 $0.4110이 일치하고 시가·고가·저가도 1% 안에서 일치해 대표 일봉을 만든다. `inlf_2026-11-12_followup.json`은 이 대표 일봉만 사용한 1거래일 참고 성과 입력이다. 화면 진입가 $0.5313은 실제 체결가가 아니므로 결과는 적중률이나 실거래 수익률이 아니다.
 
 `whlr_2026-11-13T0008+09.json`은 자정 화면에서 확인한 WHLR 10거래일 신호를 고정한 연구용 입력이다. 다섯 엔진 동시 포착이어도 Float 단위가 일치하지 않아 `WATCH_ONLY_BLOCKED`가 되어야 한다.
 
