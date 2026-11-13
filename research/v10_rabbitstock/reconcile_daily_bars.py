@@ -67,6 +67,12 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
         retrieved_at = _parse_time(source["retrieved_at"])
         if retrieved_at > evaluation_asof:
             raise ValueError("future_source_retrieval_not_allowed")
+        source_data_asof_raw = source.get("source_data_asof")
+        source_data_asof = (
+            _parse_time(source_data_asof_raw) if source_data_asof_raw else None
+        )
+        if source_data_asof is not None and source_data_asof > retrieved_at:
+            raise ValueError("source_data_asof_after_retrieval")
         close_at = _parse_time(source["session_close_at"])
         if close_at > evaluation_asof:
             raise ValueError("future_bar_not_allowed")
@@ -100,6 +106,9 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
                 "source_name": name,
                 "source_url": source_url,
                 "retrieved_at": retrieved_at.isoformat(),
+                "source_data_asof": (
+                    source_data_asof.isoformat() if source_data_asof is not None else None
+                ),
                 **prices,
             }
         )
@@ -122,6 +131,36 @@ def reconcile_bar(payload: dict[str, Any]) -> dict[str, Any]:
             "reconciliation_status": "SINGLE_SOURCE_UNVERIFIED",
             "canonical_bar": None,
             "block_reasons": ["AT_LEAST_TWO_INDEPENDENT_SOURCES_REQUIRED"],
+        }
+
+    missing_asof = [
+        source["source_name"]
+        for source in normalized
+        if source["source_data_asof"] is None
+    ]
+    premature = [
+        source["source_name"]
+        for source in normalized
+        if source["source_data_asof"] is not None
+        and _parse_time(source["source_data_asof"]) < session_close_at
+    ]
+    if premature:
+        return {
+            **base,
+            "reconciliation_status": "SOURCE_NOT_FINAL",
+            "premature_sources": premature,
+            "missing_source_data_asof": missing_asof,
+            "canonical_bar": None,
+            "block_reasons": ["SOURCE_DATA_TIMESTAMP_BEFORE_SESSION_CLOSE"],
+        }
+    if missing_asof:
+        return {
+            **base,
+            "reconciliation_status": "SOURCE_TIMESTAMP_UNVERIFIED",
+            "premature_sources": [],
+            "missing_source_data_asof": missing_asof,
+            "canonical_bar": None,
+            "block_reasons": ["SOURCE_DATA_ASOF_REQUIRED"],
         }
 
     field_values = {
