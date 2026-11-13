@@ -6,6 +6,7 @@
   "sources": [
     {
       "source_name": "Yahoo Finance",
+      "provider_id": "yahoo-finance",
       "source_url": "https://finance.yahoo.com/quote/INLF/history/",
       "retrieved_at": "2026-11-13T10:54:00+09:00",
       "source_data_asof": "2026-11-12T16:00:00-05:00",
@@ -19,6 +20,7 @@
     },
     {
       "source_name": "MarketScreener",
+      "provider_id": "marketscreener",
       "source_url": "https://www.marketscreener.com/quote/stock/INLIF-LIMITED-192243628/quotes/",
       "retrieved_at": "2026-11-13T10:54:00+09:00",
       "source_data_asof": "2026-11-12T16:00:00-05:00",
