@@ -57,6 +57,15 @@ python -m unittest -v test_reconcile_os_timeline.py
 python reconcile_os_timeline.py cdt_os_timeline_2026.json
 ```
 
+`evaluate_cb_reset_event.py`는 CB Reset(전환사채 가격 재조정) 사건을 계약 조건과 후속 가격으로 분리한다. ZBAO의 2026년 9월 17일 전환사채는 Share Combination Event(역분할 같은 주식 병합 사건) 뒤 16번째 거래일에 기존 전환가보다 Event Market Price(사건 시장가격)가 낮으면 전환가를 낮추도록 정했다. 사건 시장가격은 앞선 15거래일 중 VWAP(거래량가중평균가격)가 가장 낮은 5일의 평균이다. 따라서 일봉 OHLC만으로 실제 리셋 전환가를 만들 수 없으며 VWAP 원자료가 없으면 `RESET_PRICE_UNVERIFIED_VWAP_MISSING`으로 남긴다.
+
+ZBAO의 1대50 역분할 효력일 2026년 10월 9일 다음 16번째 거래일은 11월 2일이다. 교차확인한 공개 일봉에서 11월 2일 종가 $0.26 다음 날 장중 고가가 $0.452로 MFE(기간 중 최대 상승폭) +73.85%였고 거래량은 약 228.80배로 증가했지만 종가는 $0.26으로 0%였다. 3거래일 종가는 -12.69%, 5거래일 종가는 -11.62%였다. 즉 이 한 사례는 ‘리셋 다음 날 장중 급등’은 보여 주지만 ‘5~10일 지속 상승’을 입증하지 않는다. 10거래일은 아직 끝나지 않아 `NOT_MATURE`다.
+
+```bash
+python -m unittest -v test_evaluate_cb_reset_event.py
+python evaluate_cb_reset_event.py zbao_cb_reset_event_2026.json
+```
+
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
 공시가 과거의 주식 수·주당 수치를 역분할 후 단위로 소급해 다시 적은 경우에는 관측값의 `split_basis_effective_through`에 이미 반영된 마지막 역분할 시각을 넣는다. 이 시각 이전의 역분할은 다시 적용하지 않아 이중 조정을 막는다. `basis_effective_through`는 이전 입력 호환용 별칭이며 두 필드 값이 다르면 거부한다.
