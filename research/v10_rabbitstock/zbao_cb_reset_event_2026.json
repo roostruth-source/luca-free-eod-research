@@ -1,0 +1,30 @@
+{
+  "evaluation_asof": "2026-11-09T21:00:00-05:00",
+  "reference_at": "2026-11-09T21:00:00-05:00",
+  "ticker": "ZBAO",
+  "contract": {
+    "share_combination_event_date": "2026-10-09",
+    "reset_after_trading_sessions": 16,
+    "event_market_price_window_sessions": 15,
+    "lowest_vwap_count": 5,
+    "reduction_only": true,
+    "evidence_available_at": "2026-09-18T16:00:00-04:00",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/1966750/000121390026100775/ea030582501ex4-1.htm"
+  },
+  "trading_sessions_after_event": [
+    "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15",
+    "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21",
+    "2026-10-22", "2026-10-23", "2026-10-26", "2026-10-27",
+    "2026-10-28", "2026-10-29", "2026-10-30", "2026-11-02"
+  ],
+  "pre_reset_vwap_values": [],
+  "horizons": [1, 3, 5, 10],
+  "bars": [
+    {"date":"2026-11-02","open":0.2562,"high":0.2636,"low":0.2500,"close":0.2600,"volume":115360,"session_complete":true,"available_at":"2026-11-02T20:30:00-05:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","ft_markit"],"source_urls":["https://chartexchange.com/symbol/nasdaq-zbao/historical","https://markets.ft.markitdigital.com/data/equities/tearsheet/historical?s=ZBAO%3ANAQ"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-11-03","open":0.2605,"high":0.4520,"low":0.2201,"close":0.2600,"volume":26394349,"session_complete":true,"available_at":"2026-11-03T20:30:00-05:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","ft_markit"],"source_urls":["https://chartexchange.com/symbol/nasdaq-zbao/historical","https://markets.ft.markitdigital.com/data/equities/tearsheet/historical?s=ZBAO%3ANAQ"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-11-04","open":0.2467,"high":0.2763,"low":0.2350,"close":0.2400,"volume":717224,"session_complete":true,"available_at":"2026-11-04T20:30:00-05:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","quantellect"],"source_urls":["https://chartexchange.com/symbol/nasdaq-zbao/historical","https://quantellect.ai/us/stocks/nasdaq/zbao"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-11-05","open":0.2421,"high":0.2480,"low":0.2200,"close":0.2270,"volume":449007,"session_complete":true,"available_at":"2026-11-05T20:30:00-05:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","quantellect"],"source_urls":["https://chartexchange.com/symbol/nasdaq-zbao/historical","https://quantellect.ai/us/stocks/nasdaq/zbao"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-11-06","open":0.2304,"high":0.2675,"low":0.2270,"close":0.2300,"volume":707643,"session_complete":true,"available_at":"2026-11-06T20:30:00-05:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","quantellect"],"source_urls":["https://chartexchange.com/symbol/nasdaq-zbao/historical","https://quantellect.ai/us/stocks/nasdaq/zbao"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-11-09","open":0.2299,"high":0.2378,"low":0.2232,"close":0.2298,"volume":283047,"session_complete":true,"available_at":"2026-11-09T20:30:00-05:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","quantellect"],"source_urls":["https://chartexchange.com/symbol/nasdaq-zbao/historical","https://quantellect.ai/us/stocks/nasdaq/zbao"],"max_field_disagreement_pct":0.01}
+  ]
+}
