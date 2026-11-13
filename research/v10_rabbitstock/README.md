@@ -21,6 +21,8 @@
 - 화면의 ATM·ELOC·Toxic·CB·워런트 경고와 SEC에서 확인한 실제 자금조달 종류가 일치하지 않으면 `SCREEN_SUPPLY_LABEL_UNRECONCILED`로 남긴다.
 - 차단 이유는 `block_reasons` 배열로 남겨 같은 입력에서 같은 판정을 재현한다.
 - 모든 결과에 `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED`를 강제로 붙인다.
+- `exchange_status`에 거래소 상태·효력시각·원문 공개시각·공식 URL을 고정한다. 상태를 확인하지 못하면 `TRADING_STATUS_UNVERIFIED`, 거래정지·상장폐지·OTC 전환이 이미 효력을 냈으면 `TRADING_UNAVAILABLE`, 효력 전이라도 정지가 공식 발표됐으면 `TRADING_RESTRICTION_PENDING`으로 강한 신호를 차단한다.
+- 거래상태 근거가 화면 기준시각 뒤에 공개됐으면 `future_exchange_status_evidence_not_allowed`로 거부한다. 현재 페이지에서 나중에 확인한 상태를 과거 신호가 이미 알았던 정보처럼 쓰지 않는다.
 
 ## 기업행사 연쇄 조정
 
