@@ -1,0 +1,29 @@
+{
+  "ticker": "INLF",
+  "session_close_at": "2026-11-12T16:00:00-05:00",
+  "evaluation_asof": "2026-11-13T10:05:00+09:00",
+  "observations": [
+    {
+      "source_name": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/INLF/history/",
+      "retrieved_at": "2026-11-13T09:27:00+09:00",
+      "source_data_asof": "2026-11-12T14:11:19-05:00",
+      "open": 0.5299,
+      "high": 0.5580,
+      "low": 0.4150,
+      "close": 0.4285,
+      "volume": 7020716
+    },
+    {
+      "source_name": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/INLF/history/",
+      "retrieved_at": "2026-11-13T10:05:00+09:00",
+      "source_data_asof": "2026-11-12T16:00:00-05:00",
+      "open": 0.5299,
+      "high": 0.5580,
+      "low": 0.4000,
+      "close": 0.4110,
+      "volume": 7887046
+    }
+  ]
+}
