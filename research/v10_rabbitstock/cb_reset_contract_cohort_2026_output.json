@@ -1,0 +1,88 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "contract_count": 4,
+  "contracts": [
+    {
+      "block_reasons": [],
+      "contract_id": "zbao-2026-09-17",
+      "events": [
+        {
+          "event_date": "2026-10-09",
+          "ratio": "1-for-50",
+          "status": "QUALIFYING_MATURE_EVENT"
+        }
+      ],
+      "fingerprint_mismatches": [],
+      "mechanics_match": true,
+      "outcome_cohort_eligible": true,
+      "ticker": "ZBAO"
+    },
+    {
+      "block_reasons": [
+        "EVENT_PRECEDES_TERMS_NOT_ELIGIBLE"
+      ],
+      "contract_id": "husa-2025-07-10",
+      "events": [
+        {
+          "event_date": "2025-06-06",
+          "ratio": "1-for-10",
+          "status": "EVENT_PRECEDES_TERMS_NOT_ELIGIBLE"
+        }
+      ],
+      "fingerprint_mismatches": [],
+      "mechanics_match": true,
+      "outcome_cohort_eligible": false,
+      "ticker": "HUSA"
+    },
+    {
+      "block_reasons": [
+        "CONTRACT_FINGERPRINT_MISMATCH:floor_constraint",
+        "NO_SHARE_COMBINATION_EVENT_VERIFIED"
+      ],
+      "contract_id": "newgenivf-2026-08-14",
+      "events": [],
+      "fingerprint_mismatches": [
+        "floor_constraint"
+      ],
+      "mechanics_match": false,
+      "outcome_cohort_eligible": false,
+      "ticker": "NIVF"
+    },
+    {
+      "block_reasons": [
+        "CONTRACT_FINGERPRINT_MISMATCH:event_market_price_window_sessions",
+        "CONTRACT_FINGERPRINT_MISMATCH:floor_constraint",
+        "NO_SHARE_COMBINATION_EVENT_VERIFIED"
+      ],
+      "contract_id": "glucotrack-2026-09-10",
+      "events": [],
+      "fingerprint_mismatches": [
+        "event_market_price_window_sessions",
+        "floor_constraint"
+      ],
+      "mechanics_match": false,
+      "outcome_cohort_eligible": false,
+      "ticker": "GCTK"
+    }
+  ],
+  "evaluation_asof": "2026-11-13T13:00:00+00:00",
+  "hypothesis_status": "NO_INDEPENDENT_COMPARATOR_EVENT",
+  "independent_comparator_count": 0,
+  "mechanics_match_ids": [
+    "zbao-2026-09-17",
+    "husa-2025-07-10"
+  ],
+  "outcome_cohort_eligible_ids": [
+    "zbao-2026-09-17"
+  ],
+  "reference_contract_id": "zbao-2026-09-17",
+  "reference_fingerprint": {
+    "event_market_price_window_sessions": 15,
+    "floor_constraint": "NONE",
+    "lowest_vwap_count": 5,
+    "reduction_only": true,
+    "reset_after_trading_sessions": 16
+  },
+  "validation_status": "NOT_VALIDATED"
+}
