@@ -75,6 +75,16 @@ python -m unittest -v test_build_cb_reset_cohort.py
 python build_cb_reset_cohort.py cb_reset_contract_cohort_2026.json
 ```
 
+YFOR의 이전 티커 YYGH도 2026년 6월 23일 1대30 역분할 뒤 같은 16·15·5 구조가 작동할 예정이었다. 그러나 계약상 Floor Price(최저 전환가 바닥)는 앞선 1대50 역분할 뒤 $4.60, 두 번째 1대30 역분할 뒤 $138로 올라갔다. 16번째 거래일인 7월 16일 전 측정 구간의 일별 고가는 모두 $2.09 이하였으므로 VWAP 원자료가 없어도 Event Market Price가 $138 아래라는 사실은 수학적으로 확정할 수 있다. 실제 전환가는 시장가격까지 내려갈 수 없고 Floor Price Event(최저가 충돌 사건)가 발생했다.
+
+8월 20일 공시는 보유자가 전환사채 전체 상환을 요구했고 회사가 원금·이자에 125% Redemption Premium(상환 가산금)을 적용한 $6,794,775.79를 상환하기로 했다고 확인한다. 이 정보는 7월 16일 당시에는 공개되지 않았으므로 `retrospective_disposition`으로만 저장한다. 7월 16일 기준으로 이미 알 수 있었던 $138 바닥과 $2.09 이하 가격 상한만으로 `FLOOR_BINDING_RESET_NOT_COMPARABLE`을 판정한다.
+
+공개 일봉 2곳을 맞춘 참고 성과는 7월 16일 종가 $1.07 기준 1거래일 -0.93%, 3거래일 +19.63%, 5거래일 +19.63%, 10거래일 +16.82%다. 10거래일 MFE(기간 중 최대 상승폭)는 +45.79%, MAE(기간 중 최대 하락폭)는 -4.67%다. 하지만 실제 처리는 전환가 리셋이 아니라 바닥 충돌 후 상환이었으므로 이 수익률을 “CB 리셋 펌핑 적중”으로 세지 않는다.
+
+```bash
+python evaluate_cb_reset_event.py yfor_cb_reset_event_2026.json
+```
+
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
 공시가 과거의 주식 수·주당 수치를 역분할 후 단위로 소급해 다시 적은 경우에는 관측값의 `split_basis_effective_through`에 이미 반영된 마지막 역분할 시각을 넣는다. 이 시각 이전의 역분할은 다시 적용하지 않아 이중 조정을 막는다. `basis_effective_through`는 이전 입력 호환용 별칭이며 두 필드 값이 다르면 거부한다.
@@ -140,3 +150,4 @@ ENGS에서는 Investing의 실시간 종목 화면과 과거시세 화면이 서
 `huhu_2026-11-13T0008+09.json`은 화면상 희석 경고가 없던 HUHU 10거래일 4엔진 사례다. SEC에는 400,000주와 Pre-funded Warrant 1,600,000개의 등록직접공모가 확인된다. 2026-06-30 OS와 공모 발행 숫자를 맞대면 아직 주식으로 바뀌지 않은 선납형 워런트는 707,901개로 계산되지만, 이는 공시 숫자에서 얻은 추정치다. 거의 0인 행사가 때문에 주식처럼 취급하고 미확인 공급 항목과 함께 `WATCH_ONLY_BLOCKED`로 둔다.
 
 `bdmd_2026-11-13T0008+09.json`은 화면상 ATM 경고가 켜진 BDMD 10거래일 4엔진 사례다. SEC에서 확인된 핵심은 ATM이 아니라 VWAP 연동 전환가를 가진 CB다. 최대 전환 시 OS 대비 잠재 주식이 약 86.33% 늘 수 있어 `SIGNIFICANT_POTENTIAL_DILUTION`, `SCREEN_SUPPLY_LABEL_UNRECONCILED` 및 미확인 공급 항목으로 `WATCH_ONLY_BLOCKED`가 되어야 한다.
+
