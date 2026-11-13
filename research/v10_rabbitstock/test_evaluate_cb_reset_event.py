@@ -98,6 +98,38 @@ class ConvertibleResetEventTests(unittest.TestCase):
         result = evaluate_cb_reset_event(payload)
         self.assertEqual(result["horizons"]["10"]["status"], "MATURE")
 
+    def test_floor_binding_can_be_proven_without_daily_vwap(self):
+        payload = zbao_payload()
+        payload["contract"]["floor_constraint"] = "PRESENT"
+        payload["contract"]["floor_price"] = 138.0
+        payload["measurement_window_highs"] = [2.09] * 15
+        result = evaluate_cb_reset_event(payload)
+        self.assertEqual(result["floor_binding_status"], "PROVEN_BY_PRICE_UPPER_BOUND")
+        self.assertFalse(result["reset_outcome_cohort_eligible"])
+        self.assertIn("FLOOR_BINDING_RESET_NOT_COMPARABLE", result["block_reasons"])
+
+    def test_later_redemption_is_labeled_retrospective(self):
+        payload = zbao_payload()
+        payload["evaluation_asof"] = "2026-11-20T21:00:00-05:00"
+        payload["post_event_disposition"] = {
+            "status": "NOTE_REDEMPTION_ELECTED",
+            "evidence_available_at": "2026-11-18T16:00:00-05:00",
+            "source_url": "https://www.sec.gov/yfor-redemption",
+        }
+        result = evaluate_cb_reset_event(payload)
+        self.assertFalse(result["retrospective_disposition"]["known_at_reference"])
+        self.assertIn("NOTE_REDEMPTION_CONFIRMED_RETROSPECTIVELY", result["block_reasons"])
+
+    def test_future_disposition_is_rejected(self):
+        payload = zbao_payload()
+        payload["post_event_disposition"] = {
+            "status": "NOTE_REDEMPTION_ELECTED",
+            "evidence_available_at": "2026-11-10T09:00:00-05:00",
+            "source_url": "https://www.sec.gov/yfor-redemption",
+        }
+        with self.assertRaisesRegex(ValueError, "future_disposition_evidence_not_allowed"):
+            evaluate_cb_reset_event(payload)
+
 
 if __name__ == "__main__":
     unittest.main()
