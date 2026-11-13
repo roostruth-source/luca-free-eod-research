@@ -1,0 +1,52 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "aggregate_diagnostic": {
+    "after_total": 31501.0,
+    "classification_shift_possible": true,
+    "difference": -1.8,
+    "difference_pct": -0.00571378,
+    "mechanical_adjusted_before_total": 31502.8,
+    "not_a_settled_supply_ledger": true,
+    "within_tolerance": true
+  },
+  "applied_split_ids": [
+    "cdt_2026_07_1_for_10"
+  ],
+  "block_reasons": [
+    "BUNDLE_SCOPE_NOT_COMPARABLE",
+    "COMPONENT_BASIS_CONFLICT",
+    "COMPONENT_CLASSIFICATION_SHIFT_POSSIBLE"
+  ],
+  "bundle_id": "cdt_q2_financing_activity",
+  "components": [
+    {
+      "after_share_count": 28501.0,
+      "before_share_count": 275121.0,
+      "component_id": "ATM",
+      "difference": 988.9,
+      "difference_pct": 3.59441846,
+      "mechanical_adjusted_before": 27512.1,
+      "reasons": [
+        "COMPONENT_SCOPE_MISMATCH"
+      ],
+      "scope_comparable": false
+    },
+    {
+      "after_share_count": 3000.0,
+      "before_share_count": 39907.0,
+      "component_id": "ELOC",
+      "difference": -990.7,
+      "difference_pct": -24.82521863,
+      "mechanical_adjusted_before": 3990.7,
+      "reasons": [
+        "COMPONENT_BASIS_CONFLICT"
+      ],
+      "scope_comparable": true
+    }
+  ],
+  "cumulative_split_factor": 10.0,
+  "evaluation_asof": "2026-08-12T22:00:00+00:00",
+  "reference_at": "2026-08-12T21:29:38+00:00",
+  "validation_status": "NOT_VALIDATED"
+}
