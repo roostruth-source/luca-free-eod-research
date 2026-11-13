@@ -30,6 +30,7 @@ FLOAT_MISMATCH_TOLERANCE = 0.02
 HIGH_DILUTION_MULTIPLE = 2.0
 SIGNIFICANT_DILUTION_PCT = 25.0
 EXTREME_SPLIT_FACTOR = 250.0
+EXCHANGE_STATUSES = {"TRADING", "SUSPENDED", "DELISTED", "OTC", "UNKNOWN"}
 
 
 def _parse_time(value: str) -> datetime:
@@ -50,6 +51,53 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     source_type = payload.get("source_type")
     if source_type not in {"RABBITSTOCK_AUTHORIZED_SCREEN", "COMPLETED_DAILY_BARS"}:
         raise ValueError("unsupported_source_type")
+
+    exchange_status_record = payload.get("exchange_status")
+    exchange_status = "UNKNOWN"
+    exchange_status_effective_at = None
+    exchange_status_evidence_at = None
+    exchange_status_source_url = None
+    if exchange_status_record is not None:
+        if not isinstance(exchange_status_record, dict):
+            raise ValueError("exchange_status_object_required")
+        exchange_status = str(exchange_status_record.get("status", "UNKNOWN")).upper()
+        if exchange_status not in EXCHANGE_STATUSES:
+            raise ValueError("invalid_exchange_status")
+        if exchange_status != "UNKNOWN":
+            effective_raw = exchange_status_record.get("effective_at")
+            evidence_raw = exchange_status_record.get("evidence_available_at")
+            if not effective_raw:
+                raise ValueError("exchange_status_effective_at_required")
+            if not evidence_raw:
+                raise ValueError("exchange_status_evidence_at_required")
+            exchange_status_effective_at = _parse_time(str(effective_raw))
+            exchange_status_evidence_at = _parse_time(str(evidence_raw))
+            if exchange_status_evidence_at > snapshot_at:
+                raise ValueError("future_exchange_status_evidence_not_allowed")
+            exchange_status_source_url = str(
+                exchange_status_record.get("source_url", "")
+            )
+            if not exchange_status_source_url.startswith("https://"):
+                raise ValueError("exchange_status_https_source_required")
+            if exchange_status == "TRADING" and exchange_status_effective_at > snapshot_at:
+                raise ValueError("future_trading_status_not_allowed")
+
+    exchange_status_verified = exchange_status != "UNKNOWN"
+    restricted_exchange_status = exchange_status in {
+        "SUSPENDED",
+        "DELISTED",
+        "OTC",
+    }
+    exchange_restriction_active = bool(
+        restricted_exchange_status
+        and exchange_status_effective_at is not None
+        and exchange_status_effective_at <= snapshot_at
+    )
+    exchange_restriction_pending = bool(
+        restricted_exchange_status
+        and exchange_status_effective_at is not None
+        and exchange_status_effective_at > snapshot_at
+    )
 
     engine_hits = payload.get("engine_hits", {})
     unknown = set(engine_hits) - set(ENGINES)
@@ -182,6 +230,12 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     scope_partial = bool(payload.get("scope_partial", False))
 
     block_reasons: list[str] = []
+    if not exchange_status_verified:
+        block_reasons.append("TRADING_STATUS_UNVERIFIED")
+    elif exchange_restriction_active:
+        block_reasons.append("TRADING_UNAVAILABLE")
+    elif exchange_restriction_pending:
+        block_reasons.append("TRADING_RESTRICTION_PENDING")
     if not bool(payload.get("split_basis_verified", False)):
         block_reasons.append("SPLIT_BASIS_UNVERIFIED")
     if bool(warnings.get("reverse_split", False)):
@@ -226,6 +280,21 @@ def evaluate_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "snapshot_at": snapshot_at.isoformat(),
         "data_asof": data_asof.isoformat(),
         "source_type": source_type,
+        "exchange_status": exchange_status,
+        "exchange_status_verified": exchange_status_verified,
+        "exchange_status_effective_at": (
+            None
+            if exchange_status_effective_at is None
+            else exchange_status_effective_at.isoformat()
+        ),
+        "exchange_status_evidence_at": (
+            None
+            if exchange_status_evidence_at is None
+            else exchange_status_evidence_at.isoformat()
+        ),
+        "exchange_status_source_url": exchange_status_source_url,
+        "exchange_restriction_active": exchange_restriction_active,
+        "exchange_restriction_pending": exchange_restriction_pending,
         "engine_count": engine_count,
         "engine_ranks": ranks,
         "engine_floats": engine_floats,
