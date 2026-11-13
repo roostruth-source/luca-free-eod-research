@@ -90,7 +90,14 @@ class CorporateActionAdjustmentTests(unittest.TestCase):
         item = payload()
         observation = item["observations"][1]
         observation["observed_at"] = "2026-06-16T16:00:00-04:00"
-        observation["basis_effective_through"] = "2026-06-23T09:30:00-04:00"
+        observation["split_basis_effective_through"] = (
+            "2026-06-23T09:30:00-04:00"
+        )
+        observation["split_basis_scope"] = "RETROACTIVE_SPLIT_ADJUSTED"
+        observation["split_basis_source_url"] = "https://www.sec.gov/restated"
+        observation["split_basis_evidence_available_at"] = (
+            "2026-09-24T20:16:42-04:00"
+        )
         observation["value"] = 3000
         result = adjust_corporate_actions(item)
         shares = result["adjusted_observations"][1]
@@ -104,6 +111,54 @@ class CorporateActionAdjustmentTests(unittest.TestCase):
             "2026-03-19T16:00:00-04:00"
         )
         with self.assertRaisesRegex(ValueError, "basis_before_observation_not_allowed"):
+            adjust_corporate_actions(item)
+
+    def test_retroactive_basis_without_provenance_is_rejected(self):
+        item = payload()
+        item["observations"][0]["split_basis_effective_through"] = (
+            "2026-06-23T09:30:00-04:00"
+        )
+        with self.assertRaisesRegex(ValueError, "split_basis_scope_required"):
+            adjust_corporate_actions(item)
+
+    def test_post_reference_basis_evidence_is_rejected(self):
+        item = payload()
+        observation = item["observations"][0]
+        observation["split_basis_effective_through"] = (
+            "2026-06-23T09:30:00-04:00"
+        )
+        observation["split_basis_scope"] = "RETROACTIVE_SPLIT_ADJUSTED"
+        observation["split_basis_source_url"] = "https://www.sec.gov/restated"
+        observation["split_basis_evidence_available_at"] = (
+            "2026-11-12T14:00:00+09:00"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "post_reference_split_basis_evidence_not_allowed"
+        ):
+            adjust_corporate_actions(item)
+
+    def test_split_basis_must_match_verified_split_action(self):
+        item = payload()
+        observation = item["observations"][0]
+        observation["split_basis_effective_through"] = (
+            "2026-06-24T09:30:00-04:00"
+        )
+        observation["split_basis_scope"] = "RETROACTIVE_SPLIT_ADJUSTED"
+        observation["split_basis_source_url"] = "https://www.sec.gov/restated"
+        observation["split_basis_evidence_available_at"] = (
+            "2026-09-24T20:16:42-04:00"
+        )
+        with self.assertRaisesRegex(ValueError, "split_basis_action_not_found"):
+            adjust_corporate_actions(item)
+
+    def test_conflicting_legacy_and_split_basis_fields_are_rejected(self):
+        item = payload()
+        observation = item["observations"][0]
+        observation["basis_effective_through"] = "2026-03-23T09:30:00-04:00"
+        observation["split_basis_effective_through"] = (
+            "2026-06-23T09:30:00-04:00"
+        )
+        with self.assertRaisesRegex(ValueError, "conflicting_split_basis_fields"):
             adjust_corporate_actions(item)
 
 
