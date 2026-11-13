@@ -1,0 +1,32 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "evaluation_asof": "2026-11-09T23:00:00+00:00",
+  "normalized_terms": [
+    {
+      "applicable_split_ids": [
+        "cdt_2026_03_1_for_25",
+        "cdt_2026_07_1_for_10",
+        "cdt_2026_09_1_for_25",
+        "cdt_2026_11_1_for_20"
+      ],
+      "block_reasons": [],
+      "comparison_difference_pct": 0.0,
+      "cumulative_split_factor": 125000.0,
+      "evidence_available_at": "2026-03-09T20:05:49+00:00",
+      "instrument_type": "ELOC",
+      "naive_mechanical_value": 75000.0,
+      "normalized_value": 0.6,
+      "observed_at": "2026-03-03T17:00:00+00:00",
+      "official_comparison_value": 0.6,
+      "raw_value": 0.6,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1896212/000149315226009367/form8-k.htm",
+      "split_adjustment_contract": "DOES_NOT_ADJUST",
+      "term_id": "cdt_eloc_regular_floor_2026_03_03",
+      "term_type": "PRICE_TERM"
+    }
+  ],
+  "reference_at": "2026-11-09T13:05:17+00:00",
+  "reverse_split_count": 4,
+  "validation_status": "NOT_VALIDATED"
+}
