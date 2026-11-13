@@ -32,6 +32,15 @@ Aggregate Share Count(합계 주식 수)를 역분할 비율로 단순 나누면
 
 CDT의 2026년 10월 2일 424B3는 1대25 역분할을 반영한 재판매 등록 673,023주를 제시했다. 11월 9일 424B3는 이어진 1대20 역분할을 반영해 같은 묶음을 33,649주로 다시 제시했다. 단순 나눗셈 `673,023 ÷ 20 = 33,651.15`와 2.15주 차이가 나므로 공식 구성별 재작성값을 우선한다. 이 수치는 Float가 아니며 실제 발행 완료 수량도 아니다.
 
+CDT는 2026년에 3월 1대25, 7월 1대10, 9월 1대25, 11월 1대20의 Reverse Split(역분할)을 시행했다. 2026년 전체 누적계수는 1대125,000이다. 앞 문단의 1대500은 10월 문서에서 11월 문서로 옮기는 데 필요한 9월·11월 두 행사만 뜻한다.
+
+`normalize_financing_terms.py`는 계약 숫자를 Price Term(계약상 가격 조건)과 Share Count(주식 수)로 나누고, 계약 원문이 역분할 조정을 허용하는지 `ADJUSTS/DOES_NOT_ADJUST/UNKNOWN`으로 고정한다. CDT의 3월 ELOC Floor Price(최저 허용가격) $0.60은 원문상 이후 역분할에 맞춰 조정하지 않는 조건이다. 이를 일반 주가처럼 125,000배 하면 $75,000이라는 잘못된 값이 되므로, 계약값은 $0.60으로 유지한다. 조정 조항이 확인되지 않으면 `SPLIT_ADJUSTMENT_CONTRACT_UNKNOWN`, 후속 공식 수치와 충돌하면 `TERM_BASIS_CONFLICT`로 차단한다.
+
+```bash
+python -m unittest -v test_normalize_financing_terms.py
+python normalize_financing_terms.py cdt_eloc_term_basis_2026.json
+```
+
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
 공시가 과거의 주식 수·주당 수치를 역분할 후 단위로 소급해 다시 적은 경우에는 관측값의 `split_basis_effective_through`에 이미 반영된 마지막 역분할 시각을 넣는다. 이 시각 이전의 역분할은 다시 적용하지 않아 이중 조정을 막는다. `basis_effective_through`는 이전 입력 호환용 별칭이며 두 필드 값이 다르면 거부한다.
