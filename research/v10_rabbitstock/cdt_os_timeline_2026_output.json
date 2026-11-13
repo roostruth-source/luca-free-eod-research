@@ -1,0 +1,79 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "block_reasons": [
+    "RAPID_OS_EXPANSION",
+    "OS_MORE_THAN_DOUBLED"
+  ],
+  "evaluation_asof": "2026-10-27T21:00:00+00:00",
+  "intervals": [
+    {
+      "applied_split_ids": [],
+      "cumulative_split_factor": 1.0,
+      "from_checkpoint_id": "cdt_os_2026_08_12",
+      "from_observation_date": "2026-08-12",
+      "from_shares_on_to_basis": 786670.0,
+      "from_shares_reported": 786670.0,
+      "net_os_change": 12907196.0,
+      "net_os_change_pct": 1640.73830196,
+      "not_gross_issuance": true,
+      "os_multiple": 17.40738302,
+      "reasons": [
+        "RAPID_OS_EXPANSION",
+        "OS_MORE_THAN_DOUBLED"
+      ],
+      "to_checkpoint_id": "cdt_os_2026_08_31",
+      "to_observation_date": "2026-08-31",
+      "to_shares_reported": 13693866.0,
+      "usable_for_signals_from": "2026-09-01T20:15:24+00:00"
+    },
+    {
+      "applied_split_ids": [
+        "cdt_2026_09_1_for_25"
+      ],
+      "cumulative_split_factor": 25.0,
+      "from_checkpoint_id": "cdt_os_2026_08_31",
+      "from_observation_date": "2026-08-31",
+      "from_shares_on_to_basis": 547754.64,
+      "from_shares_reported": 13693866.0,
+      "net_os_change": 930034.36,
+      "net_os_change_pct": 169.79032072,
+      "not_gross_issuance": true,
+      "os_multiple": 2.69790321,
+      "reasons": [
+        "RAPID_OS_EXPANSION",
+        "OS_MORE_THAN_DOUBLED"
+      ],
+      "to_checkpoint_id": "cdt_os_2026_09_30",
+      "to_observation_date": "2026-09-30",
+      "to_shares_reported": 1477789.0,
+      "usable_for_signals_from": "2026-10-07T20:05:14+00:00"
+    },
+    {
+      "applied_split_ids": [],
+      "cumulative_split_factor": 1.0,
+      "from_checkpoint_id": "cdt_os_2026_09_30",
+      "from_observation_date": "2026-09-30",
+      "from_shares_on_to_basis": 1477789.0,
+      "from_shares_reported": 1477789.0,
+      "net_os_change": 7845016.0,
+      "net_os_change_pct": 530.86171301,
+      "not_gross_issuance": true,
+      "os_multiple": 6.30861713,
+      "reasons": [
+        "RAPID_OS_EXPANSION",
+        "OS_MORE_THAN_DOUBLED"
+      ],
+      "to_checkpoint_id": "cdt_os_2026_10_23",
+      "to_observation_date": "2026-10-23",
+      "to_shares_reported": 9322805.0,
+      "usable_for_signals_from": "2026-10-27T20:58:52+00:00"
+    }
+  ],
+  "point_in_time_rule": "checkpoint_unusable_before_its_evidence_available_at",
+  "rapid_expansion_threshold_pct": 25.0,
+  "reference_at": "2026-10-27T20:58:52+00:00",
+  "threshold_status": "RESEARCH_SAFETY_GATE_NOT_PERFORMANCE_OPTIMIZED",
+  "ticker": "CDT",
+  "validation_status": "NOT_VALIDATED"
+}
