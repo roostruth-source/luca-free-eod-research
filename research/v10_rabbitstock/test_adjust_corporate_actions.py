@@ -86,6 +86,26 @@ class CorporateActionAdjustmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ticker_change_same_security_required"):
             adjust_corporate_actions(item)
 
+    def test_retroactively_adjusted_basis_prevents_double_split(self):
+        item = payload()
+        observation = item["observations"][1]
+        observation["observed_at"] = "2026-06-16T16:00:00-04:00"
+        observation["basis_effective_through"] = "2026-06-23T09:30:00-04:00"
+        observation["value"] = 3000
+        result = adjust_corporate_actions(item)
+        shares = result["adjusted_observations"][1]
+        self.assertEqual(shares["cumulative_split_factor"], 1)
+        self.assertEqual(shares["adjusted_value"], 3000)
+        self.assertEqual(shares["applied_action_ids"], ["YFOR_TICKER_20260902"])
+
+    def test_basis_before_observation_is_rejected(self):
+        item = payload()
+        item["observations"][0]["basis_effective_through"] = (
+            "2026-03-19T16:00:00-04:00"
+        )
+        with self.assertRaisesRegex(ValueError, "basis_before_observation_not_allowed"):
+            adjust_corporate_actions(item)
+
 
 if __name__ == "__main__":
     unittest.main()
