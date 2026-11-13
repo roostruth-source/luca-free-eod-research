@@ -1,0 +1,46 @@
+{
+  "evaluation_asof": "2026-08-20T21:00:00-04:00",
+  "reference_at": "2026-07-16T21:00:00-04:00",
+  "ticker": "YYGH",
+  "contract": {
+    "share_combination_event_date": "2026-06-23",
+    "reset_after_trading_sessions": 16,
+    "event_market_price_window_sessions": 15,
+    "lowest_vwap_count": 5,
+    "reduction_only": true,
+    "floor_constraint": "PRESENT",
+    "floor_price": 138.0,
+    "evidence_available_at": "2026-03-23T16:00:00-04:00",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/1985337/000118518526000702/yyghex4-1.htm"
+  },
+  "trading_sessions_after_event": [
+    "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29",
+    "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-06",
+    "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10",
+    "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16"
+  ],
+  "measurement_window_highs": [
+    2.09, 1.72, 1.469, 1.32, 1.29, 1.32, 1.29, 1.62,
+    1.515, 1.475, 1.395, 1.56, 1.2999, 1.76, 1.20
+  ],
+  "pre_reset_vwap_values": [],
+  "post_event_disposition": {
+    "status": "NOTE_REDEMPTION_ELECTED",
+    "evidence_available_at": "2026-08-20T16:00:00-04:00",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/1985337/000118518526003710/yygh6k082026.htm"
+  },
+  "horizons": [1, 3, 5, 10],
+  "bars": [
+    {"date":"2026-07-16","open":1.16,"high":1.16,"low":1.04,"close":1.07,"volume":439007,"session_complete":true,"available_at":"2026-07-16T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-17","open":1.05,"high":1.0799,"low":1.02,"close":1.06,"volume":156289,"session_complete":true,"available_at":"2026-07-17T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-20","open":1.06,"high":1.16,"low":1.0202,"close":1.16,"volume":385489,"session_complete":true,"available_at":"2026-07-20T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-21","open":1.17,"high":1.315,"low":1.14,"close":1.28,"volume":596098,"session_complete":true,"available_at":"2026-07-21T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-22","open":1.27,"high":1.38,"low":1.22,"close":1.355,"volume":463001,"session_complete":true,"available_at":"2026-07-22T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-23","open":1.34,"high":1.36,"low":1.2311,"close":1.28,"volume":332384,"session_complete":true,"available_at":"2026-07-23T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-24","open":1.22,"high":1.25,"low":1.12,"close":1.17,"volume":390257,"session_complete":true,"available_at":"2026-07-24T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-27","open":1.17,"high":1.3395,"low":1.17,"close":1.25,"volume":338524,"session_complete":true,"available_at":"2026-07-27T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-28","open":1.22,"high":1.27,"low":1.15,"close":1.22,"volume":214856,"session_complete":true,"available_at":"2026-07-28T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-29","open":1.20,"high":1.56,"low":1.165,"close":1.25,"volume":2148856,"session_complete":true,"available_at":"2026-07-29T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01},
+    {"date":"2026-07-30","open":1.23,"high":1.25,"low":1.20,"close":1.25,"volume":226381,"session_complete":true,"available_at":"2026-07-30T20:30:00-04:00","verification_status":"TWO_PROVIDER_RECONCILED","provider_ids":["chartexchange","thedesperatetrader"],"source_urls":["https://chartexchange.com/symbol/nasdaq-yygh/historical/","https://thedesperatetrader.com/stocks/YYGH/history"],"max_field_disagreement_pct":0.01}
+  ]
+}
