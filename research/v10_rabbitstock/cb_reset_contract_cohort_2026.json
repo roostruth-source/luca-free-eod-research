@@ -1,0 +1,76 @@
+{
+  "evaluation_asof": "2026-11-13T08:00:00-05:00",
+  "reference_contract_id": "zbao-2026-09-17",
+  "contracts": [
+    {
+      "contract_id": "zbao-2026-09-17",
+      "ticker": "ZBAO",
+      "terms_effective_date": "2026-09-17",
+      "reset_after_trading_sessions": 16,
+      "event_market_price_window_sessions": 15,
+      "lowest_vwap_count": 5,
+      "reduction_only": true,
+      "floor_constraint": "NONE",
+      "evidence_available_at": "2026-09-18T16:00:00-04:00",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1966750/000121390026100775/ea030582501ex4-1.htm",
+      "share_combination_events": [
+        {
+          "event_date": "2026-10-09",
+          "ratio": "1-for-50",
+          "trading_sessions_elapsed_asof": 24,
+          "verification_status": "OFFICIAL_VERIFIED",
+          "evidence_available_at": "2026-10-09T16:00:00-04:00",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1966750/000121390026107037/ea0307670-6k_zhibao.htm"
+        }
+      ]
+    },
+    {
+      "contract_id": "husa-2025-07-10",
+      "ticker": "HUSA",
+      "terms_effective_date": "2025-07-10",
+      "reset_after_trading_sessions": 16,
+      "event_market_price_window_sessions": 15,
+      "lowest_vwap_count": 5,
+      "reduction_only": true,
+      "floor_constraint": "NONE",
+      "evidence_available_at": "2025-07-30T16:00:00-04:00",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1156041/000164117225021766/ex4-7.htm",
+      "share_combination_events": [
+        {
+          "event_date": "2025-06-06",
+          "ratio": "1-for-10",
+          "trading_sessions_elapsed_asof": 360,
+          "verification_status": "OFFICIAL_VERIFIED",
+          "evidence_available_at": "2025-05-28T17:20:00-04:00",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1156041/000164117225012740/form8-k.htm"
+        }
+      ]
+    },
+    {
+      "contract_id": "newgenivf-2026-08-14",
+      "ticker": "NIVF",
+      "terms_effective_date": "2026-08-14",
+      "reset_after_trading_sessions": 16,
+      "event_market_price_window_sessions": 15,
+      "lowest_vwap_count": 5,
+      "reduction_only": true,
+      "floor_constraint": "PRESENT",
+      "evidence_available_at": "2026-08-17T16:00:00-04:00",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1981662/000121390026090519/ea030160101ex10-2.htm",
+      "share_combination_events": []
+    },
+    {
+      "contract_id": "glucotrack-2026-09-10",
+      "ticker": "GCTK",
+      "terms_effective_date": "2026-09-10",
+      "reset_after_trading_sessions": 16,
+      "event_market_price_window_sessions": 20,
+      "lowest_vwap_count": 5,
+      "reduction_only": true,
+      "floor_constraint": "PRESENT",
+      "evidence_available_at": "2026-09-18T16:00:00-04:00",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1506983/000149315226044657/ex4-3.htm",
+      "share_combination_events": []
+    }
+  ]
+}
