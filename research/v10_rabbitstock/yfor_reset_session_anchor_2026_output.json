@@ -1,0 +1,17 @@
+{
+  "NO_ORDERS": true,
+  "WATCH_ONLY": true,
+  "after_event_date_candidate": "2026-07-16",
+  "anchor_policy": "AFTER_EVENT_DATE",
+  "block_reasons": [],
+  "eligible_for_return_evaluation": true,
+  "evaluation_asof": "2026-07-17T01:00:00+00:00",
+  "including_event_date_candidate": "2026-07-15",
+  "reference_at": "2026-07-17T01:00:00+00:00",
+  "reset_after_trading_sessions": 16,
+  "resolution_status": "CONTRACT_ANCHOR_VERIFIED",
+  "selected_reset_date": "2026-07-16",
+  "share_combination_event_date": "2026-06-23",
+  "ticker": "YYGH",
+  "validation_status": "NOT_VALIDATED"
+}

@@ -75,6 +75,12 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
         floor_price = float(floor_price)
 
     event_date = _date(contract["share_combination_event_date"])
+    session_count_anchor = str(contract.get("session_count_anchor", ""))
+    if session_count_anchor != "AFTER_EVENT_DATE":
+        raise ValueError("verified_after_event_date_anchor_required")
+    anchor_quote = str(contract.get("session_count_anchor_quote", "")).lower()
+    if not ("after such" in anchor_quote or "following such" in anchor_quote):
+        raise ValueError("after_event_date_language_required")
     sessions = [_date(value) for value in payload["trading_sessions_after_event"]]
     if not sessions or sessions != sorted(set(sessions)):
         raise ValueError("trading_sessions_must_be_unique_and_ordered")
@@ -84,6 +90,7 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
     if reset_after <= 0 or len(sessions) < reset_after:
         raise ValueError("insufficient_sessions_to_locate_reset")
     reset_date = sessions[reset_after - 1]
+    including_event_date_candidate = sessions[reset_after - 2]
 
     measurement_window = int(contract["event_market_price_window_sessions"])
     lowest_count = int(contract["lowest_vwap_count"])
@@ -180,6 +187,8 @@ def evaluate_cb_reset_event(payload: dict[str, Any]) -> dict[str, Any]:
         "ticker": payload["ticker"],
         "derived_reset_date": reset_date.isoformat(),
         "reset_date_is_contract_derived": True,
+        "session_count_anchor": session_count_anchor,
+        "including_event_date_candidate": including_event_date_candidate.isoformat(),
         "reset_price_status": reset_price_status,
         "reset_price": reset_price,
         "reset_price_reasons": reset_reasons,

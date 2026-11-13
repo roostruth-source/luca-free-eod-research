@@ -59,6 +59,15 @@ python reconcile_os_timeline.py cdt_os_timeline_2026.json
 
 `evaluate_cb_reset_event.py`는 CB Reset(전환사채 가격 재조정) 사건을 계약 조건과 후속 가격으로 분리한다. ZBAO의 2026년 9월 17일 전환사채는 Share Combination Event(역분할 같은 주식 병합 사건) 뒤 16번째 거래일에 기존 전환가보다 Event Market Price(사건 시장가격)가 낮으면 전환가를 낮추도록 정했다. 사건 시장가격은 앞선 15거래일 중 VWAP(거래량가중평균가격)가 가장 낮은 5일의 평균이다. 따라서 일봉 OHLC만으로 실제 리셋 전환가를 만들 수 없으며 VWAP 원자료가 없으면 `RESET_PRICE_UNVERIFIED_VWAP_MISSING`으로 남긴다.
 
+`resolve_reset_session_anchor.py`는 역분할 당일을 1일째로 넣을지 생기는 하루 차이를 따로 검증한다. 계약 원문이 `after/following such Share Combination Event Date`처럼 사건일 **뒤**라고 명시하면 사건 당일은 세지 않는다. YFOR/YYGH의 6월 23일 역분할을 당일부터 세면 후보일은 7월 15일이지만, SEC 계약은 사건일 뒤 16번째 거래일이라고 적어 최종 계약상 후보일은 7월 16일이다. 문구가 애매하면 두 날짜를 모두 남기고 `RESET_DATE_ANCHOR_AMBIGUOUS`로 후속 수익률 계산을 막는다. 나스닥 최저가 준수기간처럼 목적이 다른 16일 계산은 전환사채 계약 날짜의 근거로 재사용하지 않는다.
+
+`evaluate_cb_reset_event.py`도 이제 SEC 계약 문구로 확인된 `AFTER_EVENT_DATE` 기준이 없으면 실행을 거부한다. 이 안전장치는 성능을 높이는 신호가 아니라 Off-by-one Error(하루 밀림 오류)로 기준가격과 후속 수익률이 달라지는 것을 막기 위한 데이터 품질 규칙이다.
+
+```bash
+python -m unittest -v test_resolve_reset_session_anchor.py
+python resolve_reset_session_anchor.py yfor_reset_session_anchor_2026.json
+```
+
 ZBAO의 1대50 역분할 효력일 2026년 10월 9일 다음 16번째 거래일은 11월 2일이다. 교차확인한 공개 일봉에서 11월 2일 종가 $0.26 다음 날 장중 고가가 $0.452로 MFE(기간 중 최대 상승폭) +73.85%였고 거래량은 약 228.80배로 증가했지만 종가는 $0.26으로 0%였다. 3거래일 종가는 -12.69%, 5거래일 종가는 -11.62%였다. 즉 이 한 사례는 ‘리셋 다음 날 장중 급등’은 보여 주지만 ‘5~10일 지속 상승’을 입증하지 않는다. 10거래일은 아직 끝나지 않아 `NOT_MATURE`다.
 
 ```bash

@@ -5,6 +5,8 @@
   "contract": {
     "share_combination_event_date": "2026-06-23",
     "reset_after_trading_sessions": 16,
+    "session_count_anchor": "AFTER_EVENT_DATE",
+    "session_count_anchor_quote": "the Trading Day immediately preceding the sixteenth (16th) Trading Day after such Share Combination Event Date",
     "event_market_price_window_sessions": 15,
     "lowest_vwap_count": 5,
     "reduction_only": true,

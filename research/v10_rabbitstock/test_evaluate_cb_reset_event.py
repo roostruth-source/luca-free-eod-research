@@ -29,6 +29,8 @@ def zbao_payload():
         "contract": {
             "share_combination_event_date": "2026-10-09",
             "reset_after_trading_sessions": 16,
+            "session_count_anchor": "AFTER_EVENT_DATE",
+            "session_count_anchor_quote": "the sixteenth Trading Day after such Share Combination Event Date",
             "event_market_price_window_sessions": 15,
             "lowest_vwap_count": 5,
             "reduction_only": True,
@@ -81,6 +83,18 @@ class ConvertibleResetEventTests(unittest.TestCase):
         payload = zbao_payload()
         payload["contract"]["evidence_available_at"] = "2026-11-10T09:00:00-05:00"
         with self.assertRaisesRegex(ValueError, "future_contract_evidence_not_allowed"):
+            evaluate_cb_reset_event(payload)
+
+    def test_reset_date_anchor_is_explicit_and_excludes_event_day(self):
+        result = evaluate_cb_reset_event(zbao_payload())
+        self.assertEqual(result["session_count_anchor"], "AFTER_EVENT_DATE")
+        self.assertEqual(result["including_event_date_candidate"], "2026-10-30")
+        self.assertEqual(result["derived_reset_date"], "2026-11-02")
+
+    def test_missing_anchor_proof_is_rejected(self):
+        payload = zbao_payload()
+        del payload["contract"]["session_count_anchor"]
+        with self.assertRaisesRegex(ValueError, "verified_after_event_date_anchor_required"):
             evaluate_cb_reset_event(payload)
 
     def test_single_provider_bar_is_rejected(self):
