@@ -41,6 +41,13 @@ python -m unittest -v test_normalize_financing_terms.py
 python normalize_financing_terms.py cdt_eloc_term_basis_2026.json
 ```
 
+`reconcile_supply_bundles.py`는 한 공시의 ATM·ELOC 등 구성 항목을 개별 수량과 합계로 동시에 보존한다. CDT의 7월 15일 10-Q는 4월 ELOC 39,907주와 5월 ATM 275,121주를 제시했다. 7월 1대10 역분할을 반영한 8월 12일 10-Q는 ELOC 3,000주와 1~6월 ATM 28,501주를 제시했다. 개별 항목은 단순 10분의 1과 크게 다르지만, 두 항목의 합계는 31,502.8주와 31,501주로 1.8주 차이에 불과하다. 분류가 바뀌었거나 기간 범위가 달라진 가능성이 있으므로 개별 항목을 확정 원장으로 쓰지 않고 `BUNDLE_SCOPE_NOT_COMPARABLE`, `COMPONENT_BASIS_CONFLICT`, `COMPONENT_CLASSIFICATION_SHIFT_POSSIBLE`로 차단한다. 합계가 가깝다는 사실은 진단값일 뿐 최신 Float나 실제 잔여 발행량이 아니다.
+
+```bash
+python -m unittest -v test_reconcile_supply_bundles.py
+python reconcile_supply_bundles.py cdt_supply_bundle_reconciliation_2026.json
+```
+
 YFOR는 2026년 3월 23일 1대50, 6월 23일 1대30 역분할 뒤 9월 2일 YYGH에서 YFOR로 티커가 바뀌었다. 따라서 3월 첫 역분할 전 자료를 11월 신호 단위로 바꾸는 누적계수는 1대1,500이다. `yfor_corporate_actions_2026.json`의 가격 $1와 주식 수 1,500,000은 실제 시세·OS가 아니라 계수 작동만 검증하는 단위 시험값이다. 실제 후속 수익률에는 검증된 원시 시세를 별도로 넣어야 한다.
 
 공시가 과거의 주식 수·주당 수치를 역분할 후 단위로 소급해 다시 적은 경우에는 관측값의 `split_basis_effective_through`에 이미 반영된 마지막 역분할 시각을 넣는다. 이 시각 이전의 역분할은 다시 적용하지 않아 이중 조정을 막는다. `basis_effective_through`는 이전 입력 호환용 별칭이며 두 필드 값이 다르면 거부한다.
