@@ -1,5 +1,11 @@
 name: LUCA iPhone EOD research data
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'research_prototypes/iphone_eod_collector.py'
+      - 'research_prototypes/test_iphone_eod_collector.py'
+      - '.github/workflows/luca-iphone-eod.yml'
   workflow_dispatch:
   schedule:
     - cron: '45 22 * * 1-5'
@@ -18,9 +24,8 @@ jobs:
         with:
           ref: main
           persist-credentials: true
-      - name: Offline data-integrity tests\n        run: python3 -m unittest discover -s research_prototypes -p 'test_iphone_eod_collector.py' -v\n      - name: Collect free daily bars (non-blocking)
-        run: |
-          python3 research_prototypes/iphone_eod_collector.py || true
+      - name: Offline data-integrity tests\n        run: python3 -m unittest discover -s research_prototypes -p 'test_iphone_eod_collector.py' -v\n      - name: Collect free daily bars (fail closed if unavailable)
+        run: python3 research_prototypes/iphone_eod_collector.py
       - name: Publish latest JSON to gh-pages
         env:
           GH_TOKEN: ${{ github.token }}
