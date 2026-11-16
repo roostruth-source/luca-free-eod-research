@@ -18,7 +18,7 @@ jobs:
         with:
           ref: main
           persist-credentials: true
-      - name: Collect free daily bars (non-blocking)
+      - name: Offline data-integrity tests\n        run: python3 -m unittest discover -s research_prototypes -p 'test_iphone_eod_collector.py' -v\n      - name: Collect free daily bars (non-blocking)
         run: |
           python3 research_prototypes/iphone_eod_collector.py || true
       - name: Publish latest JSON to gh-pages
