@@ -1,0 +1,40 @@
+name: LUCA iPhone EOD research data
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 22 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: luca-iphone-eod
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Collect free daily bars (non-blocking)
+        run: |
+          python3 research_prototypes/iphone_eod_collector.py || true
+      - name: Publish latest JSON to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -s site_data/latest.json
+          cp site_data/latest.json /tmp/luca-iphone-latest.json
+          git fetch origin gh-pages
+          git checkout -B gh-pages origin/gh-pages
+          mkdir -p data
+          cp /tmp/luca-iphone-latest.json data/latest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/latest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: refresh iPhone research EOD watchlist"
+            git push origin HEAD:gh-pages
+          fi
