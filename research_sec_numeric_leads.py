@@ -31,9 +31,17 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
             left = max(0, hit['start'] - context)
             right = min(len(text), hit['end'] + context)
             segment = text[left:right]
-            if not (PRICE_CUES.search(segment) or DISCOUNT_CUES.search(segment)):
+            cue_spans = [(m.start(), m.end()) for cue in (PRICE_CUES, DISCOUNT_CUES)
+                         for m in cue.finditer(segment)]
+            if not cue_spans:
                 continue
             for match in NUMBER.finditer(segment):
+                # A number anywhere in a broad excerpt is not necessarily a term.
+                # Require a nearby explicit price/discount cue (offline lead only).
+                distance = min(max(a - match.end(), match.start() - b, 0)
+                               for a, b in cue_spans)
+                if distance > 45:
+                    continue
                 start, end = left + match.start(), left + match.end()
                 if (field, start, end) in seen:
                     continue
