@@ -7,9 +7,9 @@ import re
 from decimal import Decimal, InvalidOperation
 from research_sec_evidence import extract_review_evidence
 
-NUMBER = re.compile(r'(?<![\w.])(?P<currency>\\$)?(?P<number>\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)(?P<percent>\\s*%)?(?![\w.])')
-PRICE_CUES = re.compile(r'\\b(?:conversion|exercise|reset|floor|strike)\\s+price\\b', re.I)
-DISCOUNT_CUES = re.compile(r'\\b(?:discount|less than|of (?:the )?(?:lowest|average|closing) (?:price|vwap))\\b', re.I)
+NUMBER = re.compile(r'(?<![\w.])(?P<currency>\$)?(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?P<percent>\s*%)?(?![\w.])')
+PRICE_CUES = re.compile(r'\b(?:conversion|exercise|reset|floor|strike)\s+price\b', re.I)
+DISCOUNT_CUES = re.compile(r'\b(?:discount|less than|of (?:the )?(?:lowest|average|closing) (?:price|vwap))\b', re.I)
 
 
 def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000):
