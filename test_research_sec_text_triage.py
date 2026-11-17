@@ -29,6 +29,20 @@ class SecTextTriageTests(unittest.TestCase):
             self.assertEqual(r['flags'], {})
             self.assertEqual(r['reason'], 'INVALID_OR_OVERSIZED_TEXT')
 
+    def test_cb_reset_language_variants_remain_review_only(self):
+        phrases = (
+            'The conversion price will be reset following the financing.',
+            'A variable conversion price applies to the notes.',
+            'Reset of the conversion price is permitted.',
+        )
+        for phrase in phrases:
+            with self.subTest(phrase=phrase):
+                r = triage_sec_text(phrase)
+                self.assertEqual(r['flags']['cb_reset']['state'], 'REVIEW_MENTION')
+                self.assertEqual(r['sec_status'], 'SEC_UNVERIFIED')
+                self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+                self.assertFalse(r['orders_enabled'])
+
     def test_invalid_limit(self):
         for limit in (True, 0, -1, 1.5):
             self.assertEqual(triage_sec_text('warrant', max_chars=limit)['flags'], {})
