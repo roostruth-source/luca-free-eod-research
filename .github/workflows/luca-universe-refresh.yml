@@ -1,0 +1,24 @@
+name: LUCA Nasdaq listing universe research (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  universe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Offline tests
+        run: python3 -m unittest discover -s research_prototypes -p 'test_nasdaq_symbol_universe.py' -v
+      - name: Download public Nasdaq listing directory
+        run: python3 research_prototypes/nasdaq_symbol_universe.py
+      - name: Upload research-only listing sample
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasdaq-listing-sample-unverified
+          path: |
+            research_prototypes/watchlist_symbols.txt
+            research_prototypes/watchlist_metadata.json
+          retention-days: 7
