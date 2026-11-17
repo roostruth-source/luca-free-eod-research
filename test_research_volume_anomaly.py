@@ -43,6 +43,27 @@ class VolumeResearchTests(unittest.TestCase):
         self.assertEqual(inspect_volume(bars(), spike_ratio=float('inf'))['signal'], 'UNKNOWN')
         self.assertEqual(inspect_volume(bars(), baseline_days=2)['signal'], 'UNKNOWN')
 
+    def test_invalid_history_parameters_fail_closed(self):
+        for bad in (None, 0, 1, -1, True, 2.5, '10'):
+            with self.subTest(bad=bad):
+                r = inspect_volume(bars(), min_history=bad)
+                self.assertEqual(r['reason'], 'INVALID_PARAMETERS')
+                self.assertEqual(r['signal'], 'UNKNOWN')
+                self.assertFalse(r['orders_enabled'])
+
+    def test_mixed_timestamps_fail_closed(self):
+        for bad in ('2026-11-18', None, True, {'x': 1}):
+            b = bars()
+            b[-1]['timestamp'] = bad
+            with self.subTest(bad=bad):
+                self.assertEqual(inspect_volume(b)['reason'], 'INVALID_BAR_DATA')
+
+    def test_extreme_ratio_fail_closed(self):
+        b = bars()
+        b[-1]['volume'] = 1e308
+        for item in b[:-1]: item['volume'] = 1e-308
+        self.assertEqual(inspect_volume(b)['reason'], 'INVALID_BAR_DATA')
+
 
 if __name__ == '__main__':
     unittest.main()
