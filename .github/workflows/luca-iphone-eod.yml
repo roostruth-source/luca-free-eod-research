@@ -6,6 +6,9 @@ on:
       - 'research_prototypes/iphone_eod_collector.py'
       - 'research_prototypes/test_iphone_eod_collector.py'
       - 'research_prototypes/iphone_mobile_adapter.py'
+      - 'research_prototypes/microcap_candidate_triage.py'
+      - 'research_prototypes/test_microcap_candidate_triage.py'
+      - 'research_prototypes/test_iphone_mobile_adapter.py'
       - '.github/workflows/luca-iphone-eod.yml'
   workflow_dispatch:
   schedule:
@@ -26,7 +29,7 @@ jobs:
           ref: main
           persist-credentials: true
       - name: Offline data-integrity tests
-        run: python3 -m unittest discover -s research_prototypes -p 'test_iphone_eod_collector.py' -v
+        run: python3 -m unittest discover -s research_prototypes -p 'test_*.py' -v
       - name: Collect free daily bars (fail closed if unavailable)
         run: python3 research_prototypes/iphone_eod_collector.py
       - name: Convert to conservative mobile research schema
