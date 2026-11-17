@@ -31,7 +31,7 @@ def select_batch(symbols, today, limit=MAX_SYMBOLS_PER_RUN):
     if len(symbols) <= limit:
         return symbols
     # Each calendar day scans the next slice; roughly full rotation over ceil(N/limit) days.
-    offset = (today.toordinal() * limit) % len(symbols)
+    # Count weekdays since a fixed Monday to advance one batch per business day.\n    anchor = dt.date(2020, 1, 6)\n    days = max(0, (today - anchor).days)\n    weeks, remainder = divmod(days, 7)\n    trading_days = weeks * 5 + min(remainder, 5)\n    offset = (trading_days * limit) % len(symbols)
     return [symbols[(offset + i) % len(symbols)] for i in range(limit)]
 
 UA = "LUCAResearch/1.0 research-contact research@example.invalid"
