@@ -66,5 +66,18 @@ class MobileAdapterSafetyTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIsNone(data)
 
+    def test_refuse_duplicate_tickers_and_mismatched_dates(self):
+        feed = self.valid_feed()
+        feed["rows"].append(dict(feed["rows"][0]))
+        result, data = self.run_adapter(feed)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIsNone(data)
+
+        feed = self.valid_feed()
+        feed["rows"][0]["date"] = "2026-11-13"
+        result, data = self.run_adapter(feed)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIsNone(data)
+
 if __name__ == "__main__":
     unittest.main()
