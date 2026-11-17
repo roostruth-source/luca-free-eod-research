@@ -1,0 +1,53 @@
+"""Offline SEC contract-number leads; never verified terms or trade signals.
+
+Numbers near a keyword are *candidates for human review*, not contractual facts.
+No network, no orders, and no change to production approval.
+"""
+import re
+from decimal import Decimal, InvalidOperation
+from research_sec_evidence import extract_review_evidence
+
+NUMBER = re.compile(r'(?<![\w.])(?P<currency>\\$)?(?P<number>\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)(?P<percent>\\s*%)?(?![\w.])')
+PRICE_CUES = re.compile(r'\\b(?:conversion|exercise|reset|floor|strike)\\s+price\\b', re.I)
+DISCOUNT_CUES = re.compile(r'\\b(?:discount|less than|of (?:the )?(?:lowest|average|closing) (?:price|vwap))\\b', re.I)
+
+
+def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000):
+    """Locate numbers around SEC risk mentions without inferring agreement terms."""
+    base = extract_review_evidence(text, context=0, max_chars=max_chars)
+    base['numeric_leads'] = []
+    if base['reason'] == 'INVALID_OR_OVERSIZED_TEXT':
+        return base
+    if (type(context) is not int or not 0 <= context <= 500 or
+            type(max_leads) is not int or not 1 <= max_leads <= 30):
+        base['reason'] = 'INVALID_NUMERIC_LIMITS'
+        base['flags'] = {}
+        base['evidence'] = {}
+        return base
+    leads = []
+    seen = set()
+    for field, hits in base['evidence'].items():
+        for hit in hits:
+            left = max(0, hit['start'] - context)
+            right = min(len(text), hit['end'] + context)
+            segment = text[left:right]
+            if not (PRICE_CUES.search(segment) or DISCOUNT_CUES.search(segment)):
+                continue
+            for match in NUMBER.finditer(segment):
+                start, end = left + match.start(), left + match.end()
+                if (field, start, end) in seen:
+                    continue
+                seen.add((field, start, end))
+                try:
+                    value = Decimal(match.group('number').replace(',', ''))
+                except InvalidOperation:
+                    continue
+                kind = 'percent' if match.group('percent') else 'currency' if match.group('currency') else 'unclassified_number'
+                # Do not assign a dollar or percent meaning without an explicit symbol.
+                leads.append({'field': field, 'start': start, 'end': end,
+                              'literal': text[start:end], 'kind': kind,
+                              'value': str(value),
+                              'status': 'UNVERIFIED_CONTEXT_NUMBER'})
+    base['numeric_leads'] = sorted(leads, key=lambda v: (v['start'], v['field']))[:max_leads]
+    base['reason'] = 'NUMERIC_LEADS_REQUIRE_ORIGINAL_SEC_CONTRACT_REVIEW'
+    return base
