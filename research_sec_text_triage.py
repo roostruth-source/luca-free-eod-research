@@ -5,7 +5,7 @@ PATTERNS = {
     'atm': (r'\bat.the.market\b', r'\b(?:sales|distribution) agreement\b'),
     'convertible_note': (r'\bconvertible (?:promissory )?notes?\b', r'\bconvertible debentures?\b'),
     'warrant': (r'\bwarrants?\b',),
-    'cb_reset': (r'\breset (?:price|provision|date)\b', r'\bconversion price (?:shall|will|may) be (?:adjusted|reduced)\b'),
+    'cb_reset': (r'\breset (?:price|provision|date)\b', r'\bconversion price (?:shall|will|may) be (?:adjusted|reduced|reset)\b', r'\bvariable conversion price\b', r'\breset of (?:the )?conversion price\b'),
     'reverse_split': (r'\breverse (?:stock )?split\b',),
     'listing_compliance': (r'\bminimum bid price\b', r'\bnon.compliance (?:notice|letter)\b'),
     'float': (r'\bpublic float\b', r'\bshares held by non.affiliates\b'),
