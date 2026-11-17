@@ -5,6 +5,8 @@ on:
     paths:
       - 'research_prototypes/iphone_eod_collector.py'
       - 'research_prototypes/watchlist_symbols.txt'
+      - 'research_prototypes/nasdaq_symbol_universe.py'
+      - 'research_prototypes/test_nasdaq_symbol_universe.py'
       - 'research_prototypes/test_iphone_eod_collector.py'
       - 'research_prototypes/iphone_mobile_adapter.py'
       - 'research_prototypes/microcap_candidate_triage.py'
