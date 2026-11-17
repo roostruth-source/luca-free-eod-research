@@ -33,6 +33,12 @@ class NumericLeadTests(unittest.TestCase):
         self.assertEqual(result['reason'], 'INVALID_OR_OVERSIZED_TEXT')
         self.assertEqual(result['numeric_leads'], [])
 
+    def test_unrelated_distant_numbers_not_treated_as_terms(self):
+        text = 'Variable conversion price is $0.25. ' + ('ordinary narrative words ' * 5) + '2026 revenue was 9000.'
+        leads = extract_numeric_leads(text, context=300)['numeric_leads']
+        self.assertTrue(any(x['literal'] == '$0.25' for x in leads))
+        self.assertFalse(any(x['literal'] in ('2026', '9000') for x in leads))
+
     def test_bounded_output(self):
         text = 'Variable conversion price ' + ' '.join('$0.25' for _ in range(40))
         result = extract_numeric_leads(text, max_leads=2)
