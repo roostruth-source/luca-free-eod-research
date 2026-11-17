@@ -1,0 +1,47 @@
+name: LUCA NASDAQ SEC metadata research
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 14 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: luca-sec-metadata
+  cancel-in-progress: false
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Offline tests
+        run: PYTHONPATH=research_prototypes python3 -m unittest discover -s research_prototypes -p 'test_universe_pipeline.py' -v
+      - name: Validate SEC contact configuration
+        env:
+          LUCA_USER_AGENT: ${{ secrets.LUCA_USER_AGENT }}
+        run: |
+          if [ -z "$LUCA_USER_AGENT" ]; then
+            echo "LUCA_USER_AGENT secret missing; do not impersonate a SEC contact" >&2
+            exit 1
+          fi
+      - name: Gather rotating NASDAQ sample and SEC filing metadata
+        env:
+          LUCA_USER_AGENT: ${{ secrets.LUCA_USER_AGENT }}
+          LUCA_BATCH_SIZE: "40"
+        run: python3 research_prototypes/universe_pipeline.py
+      - name: Publish research sample to gh-pages
+        run: |
+          cp site_data/universe_sample.json /tmp/luca-universe.json
+          git fetch origin gh-pages
+          git checkout -B gh-pages origin/gh-pages
+          mkdir -p data
+          cp /tmp/luca-universe.json data/universe_sample.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/universe_sample.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: update rotating NASDAQ SEC research sample"
+            git push origin HEAD:gh-pages
+          fi
