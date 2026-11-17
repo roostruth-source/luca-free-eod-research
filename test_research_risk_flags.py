@@ -32,6 +32,32 @@ class ResearchRiskFlagsTests(unittest.TestCase):
                                           'sec_url': 'https://www.sec.gov/Archives/edgar/data/1/x.htm'}})
         self.assertEqual(report['fields']['reverse_split']['state'], 'UNKNOWN')
 
+    def test_sec_lookalikes_and_malformed_urls_rejected(self):
+        bad = [
+            'https://www.sec.gov.evil.test/Archives/edgar/data/1/x.htm',
+            'https://www.sec.gov@evil.test/Archives/edgar/data/1/x.htm',
+            'https://evil.test@www.sec.gov/Archives/edgar/data/1/x.htm',
+            'http://www.sec.gov/Archives/edgar/data/1/x.htm',
+            'https://www.sec.gov/Archives/edgar/data/1/../x.htm',
+            'https://www.sec.gov/Archives/edgar/data/1/x.htm?fake=1',
+            'https://www.sec.gov/Archives/edgar/data/1/x.htm#fake',
+            'https://www.sec.gov/Archives/edgar/data/not-cik/x.htm',
+            'https://www.sec.gov/Archives/edgar/data/1/',
+            'https://www.sec.gov/Archives/edgar/data/1/x.htm\n',
+        ]
+        for url in bad:
+            with self.subTest(url=url):
+                report = assess({'atm': {'verified': True, 'risk': False, 'sec_url': url}})
+                self.assertEqual(report['fields']['atm']['state'], 'UNKNOWN')
+                self.assertIsNone(report['fields']['atm']['sec_url'])
+
+    def test_invalid_evidence_is_unknown(self):
+        for value in (None, [], 'text', 7):
+            with self.subTest(value=value):
+                report = assess(value)
+                self.assertEqual(set(report['unknown_fields']), set(RISK_FIELDS))
+                self.assertFalse(report['orders_enabled'])
+
 
 if __name__ == '__main__':
     unittest.main()
