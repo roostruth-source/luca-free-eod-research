@@ -20,6 +20,12 @@ def main():
         -dt.timedelta(hours=1) <= dt.datetime.now(dt.timezone.utc) - ts <= dt.timedelta(days=4)
     ):
         raise ValueError("stale feed")
+    tickers = [r.get("ticker") for r in feed["rows"] if isinstance(r, dict)]
+    if len(tickers) != len(feed["rows"]) or len(set(tickers)) != len(tickers):
+        raise ValueError("duplicate or malformed ticker rows")
+    if any(not isinstance(r.get("date"), str) or r["date"] != feed.get("asof")
+           for r in feed["rows"]):
+        raise ValueError("bar date does not match asof")
     result = rank(feed["rows"])
     # Fail closed: do not publish incomplete or malformed batches.
     if result["errors"] or len(result["candidates"]) != len(feed["rows"]):
