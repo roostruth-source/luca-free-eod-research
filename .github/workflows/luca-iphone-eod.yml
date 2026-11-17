@@ -26,19 +26,23 @@ jobs:
           persist-credentials: true
       - name: Offline data-integrity tests\n        run: python3 -m unittest discover -s research_prototypes -p 'test_iphone_eod_collector.py' -v\n      - name: Collect free daily bars (fail closed if unavailable)
         run: python3 research_prototypes/iphone_eod_collector.py
+      - name: Convert to conservative mobile research schema
+        run: python3 research_prototypes/iphone_mobile_adapter.py
       - name: Publish latest JSON to gh-pages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           test -s site_data/latest.json
-          cp site_data/latest.json /tmp/luca-iphone-latest.json
+          cp site_data/latest_mobile.json /tmp/luca-iphone-latest.json
+          cp site_data/latest.json /tmp/luca-iphone-raw.json
           git fetch origin gh-pages
           git checkout -B gh-pages origin/gh-pages
           mkdir -p data
           cp /tmp/luca-iphone-latest.json data/latest.json
+          cp /tmp/luca-iphone-raw.json data/raw.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/latest.json
+          git add data/latest.json data/raw.json
           if ! git diff --cached --quiet; then
             git commit -m "data: refresh iPhone research EOD watchlist"
             git push origin HEAD:gh-pages
