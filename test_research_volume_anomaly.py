@@ -74,6 +74,17 @@ class VolumeResearchTests(unittest.TestCase):
             with self.subTest(bad=bad):
                 self.assertEqual(inspect_volume(b)['reason'], 'INVALID_BAR_DATA')
 
+    def test_fractional_share_volume_fails_closed(self):
+        for bad in (100.5, 0.5, 400.25):
+            b = bars()
+            b[-1]['volume'] = bad
+            with self.subTest(volume=bad):
+                r = inspect_volume(b)
+                self.assertEqual(r['reason'], 'INVALID_BAR_DATA')
+                self.assertEqual(r['signal'], 'UNKNOWN')
+                self.assertEqual(r['status'], 'NOT_VALIDATED')
+                self.assertFalse(r['orders_enabled'])
+
     def test_extreme_ratio_fail_closed(self):
         b = bars()
         b[-1]['volume'] = 1e308
