@@ -1,0 +1,47 @@
+# Research-only offline checks for NASDAQ 7.0 / China 1.0 risk gates.
+# Never use credentials, market requests, broker APIs, or orders.
+name: LUCA research gates offline CI
+on:
+  push:
+    branches:
+      - research/v03-stage24-evidence
+    paths:
+      - 'research_candidate_gate.py'
+      - 'research_volume_anomaly.py'
+      - 'research_risk_flags.py'
+      - 'research_sec_evidence.py'
+      - 'research_sec_numeric_leads.py'
+      - 'research_sec_text_triage.py'
+      - 'test_research_candidate_gate.py'
+      - 'test_research_volume_anomaly.py'
+      - 'test_research_risk_flags.py'
+      - 'test_research_sec_evidence.py'
+      - 'test_research_sec_numeric_leads.py'
+      - 'test_research_sec_text_triage.py'
+      - '.github/workflows/luca-research-gates-offline-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-research-gates:
+    if: github.ref == 'refs/heads/research/v03-stage24-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax check research gates
+        run: |
+          python3 -m py_compile research_candidate_gate.py research_volume_anomaly.py research_risk_flags.py research_sec_evidence.py research_sec_numeric_leads.py research_sec_text_triage.py
+      - name: Offline candidate, volume, SEC and dilution regression
+        run: |
+          python3 -m unittest -v test_research_candidate_gate test_research_volume_anomaly test_research_risk_flags test_research_sec_evidence test_research_sec_numeric_leads test_research_sec_text_triage
+      - name: Research-only safety notice
+        if: always()
+        run: echo 'NOT_VALIDATED SEC_UNVERIFIED NO_ORDERS - offline tests do not validate live market or SEC filings'
