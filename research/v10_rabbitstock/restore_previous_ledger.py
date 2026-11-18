@@ -12,7 +12,8 @@ import urllib.parse
 import urllib.request
 from zipfile import ZipFile, BadZipFile
 
-WORKFLOW = "luca-v10-research-build-ci.yml"
+DEFAULT_WORKFLOW = "luca-v10-research-build-ci.yml"
+DEFAULT_BRANCH = "research/v10-rabbitstock-eval"
 ARTIFACT = "luca-v10-executable-research-build"
 MAX_BYTES = 12_000_000
 
@@ -41,13 +42,18 @@ def _request(url: str, token: str, opener=None) -> bytes:
     return data
 
 
-def restore(repo: str, current_run_id: int, token: str, opener=None) -> dict | None:
+def restore(repo: str, current_run_id: int, token: str, opener=None,
+            workflow: str = DEFAULT_WORKFLOW, branch: str = DEFAULT_BRANCH) -> dict | None:
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or not token:
         raise ValueError("github_repo_and_token_required")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+\.ya?ml", workflow):
+        raise ValueError("github_workflow_name_invalid")
+    if not re.fullmatch(r"[A-Za-z0-9_./-]+", branch) or ".." in branch:
+        raise ValueError("github_branch_name_invalid")
     root = "https://api.github.com/repos/" + repo
-    query = urllib.parse.urlencode({"branch": "research/v10-rabbitstock-eval",
+    query = urllib.parse.urlencode({"branch": branch,
                                     "status": "success", "per_page": 10})
-    runs = json.loads(_request(f"{root}/actions/workflows/{WORKFLOW}/runs?{query}", token, opener))
+    runs = json.loads(_request(f"{root}/actions/workflows/{workflow}/runs?{query}", token, opener))
     for run in runs.get("workflow_runs", []):
         run_id = int(run["id"])
         if run_id == current_run_id:
@@ -75,7 +81,9 @@ def main() -> int:
     args = parser.parse_args()
     try:
         ledger = restore(os.getenv("GITHUB_REPOSITORY", ""),
-                         int(os.getenv("GITHUB_RUN_ID", "0")), os.getenv("GITHUB_TOKEN", ""))
+                         int(os.getenv("GITHUB_RUN_ID", "0")), os.getenv("GITHUB_TOKEN", ""),
+                         workflow=os.getenv("LUCA_LEDGER_WORKFLOW", DEFAULT_WORKFLOW),
+                         branch=os.getenv("LUCA_LEDGER_BRANCH", DEFAULT_BRANCH))
     except (OSError, ValueError, KeyError, BadZipFile) as exc:
         print(json.dumps({"restore_status": "UNAVAILABLE", "reason": type(exc).__name__}))
         return 0
