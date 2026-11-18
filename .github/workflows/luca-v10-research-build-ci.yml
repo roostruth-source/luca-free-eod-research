@@ -69,6 +69,14 @@ jobs:
               --output build_outputs/prospective_ledger.json \
               --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           fi
+      - name: Measure mature IEX daily reference outcomes
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python prospective_outcomes.py build_outputs/prospective_ledger.json \
+            --output build_outputs/prospective_outcomes.json \
+            --evaluated-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
       - name: Verify order safety flags
         run: |
           python - <<'PY'
@@ -90,4 +98,5 @@ jobs:
             research/v10_rabbitstock/build_outputs/live_watchlist.json
             research/v10_rabbitstock/build_outputs/live_watchlist.html
             research/v10_rabbitstock/build_outputs/prospective_ledger.json
+            research/v10_rabbitstock/build_outputs/prospective_outcomes.json
           retention-days: 14
