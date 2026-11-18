@@ -50,7 +50,8 @@ class LiveResearchTests(unittest.TestCase):
         enrichment = {
             "status": "COLLECTED_UNVERIFIED", "rows": [
                 {"symbol": f"T{i:02d}", "price_band_0_20_to_20": True,
-                 "iex_last_trade_price": 1.0} for i in range(55)
+                 "iex_last_trade_price": 1.0,
+                 "research_status": "PENDING_STALE_OR_MISSING"} for i in range(55)
             ],
         }
         def forbidden(url):
@@ -63,6 +64,7 @@ class LiveResearchTests(unittest.TestCase):
         self.assertEqual(result["source_status"], "SEC_TICKER_MAP_HTTP_403")
         self.assertEqual(result["rows"][0]["ticker"], "T00")
         self.assertEqual(result["rows"][-1]["ticker"], "T49")
+        self.assertEqual(result["rows"][0]["iex_status"], "PENDING_STALE_OR_MISSING")
         self.assertTrue(all(row["state"] == "WATCH_ONLY_BLOCKED" for row in result["rows"]))
 
     def test_html_escapes_ticker(self):
