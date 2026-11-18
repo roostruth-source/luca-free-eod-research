@@ -1,0 +1,50 @@
+import unittest
+
+from prospective_outcomes import build_outcomes
+
+
+def event(observed="2026-11-18T15:00:00Z", status="FRESH_WATCH_ONLY"):
+    return {"ticker": "ABC", "observed_at": observed, "iex_reference_price": 1.0,
+            "observation_status": status, "chain_hash": "a" * 64, "NO_ORDERS": True}
+
+
+def ledger(item):
+    return {"schema_version": "LUCA_V10_PROSPECTIVE_LEDGER_1", "events": [item],
+            "NO_ORDERS": True}
+
+
+BARS = {"ABC": [
+    {"session_date": "2026-11-18", "o": 1.0, "h": 1.2, "l": .9, "c": 1.1},
+    {"session_date": "2026-11-19", "o": 1.1, "h": 1.4, "l": 1.0, "c": 1.3},
+]}
+
+
+class ProspectiveOutcomesTests(unittest.TestCase):
+    def test_regular_session_observation_uses_same_day_close(self):
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
+        first = result["records"][0]["outcomes"]
+        self.assertAlmostEqual(first["1"]["close_return_pct"], 10.0)
+        self.assertEqual(first["3"]["completed_sessions"], 2)
+        self.assertEqual(result["mature_fresh_horizons"]["1"], 1)
+        self.assertFalse(result["prediction_accuracy_verified"])
+
+    def test_after_close_observation_starts_next_session(self):
+        result = build_outcomes(ledger(event("2026-11-18T22:00:00Z")), BARS,
+                                "2026-11-19T22:00:00Z")
+        outcome = result["records"][0]["outcomes"]["1"]
+        self.assertEqual(outcome["exit_session"], "2026-11-19")
+        self.assertAlmostEqual(outcome["close_return_pct"], 30.0)
+
+    def test_current_incomplete_session_is_excluded(self):
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T19:00:00Z")
+        self.assertEqual(result["records"][0]["outcomes"]["3"]["completed_sessions"], 1)
+
+    def test_stale_observation_never_enters_validation_cohort(self):
+        result = build_outcomes(ledger(event(status="STALE_OR_MISSING_PRICE_BLOCKED")),
+                                BARS, "2026-11-19T22:00:00Z")
+        self.assertEqual(result["fresh_observation_count"], 0)
+        self.assertFalse(result["records"][0]["eligible_for_model_validation"])
+
+
+if __name__ == "__main__":
+    unittest.main()
