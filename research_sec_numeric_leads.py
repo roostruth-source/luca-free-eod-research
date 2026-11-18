@@ -40,10 +40,10 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
                 start, end = left + match.start(), left + match.end()
                 # Reject clipped numbers, malformed comma groups and signed amounts.
                 if (start > 0 and (text[start - 1].isalnum() or
-                                   text[start - 1] in '.,-+−–—﹣－＋'))):
+                                   text[start - 1] in '.,-+−–—﹣－＋')):
                     continue
                 if (end < len(text) and (text[end].isalnum() or text[end] == ',' or
-                        (text[end] == '.' and end + 1 < len(text) and text[end + 1].isdigit()))):
+                        (text[end] == '.' and end + 1 < len(text) and text[end + 1].isdigit())):
                     continue
                 prefix = text[max(0, start - 12):start]
                 suffix = text[end:min(len(text), end + 4)]
