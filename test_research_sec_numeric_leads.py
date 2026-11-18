@@ -81,6 +81,28 @@ class NumericLeadTests(unittest.TestCase):
         self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
         self.assertFalse(result['orders_enabled'])
 
+    def test_malformed_grouping_not_extracted_as_fragments(self):
+        # Comma-separated malformed amounts must not become smaller valid prices.
+        for amount in ('1,23', '12,34', '1,234,56', '1234,567'):
+            with self.subTest(amount=amount):
+                result = extract_numeric_leads('Variable conversion price is 
+        text = 'Variable conversion price ' + ' '.join('$0.25' for _ in range(40))
+        result = extract_numeric_leads(text, max_leads=2)
+        self.assertLessEqual(len(result['numeric_leads']), 2)
+
+
+if __name__ == '__main__':
+    unittest.main()
+ + amount + '.')
+                self.assertEqual(result['numeric_leads'], [])
+                self.assertEqual(result['decision'], 'HOLD_UNVERIFIED')
+                self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
+                self.assertFalse(result['orders_enabled'])
+
+    def test_valid_grouped_currency_preserved(self):
+        result = extract_numeric_leads('Variable conversion price is $1,234.56.')
+        self.assertTrue(any(x['literal'] == '$1,234.56' for x in result['numeric_leads']))
+
     def test_bounded_output(self):
         text = 'Variable conversion price ' + ' '.join('$0.25' for _ in range(40))
         result = extract_numeric_leads(text, max_leads=2)
