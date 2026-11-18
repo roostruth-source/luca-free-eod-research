@@ -39,6 +39,22 @@ class NumericLeadTests(unittest.TestCase):
         self.assertTrue(any(x['literal'] == '$0.25' for x in leads))
         self.assertFalse(any(x['literal'] in ('2026', '9000') for x in leads))
 
+    def test_calendar_year_near_conversion_price_is_not_a_term(self):
+        result = extract_numeric_leads('In 2026 the variable conversion price is $0.25.')
+        literals = [x['literal'] for x in result['numeric_leads']]
+        self.assertIn('$0.25', literals)
+        self.assertNotIn('2026', literals)
+
+    def test_explicit_currency_year_sized_number_kept_for_review(self):
+        result = extract_numeric_leads('Variable conversion price is $2,026.')
+        self.assertTrue(any(x['literal'] == '$2,026' for x in result['numeric_leads']))
+
+    def test_calendar_year_suppression_does_not_hide_percent(self):
+        result = extract_numeric_leads('Variable conversion price with 20% discount in 2026.')
+        literals = [x['literal'] for x in result['numeric_leads']]
+        self.assertIn('20%', literals)
+        self.assertNotIn('2026', literals)
+
     def test_bounded_output(self):
         text = 'Variable conversion price ' + ' '.join('$0.25' for _ in range(40))
         result = extract_numeric_leads(text, max_leads=2)
