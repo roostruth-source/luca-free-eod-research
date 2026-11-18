@@ -1,0 +1,102 @@
+name: LUCA V10 Daily Prospective Observation
+
+on:
+  schedule:
+    - cron: "0 18 * * 1-5"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/luca-v10-daily-observation.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: luca-v10-daily-observation
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/v10-rabbitstock-eval
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run research safety tests
+        working-directory: research/v10_rabbitstock
+        run: python -m unittest discover -q
+      - name: Collect bounded watchlist and SEC review
+        working-directory: research/v10_rabbitstock
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
+        run: |
+          python run_live_research.py \
+            --output build_outputs/live_watchlist.json \
+            --html-output build_outputs/live_watchlist.html
+      - name: Restore preceding daily ledger
+        working-directory: research/v10_rabbitstock
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LUCA_LEDGER_WORKFLOW: luca-v10-daily-observation.yml
+          LUCA_LEDGER_BRANCH: main
+        run: python restore_previous_ledger.py --output build_outputs/previous_ledger.json
+      - name: Seed from research ledger when no daily ledger exists
+        if: ${{ hashFiles('research/v10_rabbitstock/build_outputs/previous_ledger.json') == '' }}
+        working-directory: research/v10_rabbitstock
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LUCA_LEDGER_WORKFLOW: luca-v10-research-build-ci.yml
+          LUCA_LEDGER_BRANCH: research/v10-rabbitstock-eval
+        run: python restore_previous_ledger.py --output build_outputs/previous_ledger.json
+      - name: Append today's observations
+        working-directory: research/v10_rabbitstock
+        run: |
+          if [ -f build_outputs/previous_ledger.json ]; then
+            python prospective_ledger.py build_outputs/live_watchlist.json \
+              --previous build_outputs/previous_ledger.json \
+              --output build_outputs/prospective_ledger.json \
+              --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          else
+            python prospective_ledger.py build_outputs/live_watchlist.json \
+              --output build_outputs/prospective_ledger.json \
+              --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          fi
+      - name: Measure mature IEX daily reference outcomes
+        working-directory: research/v10_rabbitstock
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python prospective_outcomes.py build_outputs/prospective_ledger.json \
+            --output build_outputs/prospective_outcomes.json \
+            --evaluated-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+      - name: Verify observation safety
+        working-directory: research/v10_rabbitstock
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("live_watchlist.json", "prospective_ledger.json", "prospective_outcomes.json"):
+              data = json.loads((Path("build_outputs") / name).read_text())
+              assert data["WATCH_ONLY"] is True
+              assert data["NO_ORDERS"] is True
+              assert data["validation_status"] == "NOT_VALIDATED"
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: luca-v10-executable-research-build
+          path: |
+            research/v10_rabbitstock/build_outputs/live_watchlist.json
+            research/v10_rabbitstock/build_outputs/live_watchlist.html
+            research/v10_rabbitstock/build_outputs/prospective_ledger.json
+            research/v10_rabbitstock/build_outputs/prospective_outcomes.json
+          retention-days: 30
