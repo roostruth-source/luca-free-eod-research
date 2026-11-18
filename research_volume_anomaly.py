@@ -38,6 +38,10 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
                 raise ValueError('bad chronology')
             if any(type(t) is not type(times[0]) for t in times):
                 raise ValueError('mixed chronology types')
+            if any((type(t) in (int, float) and not isfinite(t))
+                   or (type(t) is str and not t.strip()) for t in times):
+                raise ValueError('nonfinite or empty timestamp')
+                raise ValueError('mixed chronology types')
             if any(a >= b for a, b in zip(times, times[1:])):
                 raise ValueError('unordered chronology')
     except (KeyError, TypeError, ValueError, OverflowError):
