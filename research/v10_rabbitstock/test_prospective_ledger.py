@@ -30,6 +30,24 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "previous_ledger_chain_invalid"):
             append_observations(watchlist(), "2026-11-18T10:02:00Z", first)
 
+    def test_next_collection_continues_chain_without_rewriting_old_event(self):
+        first = append_observations(watchlist(), "2026-11-18T10:01:00Z")
+        later = watchlist()
+        later["collected_at"] = "2026-11-19T10:00:00Z"
+        later["rows"][0]["iex_price"] = 1.2
+        second = append_observations(later, "2026-11-19T10:01:00Z", first)
+        self.assertEqual(second["continuity_status"], "CHAIN_CONTINUED")
+        self.assertEqual(second["event_count"], 2)
+        self.assertEqual(second["events"][0], first["events"][0])
+        self.assertNotEqual(second["last_chain_hash"], first["last_chain_hash"])
+
+    def test_same_timestamp_revision_is_not_silently_ignored(self):
+        first = append_observations(watchlist(), "2026-11-18T10:01:00Z")
+        changed = watchlist()
+        changed["rows"][0]["iex_price"] = 1.2
+        with self.assertRaisesRegex(ValueError, "same_time_report_revision_not_allowed"):
+            append_observations(changed, "2026-11-18T10:02:00Z", first)
+
     def test_future_or_unsafe_input_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "future_watchlist_not_allowed"):
             append_observations(watchlist(), "2026-11-18T09:00:00Z")
