@@ -19,7 +19,8 @@ def _sec_archive_url(url):
                 and not parsed.query and not parsed.fragment
                 and len(parts) >= 6 and parts[:4] == ['', 'Archives', 'edgar', 'data']
                 and parts[4].isdigit() and bool(parts[-1])
-                and all(part not in ('', '.', '..') for part in parts[4:]))
+                and all(part not in ('', '.', '..') and '%' not in part and '\\' not in part
+                        for part in parts[4:]))
     except ValueError:
         return False
 
