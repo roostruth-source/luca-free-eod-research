@@ -46,6 +46,25 @@ class LiveResearchTests(unittest.TestCase):
         self.assertEqual(result["source_status"], "NO_ALPACA_KEYS")
         self.assertEqual(result["candidate_count"], 0)
 
+    def test_more_than_fifty_watch_candidates_are_preserved_and_capped(self):
+        enrichment = {
+            "status": "COLLECTED_UNVERIFIED", "rows": [
+                {"symbol": f"T{i:02d}", "price_band_0_20_to_20": True,
+                 "iex_last_trade_price": 1.0} for i in range(55)
+            ],
+        }
+        def forbidden(url):
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        result = collect("key", "secret", now=ASOF,
+                         enrichment_runner=lambda *a, **kw: enrichment,
+                         sec_json=forbidden, delay=0)
+        self.assertEqual(result["candidate_count"], 50)
+        self.assertEqual(result["truncated_candidates"], 5)
+        self.assertEqual(result["source_status"], "SEC_TICKER_MAP_HTTP_403")
+        self.assertEqual(result["rows"][0]["ticker"], "T00")
+        self.assertEqual(result["rows"][-1]["ticker"], "T49")
+        self.assertTrue(all(row["state"] == "WATCH_ONLY_BLOCKED" for row in result["rows"]))
+
     def test_html_escapes_ticker(self):
         item = triage()
         item["rows"][0]["symbol"] = "<script>"
