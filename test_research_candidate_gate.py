@@ -117,6 +117,16 @@ class CandidateGateTests(unittest.TestCase):
         self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
         self.assertFalse(r['orders_enabled'])
 
+    def test_unsupported_timestamp_types_cannot_pass_volume_gate(self):
+        for bad_timestamp in (b'999', (999,), {'time': 999}):
+            bad = bars()
+            bad[-1]['timestamp'] = bad_timestamp
+            r = evaluate_candidate({'cohort': 'NASDAQ_7_0',
+                                    'universe_verified': True}, bad, evidence())
+            self.assertEqual(r['volume']['reason'], 'INVALID_BAR_DATA')
+            self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+            self.assertFalse(r['orders_enabled'])
+
     def test_bad_inputs_do_not_approve(self):
         for candidate in (None, {}, {'cohort': 'CHINA_1_0', 'universe_verified': True, 'china_link_reviewed': True}):
             r = evaluate_candidate(candidate, [], None)
