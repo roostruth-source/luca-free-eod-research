@@ -40,7 +40,8 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
             v, c = bar['volume'], bar['close']
             if type(v) not in (int, float) or type(c) not in (int, float):
                 raise ValueError('bad types')
-            if not isfinite(v) or not isfinite(c) or v < 0 or c <= 0:
+            if (not isfinite(v) or not isfinite(c) or v < 0 or c <= 0
+                    or (type(v) is float and not v.is_integer())):
                 raise ValueError('bad values')
             volumes.append(v)
         times = [bar.get('timestamp') for bar in window]
