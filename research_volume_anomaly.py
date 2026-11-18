@@ -8,10 +8,16 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
     result = {'status': 'NOT_VALIDATED', 'sec_status': 'SEC_UNVERIFIED',
               'orders_enabled': False, 'production_approved': False,
               'signal': 'UNKNOWN', 'volume_ratio': None, 'reason': None}
+    # Extremely large Python integers can raise OverflowError in isfinite().
+    # Treat malformed thresholds as unverified rather than crashing the scan.
+    try:
+        valid_ratio = (type(spike_ratio) in (int, float)
+                       and isfinite(spike_ratio) and spike_ratio > 1)
+    except (OverflowError, TypeError, ValueError):
+        valid_ratio = False
     if (type(min_history) is not int or min_history < 2
             or type(baseline_days) is not int or baseline_days < min_history
-            or type(spike_ratio) not in (int, float)
-            or not isfinite(spike_ratio) or spike_ratio <= 1):
+            or not valid_ratio):
         result['reason'] = 'INVALID_PARAMETERS'
         return result
     if not isinstance(bars, (list, tuple)) or len(bars) < min_history + 1:
@@ -41,7 +47,6 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
             if any((type(t) in (int, float) and not isfinite(t))
                    or (type(t) is str and not t.strip()) for t in times):
                 raise ValueError('nonfinite or empty timestamp')
-                raise ValueError('mixed chronology types')
             if any(a >= b for a, b in zip(times, times[1:])):
                 raise ValueError('unordered chronology')
     except (KeyError, TypeError, ValueError, OverflowError):
