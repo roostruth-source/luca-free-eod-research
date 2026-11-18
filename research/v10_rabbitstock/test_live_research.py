@@ -5,6 +5,7 @@ import unittest
 
 from run_live_research import assemble, collect, render_html
 from sec_document_review import fetch_filing, review_text
+from sec_access import fetch_sec_json, validate_user_agent
 
 URL = "https://www.sec.gov/Archives/edgar/data/123/000000012326000001/filing.htm"
 ASOF = datetime(2026, 11, 18, tzinfo=timezone.utc)
@@ -66,6 +67,24 @@ class LiveResearchTests(unittest.TestCase):
         self.assertEqual(result["rows"][-1]["ticker"], "T49")
         self.assertEqual(result["rows"][0]["iex_status"], "PENDING_STALE_OR_MISSING")
         self.assertTrue(all(row["state"] == "WATCH_ONLY_BLOCKED" for row in result["rows"]))
+
+    def test_missing_declared_sec_contact_keeps_alpaca_candidates(self):
+        enrichment = {"status": "COLLECTED_UNVERIFIED", "rows": [
+            {"symbol": "ABC", "price_band_0_20_to_20": True,
+             "iex_last_trade_price": 1.0, "research_status": "WATCH_ONLY_FRESH_IEX"}]}
+        result = collect("key", "secret", now=ASOF,
+                         enrichment_runner=lambda *a, **kw: enrichment, delay=0)
+        self.assertEqual(result["source_status"], "SEC_CONTACT_NOT_CONFIGURED")
+        self.assertEqual(result["candidate_count"], 1)
+        self.assertEqual(result["rows"][0]["sec_status"], "SEC_NOT_CHECKED_CONTACT_REQUIRED")
+
+    def test_declared_sec_user_agent_and_allowlist(self):
+        self.assertEqual(validate_user_agent("LUCA-Research contact@example.com"),
+                         "LUCA-Research contact@example.com")
+        with self.assertRaisesRegex(ValueError, "sec_declared_contact_required"):
+            validate_user_agent("LUCA-Research x@example.com\r\nSecret: leaked")
+        with self.assertRaisesRegex(ValueError, "sec_json_url_not_allowed"):
+            fetch_sec_json("https://example.com/x", "LUCA-Research contact@example.com")
 
     def test_html_escapes_ticker(self):
         item = triage()

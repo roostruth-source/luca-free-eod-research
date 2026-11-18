@@ -14,13 +14,12 @@ import time
 import urllib.error
 
 from sec_document_review import fetch_filing, review_text
+from sec_access import fetch_sec_json, validate_user_agent
 
 V03_DIR = Path(__file__).resolve().parents[1] / "v03_stage24"
 sys.path.insert(0, str(V03_DIR))
 from auto_enrich_iex import run as enrich_run  # noqa: E402
-from sec_auto_triage import (  # noqa: E402
-    TICKERS_URL, SUBMISSIONS_ROOT, get_json, ticker_cik_map, triage,
-)
+from sec_auto_triage import TICKERS_URL, SUBMISSIONS_ROOT, ticker_cik_map, triage  # noqa: E402
 
 MAX_DOCUMENTS = 10
 SAFETY = {"WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED"}
@@ -82,9 +81,11 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
 
 
 def collect(key: str, secret: str, now: datetime | None = None,
-            enrichment_runner=enrich_run, sec_json=get_json,
-            fetcher=fetch_filing, delay=0.22) -> dict:
+            enrichment_runner=enrich_run, sec_json=None,
+            fetcher=None, delay=0.22, sec_user_agent: str = "") -> dict:
     now = now or datetime.now(timezone.utc)
+    if fetcher is None:
+        fetcher = lambda url: fetch_filing(url, sec_user_agent)
     if not key or not secret:
         return assemble({"status": "NO_ALPACA_KEYS", "rows": []}, now, fetcher, delay)
     enrichment = enrichment_runner(key, secret, now=now)
@@ -96,6 +97,19 @@ def collect(key: str, secret: str, now: datetime | None = None,
     truncated = len(watch) - len(selected)
     bounded = copy.deepcopy(enrichment)
     bounded["rows"] = selected
+    if sec_json is None:
+        try:
+            validate_user_agent(sec_user_agent)
+        except ValueError:
+            result = {"status": "SEC_CONTACT_NOT_CONFIGURED", "rows": [
+                {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
+                 "iex_status": row.get("research_status", "PRICE_FRESHNESS_UNVERIFIED"),
+                 "sec_status": "SEC_NOT_CHECKED_CONTACT_REQUIRED", "review_filings": []}
+                for row in selected]}
+            result["price_band_total"] = len(watch)
+            result["truncated_candidates"] = truncated
+            return assemble(result, now, fetcher, delay)
+        sec_json = lambda url: fetch_sec_json(url, sec_user_agent)
     try:
         mapping = ticker_cik_map(sec_json(TICKERS_URL))
     except (OSError, ValueError, TypeError, urllib.error.HTTPError) as exc:
@@ -160,7 +174,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--html-output", type=Path, required=True)
     args = parser.parse_args()
-    report = collect(os.getenv("ALPACA_KEY", ""), os.getenv("ALPACA_SECRET", ""))
+    report = collect(os.getenv("ALPACA_KEY", ""), os.getenv("ALPACA_SECRET", ""),
+                     sec_user_agent=os.getenv("SEC_USER_AGENT", ""))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.html_output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

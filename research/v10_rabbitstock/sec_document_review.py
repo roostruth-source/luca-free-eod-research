@@ -6,6 +6,8 @@ from html.parser import HTMLParser
 import re
 import urllib.request
 
+from sec_access import validate_user_agent
+
 ARCHIVE_URL = re.compile(
     r"https://www\.sec\.gov/Archives/edgar/data/\d{1,10}/\d{18}/[A-Za-z0-9._-]{1,150}\.(?:htm|html|txt)"
 )
@@ -40,11 +42,11 @@ class _VisibleText(HTMLParser):
             self.parts.append(data)
 
 
-def fetch_filing(url: str, opener=None) -> str:
+def fetch_filing(url: str, user_agent: str = "", opener=None) -> str:
     if not ARCHIVE_URL.fullmatch(url):
         raise ValueError("sec_archive_url_not_allowed")
     request = urllib.request.Request(url, headers={
-        "User-Agent": "LUCA-Research/0.3 (read-only; github.com/roostruth-source/luca-free-eod-research)",
+        "User-Agent": validate_user_agent(user_agent),
         "Accept": "text/html,text/plain", "Accept-Encoding": "identity",
     }, method="GET")
     with (opener or urllib.request.urlopen)(request, timeout=20) as response:
