@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   test-and-build:
@@ -47,10 +48,27 @@ jobs:
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
           ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
         run: |
           python run_live_research.py \
             --output build_outputs/live_watchlist.json \
             --html-output build_outputs/live_watchlist.html
+      - name: Restore preceding prospective ledger
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python restore_previous_ledger.py --output build_outputs/previous_ledger.json
+      - name: Freeze today's observations in append-only ledger
+        run: |
+          if [ -f build_outputs/previous_ledger.json ]; then
+            python prospective_ledger.py build_outputs/live_watchlist.json \
+              --previous build_outputs/previous_ledger.json \
+              --output build_outputs/prospective_ledger.json \
+              --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          else
+            python prospective_ledger.py build_outputs/live_watchlist.json \
+              --output build_outputs/prospective_ledger.json \
+              --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          fi
       - name: Verify order safety flags
         run: |
           python - <<'PY'
@@ -71,4 +89,5 @@ jobs:
             research/v10_rabbitstock/build_outputs/validation_readiness.json
             research/v10_rabbitstock/build_outputs/live_watchlist.json
             research/v10_rabbitstock/build_outputs/live_watchlist.html
+            research/v10_rabbitstock/build_outputs/prospective_ledger.json
           retention-days: 14
