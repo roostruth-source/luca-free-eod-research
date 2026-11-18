@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 18 * * 1-5"
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/luca-v10-daily-observation.yml"
 
 permissions:
   contents: read
