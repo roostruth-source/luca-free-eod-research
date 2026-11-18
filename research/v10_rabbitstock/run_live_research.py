@@ -15,6 +15,7 @@ import urllib.error
 
 from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
+from sec_official_bundle import load_bundle_file, validate_official_bundle
 
 V03_DIR = Path(__file__).resolve().parents[1] / "v03_stage24"
 sys.path.insert(0, str(V03_DIR))
@@ -63,7 +64,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "state": "WATCH_ONLY_BLOCKED",
             **SAFETY,
         })
-    return {
+    report = {
         "schema_version": "LUCA_V10_LIVE_WATCHLIST_1",
         "collected_at": asof.astimezone(timezone.utc).isoformat(),
         "source_status": triage.get("status", "UNKNOWN"),
@@ -78,11 +79,16 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         "rows": rows,
         **SAFETY,
     }
+    for key in ("sec_live_fetch_status", "sec_bundle_provenance"):
+        if key in triage:
+            report[key] = triage[key]
+    return report
 
 
 def collect(key: str, secret: str, now: datetime | None = None,
             enrichment_runner=enrich_run, sec_json=None,
-            fetcher=None, delay=0.22, sec_user_agent: str = "") -> dict:
+            fetcher=None, delay=0.22, sec_user_agent: str = "",
+            sec_bundle: dict | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     if fetcher is None:
         fetcher = lambda url: fetch_filing(url, sec_user_agent)
@@ -116,6 +122,21 @@ def collect(key: str, secret: str, now: datetime | None = None,
         source_status = (f"SEC_TICKER_MAP_HTTP_{exc.code}"
                          if isinstance(exc, urllib.error.HTTPError)
                          else "SEC_TICKER_MAP_UNAVAILABLE")
+        if sec_bundle is not None:
+            try:
+                bundle_input = validate_official_bundle(
+                    sec_bundle, now, [row["symbol"] for row in selected])
+                result = triage(bounded, bundle_input["ticker_map"],
+                                bundle_input["submissions"], now)
+            except (ValueError, TypeError, AttributeError) as bundle_exc:
+                source_status += "_BUNDLE_" + type(bundle_exc).__name__.upper()
+            else:
+                result["status"] = "SEC_OFFICIAL_BUNDLE_PARTIAL_NOT_CLEARED"
+                result["sec_live_fetch_status"] = source_status
+                result["sec_bundle_provenance"] = bundle_input["provenance"]
+                result["price_band_total"] = len(watch)
+                result["truncated_candidates"] = truncated
+                return assemble(result, now, fetcher, delay)
         result = {"status": source_status, "rows": [
             {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
              "iex_status": row.get("research_status", "PRICE_FRESHNESS_UNVERIFIED"),
@@ -173,9 +194,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--html-output", type=Path, required=True)
+    parser.add_argument("--sec-bundle", type=Path)
     args = parser.parse_args()
+    sec_bundle = load_bundle_file(args.sec_bundle) if args.sec_bundle else None
     report = collect(os.getenv("ALPACA_KEY", ""), os.getenv("ALPACA_SECRET", ""),
-                     sec_user_agent=os.getenv("SEC_USER_AGENT", ""))
+                     sec_user_agent=os.getenv("SEC_USER_AGENT", ""),
+                     sec_bundle=sec_bundle)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.html_output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
