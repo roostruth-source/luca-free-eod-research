@@ -43,6 +43,11 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
                 if distance > 45:
                     continue
                 start, end = left + match.start(), left + match.end()
+                # A clipped excerpt can turn a longer number into a fake lead.
+                # Reject numeric fragments at excerpt boundaries.
+                if (start > 0 and (text[start - 1].isalnum() or text[start - 1] in '.-+')) or (
+                        end < len(text) and (text[end].isalnum() or text[end] == '.')):
+                    continue
                 if (field, start, end) in seen:
                     continue
                 seen.add((field, start, end))
