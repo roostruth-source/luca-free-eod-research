@@ -52,15 +52,19 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
     except (KeyError, TypeError, ValueError, OverflowError):
         result['reason'] = 'INVALID_BAR_DATA'
         return result
-    base = median(volumes[:-1])
-    if base <= 0:
-        result['reason'] = 'ZERO_BASELINE'
-        return result
-    ratio = volumes[-1] / base
-    if not isfinite(ratio):
+    try:
+        base = median(volumes[:-1])
+        if base <= 0:
+            result['reason'] = 'ZERO_BASELINE'
+            return result
+        ratio = volumes[-1] / base
+        if not isfinite(ratio):
+            result['reason'] = 'INVALID_BAR_DATA'
+            return result
+        result['volume_ratio'] = round(ratio, 4)
+    except (OverflowError, ZeroDivisionError, ValueError):
         result['reason'] = 'INVALID_BAR_DATA'
         return result
-    result['volume_ratio'] = round(ratio, 4)
     result['signal'] = 'VOLUME_SPIKE' if ratio >= spike_ratio else 'NO_SPIKE'
     result['reason'] = 'OFFLINE_ONLY_NOT_VERIFIED'
     return result
