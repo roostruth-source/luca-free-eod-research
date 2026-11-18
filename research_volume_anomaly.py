@@ -23,6 +23,11 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
     if not isinstance(bars, (list, tuple)) or len(bars) < min_history + 1:
         result['reason'] = 'INSUFFICIENT_HISTORY'
         return result
+    # Avoid OverflowError from huge integer slice indices supplied as parameters.
+    # An incomplete baseline is not evidence of a verified volume anomaly.
+    if baseline_days > len(bars) - 1:
+        result['reason'] = 'INSUFFICIENT_HISTORY'
+        return result
     window = bars[-(baseline_days + 1):]
     if len(window) < min_history + 1:
         result['reason'] = 'INSUFFICIENT_HISTORY'
