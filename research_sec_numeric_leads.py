@@ -51,6 +51,9 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
                 except InvalidOperation:
                     continue
                 kind = 'percent' if match.group('percent') else 'currency' if match.group('currency') else 'unclassified_number'
+                # Bare calendar years near a contract cue are not pricing evidence.
+                if kind == 'unclassified_number' and value == value.to_integral_value() and 1900 <= value <= 2099:
+                    continue
                 # Do not assign a dollar or percent meaning without an explicit symbol.
                 leads.append({'field': field, 'start': start, 'end': end,
                               'literal': text[start:end], 'kind': kind,
