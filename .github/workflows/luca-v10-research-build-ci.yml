@@ -8,6 +8,12 @@ on:
     paths:
       - "research/v10_rabbitstock/**"
       - ".github/workflows/luca-v10-research-build-ci.yml"
+  pull_request:
+    branches:
+      - research/v10-rabbitstock-eval
+    paths:
+      - "research/v10_rabbitstock/**"
+      - ".github/workflows/luca-v10-research-build-ci.yml"
 
 permissions:
   contents: read
