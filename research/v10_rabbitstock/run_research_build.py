@@ -13,13 +13,16 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from evaluate_snapshot import evaluate_snapshot
 from evaluate_volume_anomaly import evaluate_volume_anomaly
+from render_report import render_report
 
 
 PROFILES = {"NASDAQ_7_0", "CHINA_1_0"}
 SAFETY = {"WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED"}
+MARKET_TZ = ZoneInfo("America/New_York")
 
 
 def _time(value: str) -> datetime:
@@ -65,6 +68,16 @@ def build_report(
     built_at_dt = _time(built_at)
     candidates: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
+    volume_events: list[dict[str, Any]] = []
+    for payload in volume_payloads or []:
+        ticker = str(payload.get("ticker", "UNKNOWN")).upper()
+        try:
+            if _time(payload["evaluation_asof"]) > built_at_dt:
+                raise ValueError("future_volume_evaluation_not_allowed")
+            volume_events.append(evaluate_volume_anomaly(payload))
+        except (KeyError, TypeError, ValueError) as exc:
+            errors.append({"ticker": ticker, "error": str(exc)})
+
     for payload in payloads:
         ticker = str(payload.get("ticker", "UNKNOWN")).upper()
         try:
@@ -73,6 +86,18 @@ def build_report(
             profile, profile_reasons = _profile(payload)
             evaluated = evaluate_snapshot(payload)
             best_rank = min(evaluated["engine_ranks"].values()) if evaluated["engine_ranks"] else None
+            # Only join an event already evaluated before this snapshot and from
+            # the same US market session. A later event is never backfilled.
+            session_date = _time(payload["data_asof"]).astimezone(MARKET_TZ).date().isoformat()
+            eligible = [event for event in volume_events
+                        if event["ticker"] == evaluated["ticker"]
+                        and event["event_date"] == session_date
+                        and _time(event["evaluation_asof"]) <= _time(payload["snapshot_at"])]
+            volume = max(eligible, key=lambda event: event["evaluation_asof"]) if eligible else None
+            block_reasons = list(evaluated["block_reasons"])
+            if volume and volume["already_surged_previous_session"]:
+                block_reasons.append("ALREADY_SURGED_PREVIOUS_SESSION")
+            state = "WATCH_ONLY_BLOCKED" if block_reasons else evaluated["state"]
             candidates.append({
                 "ticker": evaluated["ticker"],
                 "detector_profile": profile,
@@ -85,15 +110,22 @@ def build_report(
                 "target_median": evaluated["target_median"],
                 "target_range": evaluated["target_range"],
                 "screen_upside_pct": payload.get("screen_upside_pct"),
-                "state": evaluated["state"],
-                "block_reasons": evaluated["block_reasons"],
+                "state": state,
+                "block_reasons": block_reasons,
+                "volume_evidence": None if volume is None else {
+                    "event_date": volume["event_date"],
+                    "evaluation_asof": volume["evaluation_asof"],
+                    "volume_vs_average_multiple": volume["volume_vs_average_multiple"],
+                    "early_volume_candidate": volume["early_volume_candidate"],
+                    "block_reasons": volume["block_reasons"],
+                },
                 "present_supply_checks": evaluated["present_supply_checks"],
                 "unknown_supply_checks": evaluated["unknown_supply_checks"],
                 "potential_dilution_pct": evaluated["potential_dilution_pct"],
                 "cumulative_reverse_split_factor": evaluated["cumulative_reverse_split_factor"],
                 "selection_reason": (
                     f"{evaluated['engine_count']}개 엔진 동시 포착; "
-                    f"최고 순위 {best_rank}; 위험 차단 {len(evaluated['block_reasons'])}개"
+                    f"최고 순위 {best_rank}; 위험 차단 {len(block_reasons)}개"
                 ),
                 **SAFETY,
             })
@@ -109,13 +141,6 @@ def build_report(
         profile: sum(1 for item in candidates if item["detector_profile"] == profile)
         for profile in sorted(PROFILES)
     }
-    volume_events: list[dict[str, Any]] = []
-    for payload in volume_payloads or []:
-        try:
-            volume_events.append(evaluate_volume_anomaly(payload))
-        except (KeyError, TypeError, ValueError) as exc:
-            errors.append({"ticker": str(payload.get("ticker", "UNKNOWN")), "error": str(exc)})
-
     return {
         "schema_version": "LUCA_V10_EXECUTABLE_RESEARCH_1",
         "built_at": built_at_dt.isoformat(),
@@ -134,6 +159,7 @@ def build_report(
             "FLOAT_AND_REVERSE_SPLIT_GATES",
             "EXCHANGE_STATUS_AND_FUTURE_DATA_GATES",
             "TWO_PROVIDER_VOLUME_ANOMALY_AND_ALREADY_SURGED_GATE",
+            "TIME_SAFE_VOLUME_TO_ENGINE_SESSION_JOIN",
         ],
         "incomplete_features": [
             "LIVE_MARKET_WIDE_DISCOVERY",
@@ -164,6 +190,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-dir", type=Path, default=Path(__file__).parent)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--html-output", type=Path)
     parser.add_argument("--built-at", required=True)
     args = parser.parse_args()
     snapshots, volume_payloads = load_payloads(args.input_dir)
@@ -173,6 +200,9 @@ def main() -> int:
         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    if args.html_output:
+        args.html_output.parent.mkdir(parents=True, exist_ok=True)
+        args.html_output.write_text(render_report(report), encoding="utf-8")
     print(json.dumps({
         "output": str(args.output),
         "evaluated_count": report["evaluated_count"],

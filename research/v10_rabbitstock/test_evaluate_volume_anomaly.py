@@ -43,9 +43,16 @@ class VolumeAnomalyTests(unittest.TestCase):
     def test_prior_surge_blocks_early_label(self):
         data = payload()
         data["prior_bars"][-1]["return_pct"] = 24.2
+        data["prior_bars"][-1]["close"] = 1.242
         result = evaluate_volume_anomaly(data)
         self.assertFalse(result["early_volume_candidate"])
         self.assertIn("ALREADY_SURGED_PREVIOUS_SESSION", result["block_reasons"])
+
+    def test_claimed_prior_surge_must_match_closes(self):
+        data = payload()
+        data["prior_bars"][-1]["return_pct"] = 24.2
+        with self.assertRaisesRegex(ValueError, "prior_return_price_conflict"):
+            evaluate_volume_anomaly(data)
 
     def test_unverified_float_blocks_early_label(self):
         data = payload()
@@ -64,6 +71,12 @@ class VolumeAnomalyTests(unittest.TestCase):
         data = payload()
         data["current_bar"]["available_at"] = "2026-11-12T00:00:00-05:00"
         with self.assertRaisesRegex(ValueError, "future_bar_not_allowed"):
+            evaluate_volume_anomaly(data)
+
+    def test_future_session_is_rejected_even_if_available_at_is_forged(self):
+        data = payload()
+        data["current_bar"]["date"] = "2026-11-12"
+        with self.assertRaisesRegex(ValueError, "future_event_session_not_allowed"):
             evaluate_volume_anomaly(data)
 
     def test_source_conflict_is_rejected(self):
