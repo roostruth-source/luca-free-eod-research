@@ -55,6 +55,17 @@ class NumericLeadTests(unittest.TestCase):
         self.assertIn('20%', literals)
         self.assertNotIn('2026', literals)
 
+    def test_signed_negative_price_not_misread_as_positive(self):
+        result = extract_numeric_leads('Variable conversion price is -0.25.')
+        self.assertFalse(any(x['literal'] == '0.25' for x in result['numeric_leads']))
+
+    def test_clipped_number_at_context_boundary_not_reported(self):
+        text = 'Variable conversion price is $0.25 and unrelated 123456789.'
+        result = extract_numeric_leads(text, context=8)
+        self.assertFalse(any(x['literal'] in ('123', '1234', '12345') for x in result['numeric_leads']))
+        self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
+        self.assertFalse(result['orders_enabled'])
+
     def test_bounded_output(self):
         text = 'Variable conversion price ' + ' '.join('$0.25' for _ in range(40))
         result = extract_numeric_leads(text, max_leads=2)
