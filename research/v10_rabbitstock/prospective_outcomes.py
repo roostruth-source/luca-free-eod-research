@@ -197,6 +197,8 @@ def main() -> int:
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"source": report.get("source_status"),
                       "events": report["ledger_event_count"],
+                      "fresh": report.get("fresh_observation_count", 0),
+                      "mature_fresh": report.get("mature_fresh_horizons", {}),
                       "ready": report["performance_validation_ready"], "NO_ORDERS": True}))
     return 0
 

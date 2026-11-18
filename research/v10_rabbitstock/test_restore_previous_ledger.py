@@ -40,6 +40,16 @@ class RestoreTests(unittest.TestCase):
         self.assertEqual(result["event_count"], 2)
         self.assertFalse(any("/runs/9/artifacts" in url for url in seen))
 
+    def test_custom_scheduler_workflow_and_branch(self):
+        seen = []
+        def opener(request, timeout):
+            seen.append(request.full_url)
+            return Response(json.dumps({"workflow_runs": []}).encode())
+        self.assertIsNone(restore("owner/repo", 1, "token", opener,
+                                  workflow="luca-v10-daily-observation.yml", branch="main"))
+        self.assertIn("luca-v10-daily-observation.yml", seen[0])
+        self.assertIn("branch=main", seen[0])
+
     def test_repo_path_must_be_safe(self):
         with self.assertRaisesRegex(ValueError, "github_repo_and_token_required"):
             restore("owner/../other", 1, "token")
