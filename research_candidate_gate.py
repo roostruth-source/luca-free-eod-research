@@ -30,6 +30,11 @@ def evaluate_candidate(candidate, bars, evidence):
     result['risk'] = risk
     if volume['signal'] != 'VOLUME_SPIKE':
         result['reasons'].append('NO_CONFIRMED_VOLUME_SPIKE')
+    # A volume spike without dated bars cannot establish a time-ordered lead.
+    if (not isinstance(bars, (list, tuple)) or not bars or
+            any(not isinstance(bar, dict) or bar.get('timestamp') is None
+                for bar in bars[-21:])):
+        result['reasons'].append('UNVERIFIED_BAR_CHRONOLOGY')
     if risk['unknown_fields']:
         result['reasons'].append('SEC_EVIDENCE_INCOMPLETE')
     if any(risk['fields'][field]['state'] == 'RISK' for field in RISK_FIELDS):
