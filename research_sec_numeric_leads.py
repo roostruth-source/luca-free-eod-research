@@ -49,6 +49,30 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
                                    (text[start - 1] == '(' and text.find(')', end, min(len(text), end + 3)) != -1))) or (
                         end < len(text) and (text[end].isalnum() or text[end] == ',' or (text[end] == '.' and end + 1 < len(text) and text[end + 1].isdigit()))):
                     continue
+                # Accounting negatives may contain spaces: ($ 0.25) is not a positive price.
+                prefix = text[max(0, start - 12):start]
+                suffix = text[end:min(len(text), end + 4)]
+                if re.search(r'\\(\\s*\\$?\\s*
+                    continue
+                seen.add((field, start, end))
+                try:
+                    value = Decimal(match.group('number').replace(',', ''))
+                except InvalidOperation:
+                    continue
+                kind = 'percent' if match.group('percent') else 'currency' if match.group('currency') else 'unclassified_number'
+                # Bare calendar years near a contract cue are not pricing evidence.
+                if kind == 'unclassified_number' and value == value.to_integral_value() and 1900 <= value <= 2099:
+                    continue
+                # Do not assign a dollar or percent meaning without an explicit symbol.
+                leads.append({'field': field, 'start': start, 'end': end,
+                              'literal': text[start:end], 'kind': kind,
+                              'value': str(value),
+                              'status': 'UNVERIFIED_CONTEXT_NUMBER'})
+    base['numeric_leads'] = sorted(leads, key=lambda v: (v['start'], v['field']))[:max_leads]
+    base['reason'] = 'NUMERIC_LEADS_REQUIRE_ORIGINAL_SEC_CONTRACT_REVIEW'
+    return base
+, prefix) and re.match(r'^\\s*\\)', suffix):
+                    continue
                 if (field, start, end) in seen:
                     continue
                 seen.add((field, start, end))
