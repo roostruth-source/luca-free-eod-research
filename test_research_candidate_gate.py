@@ -105,6 +105,18 @@ class CandidateGateTests(unittest.TestCase):
         self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
         self.assertFalse(r['orders_enabled'])
 
+    def test_extreme_finite_volume_ratio_is_held(self):
+        extreme = bars()
+        for bar in extreme[:-1]:
+            bar['volume'] = 1e-308
+        extreme[-1]['volume'] = 1e308
+        r = evaluate_candidate({'cohort': 'NASDAQ_7_0',
+                                'universe_verified': True}, extreme, evidence())
+        self.assertEqual(r['volume']['signal'], 'UNKNOWN')
+        self.assertEqual(r['volume']['reason'], 'INVALID_BAR_DATA')
+        self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+        self.assertFalse(r['orders_enabled'])
+
     def test_bad_inputs_do_not_approve(self):
         for candidate in (None, {}, {'cohort': 'CHINA_1_0', 'universe_verified': True, 'china_link_reviewed': True}):
             r = evaluate_candidate(candidate, [], None)
