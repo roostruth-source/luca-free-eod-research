@@ -62,6 +62,25 @@ class CandidateGateTests(unittest.TestCase):
         self.assertEqual(r['sec_status'], 'SEC_UNVERIFIED')
         self.assertFalse(r['orders_enabled'])
 
+    def test_undated_volume_spike_is_not_a_verified_lead(self):
+        undated = [{'volume': 400 if i == 20 else 100, 'close': 2.0}
+                   for i in range(21)]
+        r = evaluate_candidate({'cohort': 'NASDAQ_7_0',
+                                'universe_verified': True}, undated, evidence())
+        self.assertEqual(r['volume']['signal'], 'VOLUME_SPIKE')
+        self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+        self.assertIn('UNVERIFIED_BAR_CHRONOLOGY', r['reasons'])
+        self.assertFalse(r['orders_enabled'])
+
+    def test_partially_undated_spike_is_held(self):
+        incomplete = bars()
+        del incomplete[-1]['timestamp']
+        r = evaluate_candidate({'cohort': 'CHINA_1_0',
+                                'universe_verified': True,
+                                'china_link_reviewed': True}, incomplete, evidence())
+        self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+        self.assertFalse(r['orders_enabled'])
+
     def test_bad_inputs_do_not_approve(self):
         for candidate in (None, {}, {'cohort': 'CHINA_1_0', 'universe_verified': True, 'china_link_reviewed': True}):
             r = evaluate_candidate(candidate, [], None)
