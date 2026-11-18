@@ -51,6 +51,13 @@ class VolumeResearchTests(unittest.TestCase):
                 self.assertEqual(r['signal'], 'UNKNOWN')
                 self.assertFalse(r['orders_enabled'])
 
+    def test_extreme_integer_threshold_fails_closed(self):
+        r = inspect_volume(bars(), spike_ratio=10 ** 1000)
+        self.assertEqual(r['signal'], 'UNKNOWN')
+        self.assertEqual(r['reason'], 'INVALID_PARAMETERS')
+        self.assertFalse(r['orders_enabled'])
+        self.assertFalse(r['production_approved'])
+
     def test_mixed_timestamps_fail_closed(self):
         for bad in ('2026-11-18', None, True, {'x': 1}):
             b = bars()
