@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from datetime import datetime, timezone
 from html import escape
 import json
@@ -16,7 +17,10 @@ from sec_document_review import fetch_filing, review_text
 
 V03_DIR = Path(__file__).resolve().parents[1] / "v03_stage24"
 sys.path.insert(0, str(V03_DIR))
-from sec_auto_triage import run as run_sec_triage  # noqa: E402
+from auto_enrich_iex import run as enrich_run  # noqa: E402
+from sec_auto_triage import (  # noqa: E402
+    TICKERS_URL, SUBMISSIONS_ROOT, get_json, ticker_cik_map, triage,
+)
 
 MAX_DOCUMENTS = 10
 SAFETY = {"WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED"}
@@ -65,6 +69,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         "source_status": triage.get("status", "UNKNOWN"),
         "discovery_status": "COLLECTED_PARTIAL" if rows else "UNAVAILABLE",
         "candidate_count": len(rows),
+        "price_band_total": triage.get("price_band_total", len(rows)),
+        "truncated_candidates": triage.get("truncated_candidates", 0),
         "documents_attempted": document_count,
         "coverage": "ALPACA_SCREENER_CANDIDATES_ONLY_NOT_FULL_MARKET",
         "sec_clearance": False,
@@ -73,13 +79,55 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
     }
 
 
-def collect(key: str, secret: str, now: datetime | None = None, triage_runner=run_sec_triage,
+def collect(key: str, secret: str, now: datetime | None = None,
+            enrichment_runner=enrich_run, sec_json=get_json,
             fetcher=fetch_filing, delay=0.22) -> dict:
     now = now or datetime.now(timezone.utc)
     if not key or not secret:
         return assemble({"status": "NO_ALPACA_KEYS", "rows": []}, now, fetcher, delay)
-    triage = triage_runner(key, secret, now=now)
-    return assemble(triage, now, fetcher, delay)
+    enrichment = enrichment_runner(key, secret, now=now)
+    if enrichment.get("status") != "COLLECTED_UNVERIFIED":
+        return assemble({"status": "DISCOVERY_UNAVAILABLE", "rows": []}, now, fetcher, delay)
+    watch = [row for row in enrichment["rows"] if row["price_band_0_20_to_20"]]
+    # Preserve the screener's deterministic order, record exactly what was excluded.
+    selected = watch[:50]
+    truncated = len(watch) - len(selected)
+    bounded = copy.deepcopy(enrichment)
+    bounded["rows"] = selected
+    try:
+        mapping = ticker_cik_map(sec_json(TICKERS_URL))
+    except (OSError, ValueError, TypeError, urllib.error.HTTPError) as exc:
+        source_status = (f"SEC_TICKER_MAP_HTTP_{exc.code}"
+                         if isinstance(exc, urllib.error.HTTPError)
+                         else "SEC_TICKER_MAP_UNAVAILABLE")
+        result = {"status": source_status, "rows": [
+            {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
+             "sec_status": "SEC_NOT_CHECKED_SOURCE_UNAVAILABLE", "review_filings": []}
+            for row in selected]}
+    else:
+        submissions = {}
+        errors = {}
+        for row in selected:
+            symbol = row["symbol"]
+            cik = mapping.get(symbol)
+            if cik is None:
+                continue
+            try:
+                if delay:
+                    time.sleep(delay)
+                submissions[symbol] = sec_json(SUBMISSIONS_ROOT + f"CIK{cik:010d}.json")
+            except urllib.error.HTTPError as exc:
+                errors[symbol] = f"HTTP_{exc.code}"
+                if exc.code in (403, 429):
+                    break
+            except (OSError, ValueError, TypeError) as exc:
+                errors[symbol] = type(exc).__name__
+        result = triage(bounded, mapping, submissions, now)
+        result["status"] = "SEC_SUBMISSIONS_PARTIAL" if errors else "COLLECTED_PARTIAL_NOT_CLEARED"
+        result["sec_fetch_errors"] = errors
+    result["price_band_total"] = len(watch)
+    result["truncated_candidates"] = truncated
+    return assemble(result, now, fetcher, delay)
 
 
 def render_html(report: dict) -> str:
@@ -89,6 +137,9 @@ def render_html(report: dict) -> str:
              "<h1>LUCA 새 종목 관찰</h1>",
              "<p>관찰 전용 · 주문 없음 · 예측 미검증 · SEC 안전 판정 없음</p>",
              "<p>자료 기준: " + escape(report["collected_at"]) + " · 수집 상태: " + escape(report["source_status"]) + "</p>"]
+    lines.append("<p>가격 조건 후보 " + str(report["price_band_total"]) + "개 중 "
+                 + str(report["candidate_count"]) + "개 관찰 · 한도 초과 "
+                 + str(report["truncated_candidates"]) + "개</p>")
     if not report["rows"]:
         lines.append("<p>이번 실행에서는 새 후보 자료를 확보하지 못했습니다.</p>")
     for row in report["rows"]:
