@@ -44,6 +44,9 @@ class ResearchRiskFlagsTests(unittest.TestCase):
             'https://www.sec.gov/Archives/edgar/data/not-cik/x.htm',
             'https://www.sec.gov/Archives/edgar/data/1/',
             'https://www.sec.gov/Archives/edgar/data/1/x.htm\n',
+            'https://www.sec.gov/Archives/edgar/data/1/%2e%2e/x.htm',
+            'https://www.sec.gov/Archives/edgar/data/1/%2Ffake.htm',
+            'https://www.sec.gov/Archives/edgar/data/1/\\\\fake.htm',
         ]
         for url in bad:
             with self.subTest(url=url):
