@@ -42,6 +42,8 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
         if any(t is not None for t in times):
             if any(t is None or isinstance(t, bool) for t in times):
                 raise ValueError('bad chronology')
+            if any(type(t) not in (str, int, float) for t in times):
+                raise ValueError('unsupported timestamp type')
             if any(type(t) is not type(times[0]) for t in times):
                 raise ValueError('mixed chronology types')
             if any((type(t) in (int, float) and not isfinite(t))
