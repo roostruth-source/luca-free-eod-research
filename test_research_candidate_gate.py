@@ -81,6 +81,30 @@ class CandidateGateTests(unittest.TestCase):
         self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
         self.assertFalse(r['orders_enabled'])
 
+    def test_nonfinite_timestamp_is_not_a_verified_volume_lead(self):
+        for timestamp in (float('nan'), float('inf'), float('-inf')):
+            bad = bars()
+            bad[-1]['timestamp'] = timestamp
+            r = evaluate_candidate({'cohort': 'NASDAQ_7_0',
+                                    'universe_verified': True}, bad, evidence())
+            self.assertEqual(r['volume']['signal'], 'UNKNOWN')
+            self.assertEqual(r['volume']['reason'], 'INVALID_BAR_DATA')
+            self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+            self.assertFalse(r['orders_enabled'])
+
+    def test_blank_timestamp_is_not_a_verified_volume_lead(self):
+        bad = bars()
+        for i, bar in enumerate(bad):
+            bar['timestamp'] = str(i)
+        bad[-1]['timestamp'] = '  '
+        r = evaluate_candidate({'cohort': 'CHINA_1_0',
+                                'universe_verified': True,
+                                'china_link_reviewed': True}, bad, evidence())
+        self.assertEqual(r['volume']['signal'], 'UNKNOWN')
+        self.assertEqual(r['volume']['reason'], 'INVALID_BAR_DATA')
+        self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+        self.assertFalse(r['orders_enabled'])
+
     def test_bad_inputs_do_not_approve(self):
         for candidate in (None, {}, {'cohort': 'CHINA_1_0', 'universe_verified': True, 'china_link_reviewed': True}):
             r = evaluate_candidate(candidate, [], None)
