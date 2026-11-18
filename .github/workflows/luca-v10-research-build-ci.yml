@@ -31,6 +31,7 @@ jobs:
           python run_research_build.py \
             --input-dir . \
             --output build_outputs/latest_research_build.json \
+            --html-output build_outputs/latest_research_build.html \
             --built-at "2026-11-14T00:30:00+09:00"
       - name: Verify order safety flags
         run: |
@@ -46,5 +47,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: luca-v10-executable-research-build
-          path: research/v10_rabbitstock/build_outputs/latest_research_build.json
+          path: |
+            research/v10_rabbitstock/build_outputs/latest_research_build.json
+            research/v10_rabbitstock/build_outputs/latest_research_build.html
           retention-days: 14

@@ -7,6 +7,7 @@ import sys
 from datetime import date, datetime, timezone
 from statistics import median
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 VOLUME_AVERAGE_MULTIPLE_THRESHOLD = 5.0
@@ -53,6 +54,8 @@ def evaluate_volume_anomaly(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("exactly_ten_prior_sessions_required")
     current = payload["current_bar"]
     current_date = _date(current["date"])
+    if current_date > evaluation_asof.astimezone(ZoneInfo("America/New_York")).date():
+        raise ValueError("future_event_session_not_allowed")
     dates = [_date(bar["date"]) for bar in prior]
     if dates != sorted(set(dates)) or any(value >= current_date for value in dates):
         raise ValueError("prior_sessions_must_be_unique_ordered_and_earlier")
@@ -67,11 +70,15 @@ def evaluate_volume_anomaly(payload: dict[str, Any]) -> dict[str, Any]:
     volume_sum_multiple = current_volume / prior_sum
 
     prior_close = float(prior[-1]["close"])
+    previous_close = float(prior[-2]["close"])
     current_close = float(current["close"])
-    if prior_close <= 0 or current_close <= 0:
+    if previous_close <= 0 or prior_close <= 0 or current_close <= 0:
         raise ValueError("close_must_be_positive")
     close_return_pct = (current_close / prior_close - 1.0) * 100.0
     prior_session_return_pct = float(prior[-1]["return_pct"])
+    calculated_prior_return = (prior_close / previous_close - 1.0) * 100.0
+    if abs(calculated_prior_return - prior_session_return_pct) > 1.0:
+        raise ValueError("prior_return_price_conflict")
 
     anomaly = volume_avg_multiple >= VOLUME_AVERAGE_MULTIPLE_THRESHOLD
     already_surged = prior_session_return_pct >= PRIOR_SURGE_THRESHOLD_PCT
@@ -95,6 +102,11 @@ def evaluate_volume_anomaly(payload: dict[str, Any]) -> dict[str, Any]:
         "ticker": str(payload["ticker"]).upper(),
         "event_date": current_date.isoformat(),
         "evaluation_asof": evaluation_asof.isoformat(),
+        "current_bar_available_at": _time(current["available_at"]).isoformat(),
+        "current_volume_sources": [
+            {"provider_id": str(item["provider_id"]), "source_url": str(item["source_url"])}
+            for item in current["volume_observations"]
+        ],
         "current_volume": round(current_volume, 2),
         "prior_10_average_volume": round(prior_average, 2),
         "prior_10_sum_volume": round(prior_sum, 2),

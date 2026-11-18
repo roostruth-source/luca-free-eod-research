@@ -1,56 +1,8 @@
 {
   "NO_ORDERS": true,
   "WATCH_ONLY": true,
-  "built_at": "2026-11-13T16:00:00+00:00",
+  "built_at": "2026-11-13T15:30:00+00:00",
   "candidates": [
-    {
-      "NO_ORDERS": true,
-      "WATCH_ONLY": true,
-      "best_engine_rank": 2,
-      "block_reasons": [
-        "TRADING_STATUS_UNVERIFIED",
-        "CROSS_ENGINE_FLOAT_MISMATCH",
-        "SUPPLY_EVIDENCE_INCOMPLETE",
-        "SCREEN_SUPPLY_LABEL_UNRECONCILED"
-      ],
-      "cumulative_reverse_split_factor": 6.0,
-      "data_asof": "2026-11-11T21:00:00+00:00",
-      "detector_profile": "NASDAQ_7_0",
-      "engine_count": 5,
-      "engine_ranks": {
-        "best": 2,
-        "burning_up": 5,
-        "hidden_pick": 2,
-        "preview": 16,
-        "signal": 5
-      },
-      "potential_dilution_pct": null,
-      "present_supply_checks": [],
-      "profile_reasons": [
-        "NASDAQ_CORE_PROFILE"
-      ],
-      "screen_upside_pct": null,
-      "selection_reason": "5개 엔진 동시 포착; 최고 순위 2; 위험 차단 4개",
-      "snapshot_at": "2026-11-12T15:08:00+00:00",
-      "state": "WATCH_ONLY_BLOCKED",
-      "target_median": 1579.0,
-      "target_range": [
-        1094.0,
-        1690.0
-      ],
-      "ticker": "WHLR",
-      "unknown_supply_checks": [
-        "atm",
-        "eloc",
-        "toxic_financing",
-        "cb",
-        "warrant",
-        "lockup",
-        "reverse_split",
-        "shelf"
-      ],
-      "validation_status": "NOT_VALIDATED"
-    },
     {
       "NO_ORDERS": true,
       "WATCH_ONLY": true,
@@ -91,7 +43,8 @@
         "cb",
         "lockup"
       ],
-      "validation_status": "NOT_VALIDATED"
+      "validation_status": "NOT_VALIDATED",
+      "volume_evidence": null
     },
     {
       "NO_ORDERS": true,
@@ -137,7 +90,8 @@
         "lockup",
         "reverse_split"
       ],
-      "validation_status": "NOT_VALIDATED"
+      "validation_status": "NOT_VALIDATED",
+      "volume_evidence": null
     },
     {
       "NO_ORDERS": true,
@@ -184,7 +138,8 @@
         "lockup",
         "reverse_split"
       ],
-      "validation_status": "NOT_VALIDATED"
+      "validation_status": "NOT_VALIDATED",
+      "volume_evidence": null
     },
     {
       "NO_ORDERS": true,
@@ -231,7 +186,8 @@
         "toxic_financing",
         "cb"
       ],
-      "validation_status": "NOT_VALIDATED"
+      "validation_status": "NOT_VALIDATED",
+      "volume_evidence": null
     },
     {
       "NO_ORDERS": true,
@@ -274,7 +230,8 @@
         "reverse_split",
         "shelf"
       ],
-      "validation_status": "NOT_VALIDATED"
+      "validation_status": "NOT_VALIDATED",
+      "volume_evidence": null
     }
   ],
   "completed_features": [
@@ -283,21 +240,22 @@
     "SEC_SUPPLY_AND_DILUTION_GATES",
     "FLOAT_AND_REVERSE_SPLIT_GATES",
     "EXCHANGE_STATUS_AND_FUTURE_DATA_GATES",
-    "TWO_PROVIDER_VOLUME_ANOMALY_AND_ALREADY_SURGED_GATE"
+    "TWO_PROVIDER_VOLUME_ANOMALY_AND_ALREADY_SURGED_GATE",
+    "TIME_SAFE_VOLUME_TO_ENGINE_SESSION_JOIN"
   ],
   "error_count": 0,
   "errors": [],
-  "evaluated_count": 6,
+  "evaluated_count": 5,
   "incomplete_features": [
     "LIVE_MARKET_WIDE_DISCOVERY",
     "FULL_SEC_AUTOMATIC_EXTRACTION",
     "PREDICTIVE_ACCURACY_VALIDATION",
     "INTRADAY_EXECUTION_OR_SLIPPAGE_MODEL"
   ],
-  "input_count": 6,
+  "input_count": 5,
   "profile_counts": {
     "CHINA_1_0": 2,
-    "NASDAQ_7_0": 4
+    "NASDAQ_7_0": 3
   },
   "ranking_rule": "engine_count_desc_then_best_rank_asc_not_probability",
   "schema_version": "LUCA_V10_EXECUTABLE_RESEARCH_1",
@@ -312,7 +270,18 @@
         "FLOAT_TURNOVER_UNVERIFIED"
       ],
       "close_return_pct": -9.4984326,
+      "current_bar_available_at": "2026-11-11T17:00:00+00:00",
       "current_volume": 74930653.0,
+      "current_volume_sources": [
+        {
+          "provider_id": "chartexchange",
+          "source_url": "https://chartexchange.com/symbol/nasdaq-codx/historical/"
+        },
+        {
+          "provider_id": "spglobal_stockanalysis",
+          "source_url": "https://stockanalysis.com/stocks/codx/history/"
+        }
+      ],
       "early_volume_candidate": false,
       "evaluation_asof": "2026-11-12T04:00:00+00:00",
       "event_date": "2026-11-10",

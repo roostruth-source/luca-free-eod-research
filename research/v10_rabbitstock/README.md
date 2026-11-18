@@ -125,10 +125,11 @@ python -m unittest discover -v
 python run_research_build.py \
   --input-dir . \
   --output build_outputs/latest_research_build.json \
+  --html-output build_outputs/latest_research_build.html \
   --built-at "2026-11-14T00:30:00+09:00"
 ```
 
-2026년 11월 14일 00:30 KST 동결 실행에서는 실제 래빗스탁 화면 기반 스냅숏 6개를 오류 없이 평가했다. NASDAQ 7.0 경로 4개, 중국계 1.0 경로 2개였으며 WHLR 5개 엔진, ENGS·HUHU·BDMD·INLF 4개 엔진, NXXT 2개 엔진 순으로 정렬됐다. 그러나 6개 모두 거래상태·Float·희석·역분할 등 미해결 위험 때문에 관찰 전용 차단 상태다. 전체 자동검사 100개가 통과했다.
+현재 기본 입력 폴더에는 실제 래빗스탁 화면 기반 스냅숏 5개가 있다. 2026년 11월 14일 00:30 KST 동결 실행에서 NASDAQ 7.0 경로 3개, 중국계 1.0 경로 2개이며 ENGS·HUHU·BDMD·INLF 4개 엔진, NXXT 2개 엔진 순으로 정렬된다. WHLR은 `fixtures/`에 따로 보관되어 기본 실행에 포함되지 않는다. 5개 모두 거래상태·Float·희석 등 미해결 위험 때문에 관찰 전용 차단 상태다.
 
 GitHub Actions용 `.github/workflows/luca-v10-research-build-ci.yml`은 모든 검사를 실행하고 같은 동결 실데이터 보고서를 만든 뒤 `WATCH_ONLY`, `NO_ORDERS`, `NOT_VALIDATED`를 다시 확인한다. 라이브 전 종목 탐색, SEC 문서 자동 추출, 예측 정확도 검증, 체결·슬리피지 모델은 아직 미완성이다.
 
@@ -145,7 +146,11 @@ python -m unittest -v test_evaluate_volume_anomaly.py
 python evaluate_volume_anomaly.py codx_volume_anomaly_2026-11-10.json
 ```
 
-V40 전체 자동검사 107개와 동결 실데이터 통합 실행은 통과했다. 통합 보고서에는 기존 엔진 후보 6개와 CODX 거래량 사건 1개가 함께 저장되며, 주문 안전장치는 계속 강제된다.
+V40 당시 자동검사 107개와 동결 자료 실행은 통과했다. 이후 WHLR 입력은 `fixtures/`로 옮겨져 기본 실행 대상에서 빠졌고, 주문 안전장치는 계속 강제된다.
+
+통합 실행은 거래량 사건 평가시각이 보고서 생성 기준보다 늦으면 거부한다. 같은 티커·미국 정규장 거래일의 사건도 화면 스냅숏 전에 이미 평가됐을 때만 엔진 후보에 연결한다. 전날 상승률 입력이 직전 두 종가와 1%포인트 넘게 다르면 `prior_return_price_conflict`로 거부한다. 이는 과거 화면에 미래 거래량을 소급하거나 이미 오른 종목을 선행 후보로 표시하는 오류를 줄인다. 일봉 거래량을 쓰므로 장중 조기포착을 입증하지는 않는다.
+
+`--html-output`은 휴대전화에서 열 수 있는 단일 HTML 보고서를 만든다. GitHub Actions에서도 JSON과 HTML을 함께 결과물로 저장한다. 입력은 동결된 과거 자료이며 실시간 새 종목 탐색이나 SEC 원문 자동 추출은 여전히 미완성이다. 현재 기본 폴더 입력은 엔진 후보 5개와 CODX 거래량 사건 1개다.
 
 ## 후속 수익률 평가
 
