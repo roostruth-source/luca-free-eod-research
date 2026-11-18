@@ -59,6 +59,14 @@ class NumericLeadTests(unittest.TestCase):
         result = extract_numeric_leads('Variable conversion price is -0.25.')
         self.assertFalse(any(x['literal'] == '0.25' for x in result['numeric_leads']))
 
+    def test_unicode_signed_price_not_misread_as_unsigned(self):
+        for sign in ('−', '–', '—', '﹣', '－', '＋'):
+            with self.subTest(sign=sign):
+                result = extract_numeric_leads('Variable conversion price is ' + sign + '0.25.')
+                self.assertFalse(any(x['literal'] == '0.25' for x in result['numeric_leads']))
+                self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
+                self.assertFalse(result['orders_enabled'])
+
     def test_clipped_number_at_context_boundary_not_reported(self):
         text = 'Variable conversion price is $0.25 and unrelated 123456789.'
         result = extract_numeric_leads(text, context=8)
