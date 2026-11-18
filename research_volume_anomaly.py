@@ -1,4 +1,5 @@
 """Offline-only volume-first research flags. Not a trading signal."""
+from datetime import datetime
 from math import isfinite
 from statistics import median
 
@@ -55,6 +56,15 @@ def inspect_volume(bars, *, baseline_days=20, spike_ratio=3.0, min_history=10):
             if any((type(t) in (int, float) and not isfinite(t))
                    or (type(t) is str and not t.strip()) for t in times):
                 raise ValueError('nonfinite or empty timestamp')
+            # ISO dates with non-padded fields can sort incorrectly as strings.
+            # Parse date-like timestamps before comparing them chronologically.
+            if type(times[0]) is str and any('-' in t for t in times):
+                if not all('-' in t for t in times):
+                    raise ValueError('mixed date and non-date timestamps')
+                try:
+                    times = [datetime.fromisoformat(t.replace('Z', '+00:00')) for t in times]
+                except ValueError:
+                    raise ValueError('invalid ISO timestamp')
             if any(a >= b for a, b in zip(times, times[1:])):
                 raise ValueError('unordered chronology')
     except (KeyError, TypeError, ValueError, OverflowError):
