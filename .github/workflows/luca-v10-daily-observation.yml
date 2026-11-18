@@ -37,7 +37,7 @@ jobs:
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
           ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
-          SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: |
           python run_live_research.py \
             --output build_outputs/live_watchlist.json \
