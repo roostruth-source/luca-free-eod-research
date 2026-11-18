@@ -67,6 +67,13 @@ class NumericLeadTests(unittest.TestCase):
                 self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
                 self.assertFalse(result['orders_enabled'])
 
+    def test_accounting_negative_currency_not_reported_positive(self):
+        # Parentheses commonly represent negative values in financial documents.
+        result = extract_numeric_leads('Variable conversion price is ($0.25).')
+        self.assertFalse(any(x['literal'] == '$0.25' for x in result['numeric_leads']))
+        self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
+        self.assertFalse(result['orders_enabled'])
+
     def test_clipped_number_at_context_boundary_not_reported(self):
         text = 'Variable conversion price is $0.25 and unrelated 123456789.'
         result = extract_numeric_leads(text, context=8)
