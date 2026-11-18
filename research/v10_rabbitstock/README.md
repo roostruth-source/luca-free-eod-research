@@ -152,6 +152,19 @@ V40 당시 자동검사 107개와 동결 자료 실행은 통과했다. 이후 W
 
 `--html-output`은 휴대전화에서 열 수 있는 단일 HTML 보고서를 만든다. GitHub Actions에서도 JSON과 HTML을 함께 결과물로 저장한다. 입력은 동결된 과거 자료이며 실시간 새 종목 탐색이나 SEC 원문 자동 추출은 여전히 미완성이다. 현재 기본 폴더 입력은 엔진 후보 5개와 CODX 거래량 사건 1개다.
 
+## 새 후보 관찰 및 검증 준비도
+
+`run_live_research.py`는 기존 V0.3의 읽기 전용 Alpaca 스크리너·IEX·SEC 최근 공시 목록 수집을 연결한다. 자료 접근이 허용되면 후보 최대 50개 중 SEC 원문 최대 10개를 읽어 ATM·ELOC·CB·워런트·역분할·Shelf·락업 표현의 첫 등장 문맥을 기록한다. 단순 키워드가 실제 현재 유효한 계약이나 잔여 발행 가능 주식 수를 확정하지는 않는다. 모든 후보는 `WATCH_ONLY_BLOCKED`이고 Float·SEC 안전 여부는 미확인이다. SEC 403 또는 Alpaca 권한 부족이면 원인을 결과에 남기고 후보를 안전하다고 표시하지 않는다.
+
+`validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
+
+```bash
+python run_live_research.py --output build_outputs/live_watchlist.json --html-output build_outputs/live_watchlist.html
+python validate_frozen_signals.py validation_manifest.json --output build_outputs/validation_readiness.json
+```
+
+GitHub Actions는 위 두 결과와 기존 동결 보고서를 함께 아카이브한다. Alpaca 권한 또는 SEC 접근이 없으면 `UNAVAILABLE` 상태를 남긴다. 전체 시장 탐색, SEC 계약 조건·잔여 희석의 확정 자동 추출, 예측 성능 검증 및 체결·슬리피지 모델은 아직 미완성이다.
+
 ## 후속 수익률 평가
 
 `evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.

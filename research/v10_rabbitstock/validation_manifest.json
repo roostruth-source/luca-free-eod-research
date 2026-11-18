@@ -1,0 +1,10 @@
+{
+  "evaluation_asof": "2026-11-13T10:54:00+09:00",
+  "cases": [
+    {
+      "snapshot": "inlf_2026-11-13T0008+09.json",
+      "followup": "inlf_2026-11-12_followup.json",
+      "bar_sources": ["inlf_2026-11-12_verified.json"]
+    }
+  ]
+}

@@ -39,6 +39,18 @@ jobs:
             --output build_outputs/latest_research_build.json \
             --html-output build_outputs/latest_research_build.html \
             --built-at "2026-11-14T00:30:00+09:00"
+      - name: Verify two-provider reference outcomes
+        run: |
+          python validate_frozen_signals.py validation_manifest.json \
+            --output build_outputs/validation_readiness.json
+      - name: Collect new watchlist and SEC review when sources permit
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python run_live_research.py \
+            --output build_outputs/live_watchlist.json \
+            --html-output build_outputs/live_watchlist.html
       - name: Verify order safety flags
         run: |
           python - <<'PY'
@@ -56,4 +68,7 @@ jobs:
           path: |
             research/v10_rabbitstock/build_outputs/latest_research_build.json
             research/v10_rabbitstock/build_outputs/latest_research_build.html
+            research/v10_rabbitstock/build_outputs/validation_readiness.json
+            research/v10_rabbitstock/build_outputs/live_watchlist.json
+            research/v10_rabbitstock/build_outputs/live_watchlist.html
           retention-days: 14
