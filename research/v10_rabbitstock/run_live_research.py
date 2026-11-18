@@ -55,6 +55,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         rows.append({
             "ticker": row["symbol"],
             "iex_price": row.get("iex_price"),
+            "iex_status": row.get("iex_status", "PRICE_FRESHNESS_UNVERIFIED"),
             "sec_status": row["sec_status"],
             "review_filings": filing_reviews,
             "unreviewed_filings": max(0, len(row.get("review_filings", [])) - len(filing_reviews)),
@@ -74,6 +75,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         "documents_attempted": document_count,
         "coverage": "ALPACA_SCREENER_CANDIDATES_ONLY_NOT_FULL_MARKET",
         "sec_clearance": False,
+        "data_quality_status": "SEC_AND_FLOAT_UNVERIFIED",
         "rows": rows,
         **SAFETY,
     }
@@ -102,6 +104,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                          else "SEC_TICKER_MAP_UNAVAILABLE")
         result = {"status": source_status, "rows": [
             {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
+             "iex_status": row.get("research_status", "PRICE_FRESHNESS_UNVERIFIED"),
              "sec_status": "SEC_NOT_CHECKED_SOURCE_UNAVAILABLE", "review_filings": []}
             for row in selected]}
     else:
@@ -145,6 +148,7 @@ def render_html(report: dict) -> str:
     for row in report["rows"]:
         terms = sorted({m["term"] for f in row["review_filings"] for m in f.get("matched_terms", [])})
         lines.append("<article><h2>" + escape(row["ticker"]) + "</h2><p>" + escape(row["state"])
+                     + " · 가격 기준: " + escape(row["iex_status"])
                      + " · SEC: " + escape(row["sec_status"]) + "</p><p>문서 키워드: "
                      + escape(", ".join(terms) or "확인 없음/미확인") + "</p></article>")
     lines.append("<p>스크리너 일부 후보만 다룹니다. 공시 키워드는 계약 조건·현재 잔여 수량의 확정 근거가 아닙니다.</p></main></html>")
@@ -161,7 +165,11 @@ def main() -> int:
     args.html_output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     args.html_output.write_text(render_html(report), encoding="utf-8")
-    print(json.dumps({"status": report["source_status"], "candidates": report["candidate_count"], **SAFETY}))
+    print(json.dumps({"status": report["source_status"],
+                      "price_band_total": report["price_band_total"],
+                      "candidates": report["candidate_count"],
+                      "truncated": report["truncated_candidates"],
+                      "data_quality": report["data_quality_status"], **SAFETY}))
     return 0
 
 
