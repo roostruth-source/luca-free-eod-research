@@ -58,6 +58,15 @@ class VolumeResearchTests(unittest.TestCase):
         self.assertFalse(r['orders_enabled'])
         self.assertFalse(r['production_approved'])
 
+    def test_oversized_lookback_fails_closed_without_crash(self):
+        for lookback in (100, 10 ** 1000):
+            with self.subTest(lookback=lookback):
+                r = inspect_volume(bars(), baseline_days=lookback)
+                self.assertEqual(r['signal'], 'UNKNOWN')
+                self.assertEqual(r['reason'], 'INSUFFICIENT_HISTORY')
+                self.assertEqual(r['status'], 'NOT_VALIDATED')
+                self.assertFalse(r['orders_enabled'])
+
     def test_mixed_timestamps_fail_closed(self):
         for bad in ('2026-11-18', None, True, {'x': 1}):
             b = bars()
