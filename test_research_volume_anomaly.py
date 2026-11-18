@@ -85,6 +85,22 @@ class VolumeResearchTests(unittest.TestCase):
                 self.assertEqual(r['status'], 'NOT_VALIDATED')
                 self.assertFalse(r['orders_enabled'])
 
+    def test_iso_date_order_is_chronological_not_lexical(self):
+        b = bars()
+        # Lexical ordering incorrectly treats February 10 as later than October 1.
+        for i, bar in enumerate(b):
+            bar['timestamp'] = f'2026-01-{i + 1:02d}'
+        b[-2]['timestamp'] = '2026-10-01'
+        b[-1]['timestamp'] = '2026-02-10'
+        self.assertEqual(inspect_volume(b)['reason'], 'INVALID_BAR_DATA')
+
+    def test_invalid_iso_timestamp_fails_closed(self):
+        b = bars()
+        for i, bar in enumerate(b):
+            bar['timestamp'] = f'2026-01-{i + 1:02d}'
+        b[-1]['timestamp'] = '2026-99-99'
+        self.assertEqual(inspect_volume(b)['reason'], 'INVALID_BAR_DATA')
+
     def test_extreme_ratio_fail_closed(self):
         b = bars()
         b[-1]['volume'] = 1e308
