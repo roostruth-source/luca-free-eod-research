@@ -74,6 +74,14 @@ class NumericLeadTests(unittest.TestCase):
         self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
         self.assertFalse(result['orders_enabled'])
 
+    def test_spaced_accounting_negative_not_reported_as_positive(self):
+        for amount in ('($ 0.25)', '( $0.25 )', '( 0.25 )'):
+            with self.subTest(amount=amount):
+                result = extract_numeric_leads('Variable conversion price is ' + amount + '.')
+                self.assertEqual(result['numeric_leads'], [])
+                self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
+                self.assertFalse(result['orders_enabled'])
+
     def test_clipped_number_at_context_boundary_not_reported(self):
         text = 'Variable conversion price is $0.25 and unrelated 123456789.'
         result = extract_numeric_leads(text, context=8)
