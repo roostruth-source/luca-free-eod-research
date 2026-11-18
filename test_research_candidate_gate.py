@@ -38,6 +38,30 @@ class CandidateGateTests(unittest.TestCase):
         self.assertEqual(r['sec_status'], 'SEC_UNVERIFIED')
         self.assertFalse(r['orders_enabled'])
 
+    def test_spike_with_unverified_sec_host_stays_on_hold(self):
+        bad = evidence()
+        bad['cb_reset']['sec_url'] = 'https://www.sec.gov.evil.example/Archives/edgar/data/1/x.htm'
+        r = evaluate_candidate({'cohort': 'NASDAQ_7_0', 'universe_verified': True}, bars(), bad)
+        self.assertEqual(r['volume']['signal'], 'VOLUME_SPIKE')
+        self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+        self.assertIn('SEC_EVIDENCE_INCOMPLETE', r['reasons'])
+        self.assertEqual(r['risk']['fields']['cb_reset']['state'], 'UNKNOWN')
+        self.assertFalse(r['orders_enabled'])
+        self.assertFalse(r['production_approved'])
+
+    def test_invalid_chronology_cannot_become_candidate(self):
+        bad_bars = bars()
+        bad_bars[-1]['timestamp'] = bad_bars[-2]['timestamp']
+        r = evaluate_candidate({'cohort': 'CHINA_1_0', 'universe_verified': True,
+                                'china_link_reviewed': True}, bad_bars, evidence())
+        self.assertEqual(r['volume']['signal'], 'UNKNOWN')
+        self.assertEqual(r['volume']['reason'], 'INVALID_BAR_DATA')
+        self.assertEqual(r['decision'], 'HOLD_UNVERIFIED')
+        self.assertIn('NO_CONFIRMED_VOLUME_SPIKE', r['reasons'])
+        self.assertEqual(r['status'], 'NOT_VALIDATED')
+        self.assertEqual(r['sec_status'], 'SEC_UNVERIFIED')
+        self.assertFalse(r['orders_enabled'])
+
     def test_bad_inputs_do_not_approve(self):
         for candidate in (None, {}, {'cohort': 'CHINA_1_0', 'universe_verified': True, 'china_link_reviewed': True}):
             r = evaluate_candidate(candidate, [], None)
