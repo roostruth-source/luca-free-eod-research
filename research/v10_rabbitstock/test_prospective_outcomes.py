@@ -102,6 +102,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             "screener_groups": {"active_volume": 3, "gainers": 2},
             "iex_quote_spread_pct": 1.5,
             "sec_status": "RECENT_FILINGS_REQUIRE_REVIEW",
+            "volume_first_context": {"status": "RECENT_VOLUME_FIRST_PATTERN_RESEARCH_ONLY",
+                                     "volume_first_recent": True, "NO_ORDERS": True},
         })
         second = event()
         second.update({
@@ -109,6 +111,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             "screener_groups": {"active_volume": 20, "losers": 4},
             "iex_quote_spread_pct": 8.0,
             "sec_status": "SEC_NOT_CHECKED_SOURCE_UNAVAILABLE",
+            "volume_first_context": {"status": "NO_RECENT_VOLUME_FIRST_PATTERN",
+                                     "volume_first_recent": False, "NO_ORDERS": True},
         })
         result = build_outcomes(ledger_many(first, second), {
             **BARS,
@@ -123,6 +127,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("spread:over_5_pct", segments)
         self.assertIn("sec:recent_filings_require_review", segments)
         self.assertIn("sec:source_unavailable_or_unchecked", segments)
+        self.assertIn("volume_first:recent_pattern", segments)
+        self.assertIn("volume_first:no_recent_pattern", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -39,6 +39,58 @@ def _candidate_context(row: dict) -> tuple[dict, float | int | None]:
                  or not 0 <= spread <= 1000)):
         raise ValueError("invalid_iex_spread_context")
     return dict(groups), spread
+
+
+def _volume_first_context(row: dict, observed_at: datetime) -> dict:
+    raw = row.get("volume_first_context", {
+        "status": "VOLUME_FIRST_CONTEXT_MISSING",
+        "volume_first_recent": False,
+        "NO_ORDERS": True,
+    })
+    if not isinstance(raw, dict) or raw.get("NO_ORDERS") is not True:
+        raise ValueError("unsafe_volume_first_context")
+    status = raw.get("status")
+    recent = raw.get("volume_first_recent")
+    if not isinstance(status, str) or not status or type(recent) is not bool:
+        raise ValueError("invalid_volume_first_context")
+    pattern = raw.get("latest_pattern")
+    if recent and not isinstance(pattern, dict):
+        raise ValueError("volume_first_pattern_required")
+    if pattern is not None:
+        ratio = pattern.get("iex_volume_ratio")
+        change = pattern.get("six_bar_price_change_pct")
+        known = pattern.get("bar_knowable_after_utc")
+        if (type(ratio) not in (int, float) or not math.isfinite(ratio) or ratio < 0
+                or type(change) not in (int, float) or not math.isfinite(change)
+                or not isinstance(known, str)):
+            raise ValueError("invalid_volume_first_pattern")
+        if _time(known) > observed_at:
+            raise ValueError("future_volume_first_pattern_not_allowed")
+        frozen_pattern = {
+            "iex_volume_ratio": ratio,
+            "six_bar_price_change_pct": change,
+            "bar_knowable_after_utc": known,
+        }
+    else:
+        frozen_pattern = None
+    evidence = raw.get("evidence_bars", [])
+    if not isinstance(evidence, list) or len(evidence) > 6:
+        raise ValueError("invalid_volume_first_evidence")
+    frozen_bars = []
+    for bar in evidence:
+        if not isinstance(bar, dict) or not isinstance(bar.get("t"), str):
+            raise ValueError("invalid_volume_first_evidence")
+        if _time(bar["t"]) + timedelta(minutes=1) > observed_at:
+            raise ValueError("future_volume_first_evidence_not_allowed")
+        values = [bar.get(field) for field in ("o", "h", "l", "c")]
+        volume = bar.get("v")
+        if (any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+                for value in values) or type(volume) is not int or volume < 0):
+            raise ValueError("invalid_volume_first_evidence")
+        frozen_bars.append({key: bar[key] for key in ("t", "o", "h", "l", "c", "v")})
+    return {"status": status, "volume_first_recent": recent,
+            "latest_pattern": frozen_pattern, "evidence_bars": frozen_bars,
+            "selection_limit": raw.get("selection_limit"), "NO_ORDERS": True}
 
 
 def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
@@ -79,6 +131,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             continue
         known.add(identity)
         groups, spread = _candidate_context(row)
+        volume_first = _volume_first_context(row, observed_at)
         item = {
             "ticker": row["ticker"],
             "observed_at": observed_at.isoformat(),
@@ -87,6 +140,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "sec_status": row["sec_status"],
             "screener_groups": groups,
             "iex_quote_spread_pct": spread,
+            "volume_first_context": volume_first,
             "observation_status": "FRESH_WATCH_ONLY" if row["iex_status"] == "WATCH_ONLY_FRESH_IEX"
                                   else "STALE_OR_MISSING_PRICE_BLOCKED",
             "outcome_status": "PENDING_NOT_MATURE",
