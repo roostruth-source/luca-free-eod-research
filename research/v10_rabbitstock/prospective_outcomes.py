@@ -228,7 +228,14 @@ def _segment_labels(record: dict) -> list[str]:
     else:
         scope = "security_scope:" + record["security_scope"].get(
             "status", "missing").lower()
-    return [volume, trades, mover, spread_label, sec, volume_first, priority, scope]
+    if record["observation_status"] == "FRESH_PREMARKET_WATCH_ONLY":
+        session = "session:premarket"
+    elif record["observation_status"] == "FRESH_WATCH_ONLY":
+        session = "session:regular"
+    else:
+        session = "session:stale_or_missing_blocked"
+    return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
+            session]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -270,7 +277,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
                 "mae_pct": (min(bar["l"] for bar in window) / entry - 1.0) * 100.0,
                 "exit_session": window[-1]["session_date"],
             }
-        eligible_for_model = event["observation_status"] == "FRESH_WATCH_ONLY"
+        eligible_for_model = event["observation_status"] in {
+            "FRESH_WATCH_ONLY", "FRESH_PREMARKET_WATCH_ONLY"}
         records.append({
             "ticker": symbol, "observed_at": event["observed_at"],
             "event_chain_hash": event["chain_hash"], "entry_reference": entry,
@@ -285,6 +293,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "research_priority": event.get("research_priority", {}),
             "security_scope_recorded": "security_scope" in event,
             "security_scope": event.get("security_scope", {}),
+            "price_session_context_recorded": "price_session_context" in event,
+            "price_session_context": event.get("price_session_context", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })

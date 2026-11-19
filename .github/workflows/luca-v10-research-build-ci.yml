@@ -7,12 +7,16 @@ on:
       - research/v10-rabbitstock-eval
     paths:
       - "research/v10_rabbitstock/**"
+      - "research/v03_stage24/auto_enrich_iex.py"
+      - "research/v03_stage24/test_auto_enrich_iex.py"
       - ".github/workflows/luca-v10-research-build-ci.yml"
   pull_request:
     branches:
       - research/v10-rabbitstock-eval
     paths:
       - "research/v10_rabbitstock/**"
+      - "research/v03_stage24/auto_enrich_iex.py"
+      - "research/v03_stage24/test_auto_enrich_iex.py"
       - ".github/workflows/luca-v10-research-build-ci.yml"
 
 permissions:
@@ -32,7 +36,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Run all research safety tests
-        run: python -m unittest discover -v
+        run: |
+          python -m unittest discover -v
+          python ../v03_stage24/test_auto_enrich_iex.py
       - name: Build frozen actual-snapshot report
         run: |
           python run_research_build.py \

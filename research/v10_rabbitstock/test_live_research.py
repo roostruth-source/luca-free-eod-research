@@ -9,7 +9,7 @@ from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import canonical_sha256, validate_official_bundle
 
 URL = "https://www.sec.gov/Archives/edgar/data/123/000000012326000001/filing.htm"
-ASOF = datetime(2026, 11, 18, tzinfo=timezone.utc)
+ASOF = datetime(2026, 11, 18, 15, tzinfo=timezone.utc)
 
 
 def official_bundle(*, collected_at=None):
@@ -76,6 +76,8 @@ def bundle_enrichment():
         "rows": [{
             "symbol": "ABC", "price_band_0_20_to_20": True,
             "iex_last_trade_price": 1.0,
+            "iex_last_trade_utc": "2026-11-18T14:59:00Z",
+            "iex_quote_utc": "2026-11-18T14:59:30Z",
             "screener_groups": {"active_volume": 3, "gainers": 2},
             "iex_quote_spread_pct": 1.5,
             "research_status": "WATCH_ONLY_FRESH_IEX",
@@ -220,10 +222,35 @@ class LiveResearchTests(unittest.TestCase):
                          "PRIORITY_1_RESEARCH")
         self.assertEqual(result["rows"][0]["security_scope"]["status"],
                          "COMMON_EQUITY_CANDIDATE_SCOPE")
+        self.assertEqual(result["rows"][0]["price_session_context"]["market_session"],
+                         "REGULAR")
         self.assertFalse(result["rows"][0]["priority_is_buy_signal"])
         self.assertFalse(result["sec_bundle_provenance"]["independently_refetched_in_this_run"])
         self.assertFalse(result["sec_clearance"])
         self.assertTrue(result["NO_ORDERS"])
+
+    def test_recent_premarket_trade_and_quote_can_be_ranked_but_never_priority_one(self):
+        premarket = bundle_enrichment()
+        premarket["collected_at_utc"] = "2026-11-18T12:05:00+00:00"
+        row = premarket["rows"][0]
+        row["iex_last_trade_utc"] = "2026-11-18T12:04:00Z"
+        row["iex_quote_utc"] = "2026-11-18T12:04:30Z"
+        row["research_status"] = "PENDING_STALE_OR_MISSING"
+        result = collect(
+            "key", "secret", now=datetime(2026, 11, 18, 12, 5, tzinfo=timezone.utc),
+            enrichment_runner=lambda *a, **kw: premarket, delay=0,
+            volume_context_runner=lambda *a, **kw: {
+                "schema_version": "LUCA_V10_VOLUME_FIRST_ASOF_1",
+                "status": "OUTSIDE_US_REGULAR_CONTEXT_WINDOW", "rows": [],
+                "NO_ORDERS": True, "validation_status": "NOT_VALIDATED"},
+            symbol_scope_runner=lambda symbols, now: symbol_scope_report(symbols))
+        first = result["rows"][0]
+        self.assertEqual(first["iex_status"], "WATCH_ONLY_FRESH_IEX_PREMARKET")
+        self.assertEqual(first["price_session_context"]["market_session"], "PREMARKET")
+        self.assertEqual(first["research_priority_label"], "PRIORITY_2_WATCH")
+        self.assertIn("PREMARKET_SINGLE_EXCHANGE_CONTEXT", first["risk_flags"])
+        self.assertFalse(first["priority_is_buy_signal"])
+        self.assertTrue(first["NO_ORDERS"])
 
     def test_invalid_candidate_context_fails_closed(self):
         enrichment = bundle_enrichment()

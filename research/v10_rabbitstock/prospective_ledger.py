@@ -140,6 +140,40 @@ def _security_scope_context(row: dict) -> dict:
         "financial_status", "source_url")}
 
 
+def _price_session_context(row: dict, observed_at: datetime) -> dict:
+    raw = row.get("price_session_context", {
+        "status": row.get("iex_status", "PRICE_SESSION_CONTEXT_MISSING"),
+        "market_session": "LEGACY_CONTEXT_MISSING", "NO_ORDERS": True,
+    })
+    if (not isinstance(raw, dict) or raw.get("NO_ORDERS") is not True
+            or not isinstance(raw.get("status"), str)
+            or raw.get("status") != row.get("iex_status")):
+        raise ValueError("invalid_or_unsafe_price_session_context")
+    session = raw.get("market_session")
+    if not isinstance(session, str) or not session:
+        raise ValueError("invalid_price_market_session")
+    frozen = {key: raw.get(key) for key in (
+        "status", "market_session", "trade_timestamp_utc", "quote_timestamp_utc",
+        "trade_age_seconds", "quote_age_seconds", "trade_fresh", "quote_fresh",
+        "full_market_quote_verified", "source")}
+    for key in ("trade_timestamp_utc", "quote_timestamp_utc"):
+        if frozen[key] is not None and _time(frozen[key]) > observed_at:
+            raise ValueError("future_price_session_evidence_not_allowed")
+    if frozen["full_market_quote_verified"] is True:
+        raise ValueError("full_market_quote_claim_not_allowed")
+    if frozen["status"] == "WATCH_ONLY_FRESH_IEX_PREMARKET":
+        ages = (frozen["trade_age_seconds"], frozen["quote_age_seconds"])
+        if (session != "PREMARKET" or frozen["trade_fresh"] is not True
+                or frozen["quote_fresh"] is not True
+                or frozen["full_market_quote_verified"] is not False
+                or frozen["source"] != "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP"
+                or any(type(age) not in (int, float) or not math.isfinite(age)
+                       or not 0 <= age <= 600 for age in ages)):
+            raise ValueError("invalid_premarket_price_evidence")
+    frozen["NO_ORDERS"] = True
+    return frozen
+
+
 def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
     now = _time(built_at)
     observed_at = _time(report["collected_at"])
@@ -181,6 +215,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         volume_first = _volume_first_context(row, observed_at)
         priority = _priority_context(row)
         security_scope = _security_scope_context(row)
+        price_session = _price_session_context(row, observed_at)
         item = {
             "ticker": row["ticker"],
             "observed_at": observed_at.isoformat(),
@@ -192,8 +227,12 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "volume_first_context": volume_first,
             "research_priority": priority,
             "security_scope": security_scope,
-            "observation_status": "FRESH_WATCH_ONLY" if row["iex_status"] == "WATCH_ONLY_FRESH_IEX"
-                                  else "STALE_OR_MISSING_PRICE_BLOCKED",
+            "price_session_context": price_session,
+            "observation_status": (
+                "FRESH_PREMARKET_WATCH_ONLY"
+                if row["iex_status"] == "WATCH_ONLY_FRESH_IEX_PREMARKET"
+                else "FRESH_WATCH_ONLY" if row["iex_status"] == "WATCH_ONLY_FRESH_IEX"
+                else "STALE_OR_MISSING_PRICE_BLOCKED"),
             "outcome_status": "PENDING_NOT_MATURE",
             "predicted_spike": False,
             "NO_ORDERS": True,

@@ -50,6 +50,16 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertEqual(result["fresh_observation_count"], 0)
         self.assertFalse(result["records"][0]["eligible_for_model_validation"])
 
+    def test_premarket_observation_has_own_eligible_segment(self):
+        premarket = event("2026-11-18T12:05:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
+        result = build_outcomes(ledger(premarket), BARS, "2026-11-19T22:00:00Z")
+        self.assertEqual(result["fresh_observation_count"], 1)
+        self.assertTrue(result["records"][0]["eligible_for_model_validation"])
+        self.assertIn("session:premarket", result["descriptive_segment_scorecards"])
+        self.assertEqual(
+            result["descriptive_segment_scorecards"]["session:premarket"]
+            ["horizons"]["1"]["sample_size"], 1)
+
     def test_descriptive_scorecard_uses_only_mature_fresh_candidates(self):
         second = event()
         second["ticker"] = "DEF"
@@ -143,6 +153,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("priority:priority_2_watch", segments)
         self.assertIn("security_scope:common_equity_candidate_scope", segments)
         self.assertIn("security_scope:excluded_etf_or_etp", segments)
+        self.assertIn("session:regular", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 
 
