@@ -145,8 +145,7 @@ def validate_official_bundle(bundle: dict, asof: datetime,
 
     capture_manifest = bundle.get("capture_manifest")
     if capture_manifest is None:
-        timestamp_provenance = "LEGACY_BUILDER_CLOCK_ONLY"
-        capture_revalidated = False
+        raise ValueError("sec_bundle_capture_manifest_required")
     else:
         if (not isinstance(capture_manifest, dict)
                 or capture_manifest.get("schema_version") != CAPTURE_SCHEMA
