@@ -8,12 +8,14 @@ import json
 import math
 import os
 from pathlib import Path
+import statistics
 import urllib.parse
 import urllib.request
 from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 HORIZONS = (1, 3, 5, 10)
+MFE_THRESHOLDS_PCT = (5.0, 10.0, 20.0)
 BARS_URL = "https://data.alpaca.markets/v2/stocks/bars"
 MAX_SYMBOLS = 50
 MAX_BYTES = 5_000_000
@@ -29,6 +31,10 @@ def _time(raw: str) -> datetime:
 
 def _valid_price(value) -> bool:
     return type(value) in (int, float) and math.isfinite(value) and value > 0
+
+
+def _at_least(value: float, threshold: float) -> bool:
+    return value >= threshold or math.isclose(value, threshold, rel_tol=1e-12, abs_tol=1e-9)
 
 
 def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secret: str,
@@ -116,6 +122,42 @@ def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) ->
     return output
 
 
+def _descriptive_scorecard(records: list[dict]) -> dict:
+    """Summarize mature watchlist outcomes without claiming prediction accuracy."""
+    scorecard = {}
+    for horizon in HORIZONS:
+        key = str(horizon)
+        mature = [record["outcomes"][key] for record in records
+                  if record["eligible_for_model_validation"]
+                  and record["outcomes"][key]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"]
+        if not mature:
+            scorecard[key] = {
+                "status": "NO_MATURE_FRESH_OBSERVATIONS",
+                "sample_size": 0,
+                "mfe_hit_rates_pct": {str(int(threshold)): None
+                                      for threshold in MFE_THRESHOLDS_PCT},
+            }
+            continue
+        close_returns = [item["close_return_pct"] for item in mature]
+        mfe = [item["mfe_pct"] for item in mature]
+        mae = [item["mae_pct"] for item in mature]
+        scorecard[key] = {
+            "status": "DESCRIPTIVE_ONLY_NOT_PREDICTION_ACCURACY",
+            "sample_size": len(mature),
+            "positive_close_rate_pct": 100.0 * sum(value > 0 for value in close_returns) / len(mature),
+            "average_close_return_pct": statistics.fmean(close_returns),
+            "median_close_return_pct": statistics.median(close_returns),
+            "average_mfe_pct": statistics.fmean(mfe),
+            "average_mae_pct": statistics.fmean(mae),
+            "mae_minus_10_or_worse_rate_pct": 100.0 * sum(value <= -10.0 for value in mae) / len(mature),
+            "mfe_hit_rates_pct": {
+                str(int(threshold)): 100.0 * sum(_at_least(value, threshold) for value in mfe) / len(mature)
+                for threshold in MFE_THRESHOLDS_PCT
+            },
+        }
+    return scorecard
+
+
 def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str) -> dict:
     now = _time(evaluated_at)
     if ledger.get("schema_version") != "LUCA_V10_PROSPECTIVE_LEDGER_1" or ledger.get("NO_ORDERS") is not True:
@@ -149,10 +191,14 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
     fresh = [record for record in records if record["eligible_for_model_validation"]]
     mature = {str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
                           for record in fresh) for h in HORIZONS}
+    scorecard = _descriptive_scorecard(records)
     return {
         "schema_version": "LUCA_V10_PROSPECTIVE_OUTCOMES_1",
         "evaluated_at": now.isoformat(), "ledger_event_count": len(records),
         "fresh_observation_count": len(fresh), "mature_fresh_horizons": mature,
+        "descriptive_candidate_scorecard": scorecard,
+        "scorecard_scope": "FRESH_PRICE_BAND_WATCHLIST_CANDIDATES_NOT_BUY_SIGNALS",
+        "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
         "corporate_action_basis_verified": False,
