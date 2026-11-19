@@ -64,8 +64,17 @@ def parse_directory(text: str, source_url: str) -> tuple[dict[str, dict], str]:
     records = {}
     for row in reader:
         symbol = row.get(symbol_field, "").strip().upper()
-        if not SYMBOL.fullmatch(symbol) or symbol in records:
-            raise ValueError("symbol_directory_symbol_invalid_or_duplicate")
+        if not symbol:
+            raise ValueError("symbol_directory_symbol_missing")
+        # The official other-listed directory also contains exchange-native
+        # preferred symbols such as ABR$D.  Those are valid directory rows but
+        # outside this scanner's deliberately smaller candidate symbol grammar.
+        # Skip them instead of rejecting the entire official file.  If one is
+        # ever supplied as a candidate it remains fail-closed as NOT_MAPPED.
+        if not SYMBOL.fullmatch(symbol):
+            continue
+        if symbol in records:
+            raise ValueError("symbol_directory_symbol_duplicate")
         name = row.get("Security Name", "").strip()
         etf = row.get("ETF", "").strip().upper()
         test_issue = row.get("Test Issue", "").strip().upper()

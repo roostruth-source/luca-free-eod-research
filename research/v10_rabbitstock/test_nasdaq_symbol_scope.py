@@ -14,6 +14,7 @@ File Creation Time: 1119202612:00||||||||
 """
 OTHER = """ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol
 XYZ|XYZ Corp. Common Stock|N|XYZ|N|100|N|XYZ
+ABR$D|Arbor Realty Trust Preferred Stock|N|ABRpD|N|100|N|ABR-D
 File Creation Time: 1119202612:00||||||||
 """
 
@@ -51,6 +52,11 @@ class NasdaqSymbolScopeTests(unittest.TestCase):
         self.assertEqual(by["XYZ"]["exchange_code"], "N")
         self.assertEqual(by["NONE"]["status"], "SYMBOL_DIRECTORY_NOT_MAPPED")
         self.assertTrue(result["NO_ORDERS"])
+
+    def test_official_exchange_native_symbols_outside_scanner_grammar_are_skipped(self):
+        records, _ = parse_directory(OTHER, OTHER_URL)
+        self.assertIn("XYZ", records)
+        self.assertNotIn("ABR$D", records)
 
     def test_get_only_official_urls(self):
         seen = []
