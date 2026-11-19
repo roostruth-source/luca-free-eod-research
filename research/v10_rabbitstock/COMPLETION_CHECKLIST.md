@@ -37,5 +37,13 @@
 - 코드: https://github.com/roostruth-source/luca-free-eod-research/commit/cabd64ddeb4f7f4ede43e02c1becf746f68c2ce9
 - 회귀 테스트: https://github.com/roostruth-source/luca-free-eod-research/commit/bf2b7385c765b0755088f68814bc9395f8363b99
 - 장전(PREMARKET)에서는 정규장 Volume-First 35점을 가산하지 않고 PREMARKET_VOLUME_FIRST_UNVERIFIED 위험을 남긴다.
-- 상태: PENDING_CI_AND_LIVE_ARTIFACT. 전체 테스트 및 이 HEAD의 실제 Actions/artifact를 확인하기 전에는 COMPLETE로 처리하지 않는다.
+- 상태: CI_PASSED_LIVE_PREMARKET_UNOBSERVED. HEAD `1553269`의 Actions #44563820386 성공(190+14=204 tests). 실제 artifact `14550697918`(SHA-256 `fc63a811f2d6881658cf9fb57c2fa4c07eab708b0699a662e5df12e65fa67e6a`) 다운로드 및 JSON 확인: 후보 45개, 보류 23개(범위/미검증 16, 상장상태 4, 가격 3) 모두 0점; 행별 NO_ORDERS·buy_allowed 위반 0건. 단, 이번 실제 관찰의 PREMARKET 후보는 0개이므로 장전 점수 분리의 live 검증은 아직 불가하며 COMPLETE로 표시하지 않는다.
 - SEC 공식 원문 미수집; SEC_UNVERIFIED/FLOAT_UNVERIFIED 유지. main 병합·주문·배포 금지.
+
+## 2026-11-20 최신 HEAD 실제 실행 증거
+
+- https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44563820386 (HEAD `1553269`, push CI 성공; 전체 안전 테스트 190개 + 별도 테스트 14개 통과)
+- 실제 ZIP artifact ID `14550697918`, 파일 7개, 위 SHA-256; `live_watchlist.json` 45개 중 우선 0·일반 2·근거 부족 20·보류 23. 보류 후보의 점수 0점 및 행별 주문 금지 위반 0건 확인.
+- 장전(PREMARKET) 관찰 후보가 없어 장전 점수 분리는 테스트만 통과. 다음 장전 실관찰에서 별도 확인 필요.
+- SEC ticker map은 `SEC_TICKER_MAP_HTTP_403`; 공식 원문 우회·추정값 사용 금지. `SEC_UNVERIFIED`/`FLOAT_UNVERIFIED` 위험을 행별 유지.
+- 예측 성능 `NOT_VALIDATED`: 독립 5일 표본 부족. 이번 문서 커밋 자체의 후속 CI는 별도 확인 필요.
