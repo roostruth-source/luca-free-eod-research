@@ -31,3 +31,11 @@
 2. SEC 공식 bundle이 있을 때만 OS·Float·희석 증거를 live 후보에 붙인다.
 3. 중국계 1.0 cohort를 별도 표시하고 성과표도 분리한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
+
+## 2026-11-20 장전 Volume-First 점수 분리 (검증 대기)
+
+- 코드: https://github.com/roostruth-source/luca-free-eod-research/commit/cabd64ddeb4f7f4ede43e02c1becf746f68c2ce9
+- 회귀 테스트: https://github.com/roostruth-source/luca-free-eod-research/commit/bf2b7385c765b0755088f68814bc9395f8363b99
+- 장전(PREMARKET)에서는 정규장 Volume-First 35점을 가산하지 않고 PREMARKET_VOLUME_FIRST_UNVERIFIED 위험을 남긴다.
+- 상태: PENDING_CI_AND_LIVE_ARTIFACT. 전체 테스트 및 이 HEAD의 실제 Actions/artifact를 확인하기 전에는 COMPLETE로 처리하지 않는다.
+- SEC 공식 원문 미수집; SEC_UNVERIFIED/FLOAT_UNVERIFIED 유지. main 병합·주문·배포 금지.
