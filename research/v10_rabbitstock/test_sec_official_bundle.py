@@ -35,6 +35,22 @@ class SecOfficialBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cik_mismatch"):
             build(ticker_payload, {"ABC": {"cik": 456}}, ["ABC"], ASOF)
 
+    def test_validator_rejects_unexpected_submission_even_with_valid_hash(self):
+        ticker_payload = {
+            "0": {"ticker": "ABC", "cik_str": 123, "title": "ABC Inc."},
+            "1": {"ticker": "XYZ", "cik_str": 456, "title": "XYZ Inc."},
+        }
+        submission = {"cik": 456, "filings": {"recent": {}}}
+        bundle = build(ticker_payload, {}, ["ABC"], ASOF)
+        bundle["submissions"]["XYZ"] = {
+            "source_url": "https://data.sec.gov/submissions/CIK0000000456.json",
+            "retrieved_at_utc": ASOF.isoformat(),
+            "payload": submission,
+            "sha256": canonical_sha256(submission),
+        }
+        with self.assertRaisesRegex(ValueError, "unexpected_submission_symbol"):
+            validate_official_bundle(bundle, ASOF, ["ABC"])
+
     def test_validator_rejects_duplicate_expected_symbols(self):
         ticker_payload = {
             "0": {"ticker": "ABC", "cik_str": 123, "title": "ABC Inc."},
