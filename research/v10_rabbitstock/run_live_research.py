@@ -330,6 +330,12 @@ def render_html(report: dict) -> str:
                      + "<br>종목 종류: "
                      + escape(row["security_scope"].get("status", "미확인"))
                      + (" · " + escape(row["security_scope"].get("security_name") or ""))
+                     + "<br>거래소 재무상태: "
+                     + escape(row["security_scope"].get("financial_status", "미확인"))
+                     + " · "
+                     + escape(row["security_scope"].get("financial_status_ko", "미확인"))
+                     + " (" + escape(row["security_scope"].get(
+                         "financial_status_label", "UNVERIFIED")) + ")"
                      + "<br>Volume-First: "
                      + escape(row["volume_first_context"].get("status", "미확인"))
                      + "<br>SEC: " + escape(row["sec_status"])

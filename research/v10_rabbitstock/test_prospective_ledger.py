@@ -24,7 +24,9 @@ def watchlist():
                       "status": "COMMON_EQUITY_CANDIDATE_SCOPE",
                       "security_name": "ABC Inc. Common Stock", "etf_flag": "N",
                       "test_issue": "N", "exchange_code": "NASDAQ",
-                      "financial_status": "N", "source_url": "https://example.test/directory",
+                      "financial_status": "N", "financial_status_label": "NORMAL",
+                      "financial_status_risk": False, "financial_status_ko": "정상",
+                      "source_url": "https://example.test/directory",
                   },
                   "iex_status": "PENDING_STALE_OR_MISSING",
                   "sec_status": "SEC_NOT_CHECKED_CONTACT_REQUIRED"}],
@@ -50,6 +52,10 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertFalse(first["events"][0]["research_priority"]["priority_is_buy_signal"])
         self.assertEqual(first["events"][0]["security_scope"]["status"],
                          "COMMON_EQUITY_CANDIDATE_SCOPE")
+        self.assertEqual(first["events"][0]["security_scope"]["financial_status_label"],
+                         "NORMAL")
+        self.assertEqual(first["events"][0]["security_scope"]["financial_status_ko"],
+                         "정상")
         self.assertFalse(first["events"][0]["predicted_spike"])
 
     def test_tampering_with_old_event_is_rejected(self):

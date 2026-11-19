@@ -11,6 +11,7 @@ LABELS = {
     "PRIORITY_3_LOW_EVIDENCE": "근거 부족",
     "HOLD_STALE_OR_MISSING_PRICE": "가격 확인 전 보류",
     "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED": "종목 종류 확인 전 보류",
+    "HOLD_FINANCIAL_OR_LISTING_STATUS": "거래소 상태 위험 보류",
 }
 def _rank_points(rank, maximum: int) -> int:
     if type(rank) is not int or rank < 1:
@@ -40,6 +41,8 @@ def prioritize(report: dict) -> dict:
         security_scope = row.get("security_scope", {})
         scope_status = security_scope.get("status")
         common_scope = scope_status == "COMMON_EQUITY_CANDIDATE_SCOPE"
+        financial_status = security_scope.get("financial_status")
+        financial_risk = security_scope.get("financial_status_risk") is True
         price_context = row.get("price_session_context", {})
         premarket_declared = row.get("iex_status") == "WATCH_ONLY_FRESH_IEX_PREMARKET"
         premarket = (premarket_declared and isinstance(price_context, dict)
@@ -100,10 +103,13 @@ def prioritize(report: dict) -> dict:
                 risks.append("WIDE_IEX_SPREAD")
         else:
             risks.append("IEX_SPREAD_UNKNOWN")
-        score = max(0, min(100, score)) if fresh and common_scope else 0
+        score = max(0, min(100, score)) if fresh and common_scope and not financial_risk else 0
         if not common_scope:
             label = "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED"
             risks.append(scope_status or "SYMBOL_SCOPE_UNVERIFIED")
+        elif financial_risk:
+            label = "HOLD_FINANCIAL_OR_LISTING_STATUS"
+            risks.append("NASDAQ_FINANCIAL_STATUS_" + str(financial_status or "UNKNOWN"))
         elif not fresh:
             label = "HOLD_STALE_OR_MISSING_PRICE"
             risks.append("PRICE_STALE_OR_MISSING")

@@ -94,6 +94,20 @@ class PrioritizeWatchlistTests(unittest.TestCase):
         self.assertEqual(result["research_priority_label"], "HOLD_STALE_OR_MISSING_PRICE")
         self.assertIn("PREMARKET_CONTEXT_INVALID", result["risk_flags"])
 
+    def test_nasdaq_deficient_common_stock_is_zero_and_held(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["security_scope"].update({
+            "financial_status": "D",
+            "financial_status_label": "DEFICIENT_CONTINUED_LISTING_REQUIREMENTS",
+            "financial_status_risk": True,
+        })
+        result = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
+        self.assertEqual(result["research_priority_score"], 0)
+        self.assertEqual(result["research_priority_label"],
+                         "HOLD_FINANCIAL_OR_LISTING_STATUS")
+        self.assertIn("NASDAQ_FINANCIAL_STATUS_D", result["risk_flags"])
+
 
 if __name__ == "__main__":
     unittest.main()

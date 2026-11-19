@@ -113,6 +113,8 @@ def symbol_scope_report(symbols):
                   "security_name": symbol + " Inc. Common Stock",
                   "etf_flag": "N", "test_issue": "N",
                   "exchange_code": "NASDAQ", "financial_status": "N",
+                  "financial_status_label": "NORMAL", "financial_status_risk": False,
+                  "financial_status_ko": "정상",
                   "source_url": "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"}
                  for symbol in symbols],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",

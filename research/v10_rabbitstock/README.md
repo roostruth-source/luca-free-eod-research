@@ -201,6 +201,8 @@ python run_live_research.py \
 
 `nasdaq_symbol_scope.py`는 Nasdaq Trader의 공식 `nasdaqlisted.txt`와 `otherlisted.txt`를 읽어 ETF 표시, Test Issue, 종목명을 보존한다. 공식 디렉터리에서 보통주 후보 범위로 확인된 종목만 관찰 점수를 받을 수 있다. ETF·ETP, 시험 종목, 이름에 Warrant·Unit·Right·Preferred·Note·Bond가 표시된 증권은 삭제하지 않고 0점 보류로 남겨 제외 이유를 감사할 수 있게 한다. 공식 디렉터리 접근 실패나 미매핑도 추정하지 않고 0점 보류한다.
 
+Nasdaq 상장종목의 `Financial Status`도 같은 공식 디렉터리에서 고정한다. `N`은 Normal(정상)이며, `D`(계속상장 요건 미달), `E`(규제 공시기한 미준수), `Q`(파산)와 결합 상태 `G/H/J/K`, `S`(거래정지), `C`(ETP 설정·환매 정지)는 거래량·장전 가격이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점 보류로 남긴다. 이 표시는 Nasdaq의 현재 상태 경고이지 최저주가 유예기간·청문·상장폐지 효력일 전체를 대신하지 않으므로 별도 공시 검증은 계속 필요하다. 다른 거래소 종목은 이 필드가 공식 파일에 없으므로 정상으로 추정하지 않고 `NOT_AVAILABLE`로 보존한다.
+
 `validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
 
 ```bash
