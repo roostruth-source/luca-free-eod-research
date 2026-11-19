@@ -106,6 +106,9 @@ def validate_official_bundle(bundle: dict, asof: datetime,
         raise ValueError("sec_bundle_submissions_invalid")
     selected_map = {symbol: ticker_map[symbol]
                     for symbol in expected if symbol in ticker_map}
+    # Fail closed: never silently ignore unexpected submission payloads.
+    if set(submissions) - expected:
+        raise ValueError("sec_bundle_unexpected_submission_symbol")
     selected_submissions = {}
     selected_sources = {}
     for symbol in sorted(expected):
