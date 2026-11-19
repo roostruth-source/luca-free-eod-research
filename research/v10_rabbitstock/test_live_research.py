@@ -174,6 +174,9 @@ class LiveResearchTests(unittest.TestCase):
         self.assertTrue(result["rows"][0]["volume_first_context"]["volume_first_recent"])
         self.assertEqual(result["volume_first_collection_status"],
                          "IEX_MINUTE_CONTEXT_COLLECTED")
+        self.assertEqual(result["rows"][0]["research_priority_label"],
+                         "PRIORITY_1_RESEARCH")
+        self.assertFalse(result["rows"][0]["priority_is_buy_signal"])
         self.assertFalse(result["sec_bundle_provenance"]["independently_refetched_in_this_run"])
         self.assertFalse(result["sec_clearance"])
         self.assertTrue(result["NO_ORDERS"])
@@ -221,6 +224,7 @@ class LiveResearchTests(unittest.TestCase):
         rendered = render_html(result)
         self.assertNotIn("<script>", rendered)
         self.assertIn("&lt;script&gt;", rendered)
+        self.assertIn("매수 점수가 아닙니다", rendered)
 
     def test_only_sec_archive_documents_are_fetched(self):
         with self.assertRaisesRegex(ValueError, "sec_archive_url_not_allowed"):
