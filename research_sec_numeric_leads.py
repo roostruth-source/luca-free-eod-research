@@ -48,7 +48,7 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
                 prefix = text[max(0, start - 12):start]
                 suffix = text[end:min(len(text), end + 4)]
                 # A separated sign still belongs to the amount (e.g. - $0.25).
-                if re.search(r'[-+−–—﹣－＋]\s*\$?\s*, prefix):
+                if re.search(r'[-+−–—﹣－＋]\s*\$?\s*$', prefix):
                     continue
                 if ACCOUNTING_NEGATIVE.search(prefix) and re.match(r'^\s*\)', suffix):
                     continue
