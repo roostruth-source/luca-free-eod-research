@@ -158,6 +158,15 @@ def _descriptive_scorecard(records: list[dict]) -> dict:
     return scorecard
 
 
+def _first_fresh_observation_per_ticker(records: list[dict]) -> list[dict]:
+    """Keep one pre-existing frozen observation per ticker for an independent cohort."""
+    first = {}
+    fresh = [record for record in records if record["eligible_for_model_validation"]]
+    for record in sorted(fresh, key=lambda item: (_time(item["observed_at"]), item["ticker"])):
+        first.setdefault(record["ticker"], record)
+    return list(first.values())
+
+
 def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str) -> dict:
     now = _time(evaluated_at)
     if ledger.get("schema_version") != "LUCA_V10_PROSPECTIVE_LEDGER_1" or ledger.get("NO_ORDERS") is not True:
@@ -191,18 +200,27 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
     fresh = [record for record in records if record["eligible_for_model_validation"]]
     mature = {str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
                           for record in fresh) for h in HORIZONS}
-    scorecard = _descriptive_scorecard(records)
+    independent = _first_fresh_observation_per_ticker(records)
+    independent_mature = {
+        str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
+                    for record in independent) for h in HORIZONS
+    }
+    scorecard = _descriptive_scorecard(independent)
     return {
         "schema_version": "LUCA_V10_PROSPECTIVE_OUTCOMES_1",
         "evaluated_at": now.isoformat(), "ledger_event_count": len(records),
         "fresh_observation_count": len(fresh), "mature_fresh_horizons": mature,
+        "independent_fresh_ticker_count": len(independent),
+        "repeated_fresh_observation_count": len(fresh) - len(independent),
+        "independent_mature_fresh_horizons": independent_mature,
+        "independent_cohort_rule": "FIRST_FRESH_OBSERVATION_PER_TICKER",
         "descriptive_candidate_scorecard": scorecard,
-        "scorecard_scope": "FRESH_PRICE_BAND_WATCHLIST_CANDIDATES_NOT_BUY_SIGNALS",
+        "scorecard_scope": "FIRST_FRESH_OBSERVATION_PER_TICKER_NOT_BUY_SIGNALS",
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
         "corporate_action_basis_verified": False,
-        "performance_validation_ready": len(fresh) >= 30 and mature["5"] >= 30,
+        "performance_validation_ready": len(independent) >= 30 and independent_mature["5"] >= 30,
         "prediction_accuracy_verified": False,
         "WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
     }
