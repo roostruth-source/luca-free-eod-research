@@ -171,7 +171,8 @@ def validate_official_bundle(bundle: dict, asof: datetime,
         if (not isinstance(ticker_receipt, dict)
                 or ticker_receipt.get("source_url") != TICKERS_URL
                 or not isinstance(ticker_receipt.get("canonical_sha256"), str)
-                or not SHA256.fullmatch(ticker_receipt["canonical_sha256"])):
+                or not SHA256.fullmatch(ticker_receipt["canonical_sha256"])
+                or ticker_receipt["canonical_sha256"] != canonical_sha256(ticker_map)):
             raise ValueError("sec_bundle_capture_ticker_receipt_invalid")
         ticker_retrieved = _timestamp(ticker_receipt.get("retrieved_at_utc"),
                                       "sec_bundle_capture_ticker_retrieved")
