@@ -75,7 +75,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["20"], 50.0)
         self.assertAlmostEqual(one_day["mae_minus_10_or_worse_rate_pct"], 50.0)
         self.assertEqual(result["scorecard_scope"],
-                         "FRESH_PRICE_BAND_WATCHLIST_CANDIDATES_NOT_BUY_SIGNALS")
+                         "FIRST_FRESH_OBSERVATION_PER_TICKER_NOT_BUY_SIGNALS")
         self.assertFalse(result["prediction_accuracy_verified"])
 
     def test_scorecard_does_not_count_immature_horizon(self):
@@ -83,6 +83,18 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         three_day = result["descriptive_candidate_scorecard"]["3"]
         self.assertEqual(three_day["sample_size"], 0)
         self.assertIsNone(three_day["mfe_hit_rates_pct"]["10"])
+
+    def test_repeated_ticker_is_not_counted_as_independent_sample(self):
+        repeat = event("2026-11-18T15:30:00Z")
+        repeat["chain_hash"] = "d" * 64
+        result = build_outcomes(ledger_many(event(), repeat), BARS,
+                                "2026-11-19T22:00:00Z")
+        self.assertEqual(result["fresh_observation_count"], 2)
+        self.assertEqual(result["independent_fresh_ticker_count"], 1)
+        self.assertEqual(result["repeated_fresh_observation_count"], 1)
+        self.assertEqual(result["descriptive_candidate_scorecard"]["1"]["sample_size"], 1)
+        self.assertEqual(result["independent_cohort_rule"],
+                         "FIRST_FRESH_OBSERVATION_PER_TICKER")
 
 
 if __name__ == "__main__":
