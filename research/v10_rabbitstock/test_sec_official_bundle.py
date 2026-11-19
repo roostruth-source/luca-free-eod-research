@@ -30,10 +30,19 @@ def captured_bundle(ticker_payload, submissions, symbols):
             if payload.get("cik") == cik:
                 return Response(payload)
         raise ValueError("fixture_missing_submission")
+    requested_empty = not submissions
+    if requested_empty:
+        submissions = {symbol: {"cik": int(row["cik_str"])}
+                       for row in ticker_payload.values()
+                       for symbol in symbols if row["ticker"] == symbol}
     result = capture(symbols, "LUCA-Research contact@example.com",
                      opener=opener, clock=lambda: ASOF, sleeper=lambda _: None)
-    return build(result["ticker_payload"], result["submission_payloads"],
-                 symbols, ASOF, capture_manifest=result["manifest"])
+    bundle = build(result["ticker_payload"], result["submission_payloads"],
+                   symbols, ASOF, capture_manifest=result["manifest"])
+    if requested_empty:
+        bundle["submissions"].clear()
+        bundle["capture_manifest"]["submissions"].clear()
+    return bundle
 
 
 class SecOfficialBundleTests(unittest.TestCase):
