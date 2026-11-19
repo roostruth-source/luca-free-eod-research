@@ -95,17 +95,18 @@ def _validate_capture_manifest(manifest: dict, ticker_payload: dict,
 def build(ticker_payload: dict, submission_payloads: dict[str, dict],
           symbols: list[str], collected_at: datetime,
           *, capture_manifest: dict | None = None) -> dict:
+    if capture_manifest is None:
+        raise ValueError("sec_capture_manifest_required")
     if collected_at.tzinfo is None:
         raise ValueError("sec_bundle_collected_timezone_required")
     full_map = ticker_cik_map(ticker_payload)
     selected_map = {symbol: full_map[symbol] for symbol in symbols
                     if symbol in full_map}
     retrieved_at = {}
-    if capture_manifest is not None:
-        manifest_completed, retrieved_at = _validate_capture_manifest(
-            capture_manifest, ticker_payload, submission_payloads, symbols)
-        if manifest_completed != collected_at.astimezone(timezone.utc):
-            raise ValueError("sec_capture_completed_time_mismatch")
+    manifest_completed, retrieved_at = _validate_capture_manifest(
+        capture_manifest, ticker_payload, submission_payloads, symbols)
+    if manifest_completed != collected_at.astimezone(timezone.utc):
+        raise ValueError("sec_capture_completed_time_mismatch")
     collected_text = collected_at.astimezone(timezone.utc).isoformat()
     submissions = {}
     for symbol, payload in submission_payloads.items():
@@ -116,7 +117,7 @@ def build(ticker_payload: dict, submission_payloads: dict[str, dict],
             raise ValueError("sec_submission_cik_mismatch")
         submissions[symbol] = {
             "source_url": f"https://data.sec.gov/submissions/CIK{cik:010d}.json",
-            "retrieved_at_utc": retrieved_at.get(symbol, collected_text),
+            "retrieved_at_utc": retrieved_at[symbol],
             "payload": payload,
             "sha256": canonical_sha256(payload),
         }
@@ -129,8 +130,7 @@ def build(ticker_payload: dict, submission_payloads: dict[str, dict],
         "ticker_map_sha256": canonical_sha256(selected_map),
         "submissions": submissions,
     }
-    if capture_manifest is not None:
-        bundle["capture_manifest"] = capture_manifest
+    bundle["capture_manifest"] = capture_manifest
     validate_official_bundle(bundle, collected_at, symbols)
     return bundle
 
