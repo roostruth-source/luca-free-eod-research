@@ -47,6 +47,28 @@ def extract_numeric_leads(text, *, context=120, max_leads=5, max_chars=2_000_000
                     continue
                 prefix = text[max(0, start - 12):start]
                 suffix = text[end:min(len(text), end + 4)]
+                # A separated sign still belongs to the amount (e.g. - $0.25).
+                if re.search(r'[-+−–—﹣－＋]\s*\$?\s*                if ACCOUNTING_NEGATIVE.search(prefix) and re.match(r'^\s*\)', suffix):
+                    continue
+                if (field, start, end) in seen:
+                    continue
+                try:
+                    value = Decimal(match.group('number').replace(',', ''))
+                except InvalidOperation:
+                    continue
+                kind = ('percent' if match.group('percent') else
+                        'currency' if match.group('currency') else 'unclassified_number')
+                if kind == 'unclassified_number' and value == value.to_integral_value() and 1900 <= value <= 2099:
+                    continue
+                seen.add((field, start, end))
+                leads.append({'field': field, 'start': start, 'end': end,
+                              'literal': text[start:end], 'kind': kind,
+                              'value': str(value), 'status': 'UNVERIFIED_CONTEXT_NUMBER'})
+    base['numeric_leads'] = sorted(leads, key=lambda v: (v['start'], v['field']))[:max_leads]
+    base['reason'] = 'NUMERIC_LEADS_REQUIRE_ORIGINAL_SEC_CONTRACT_REVIEW'
+    return base
+, prefix):
+                    continue
                 if ACCOUNTING_NEGATIVE.search(prefix) and re.match(r'^\s*\)', suffix):
                     continue
                 if (field, start, end) in seen:
