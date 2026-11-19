@@ -96,6 +96,35 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertEqual(result["independent_cohort_rule"],
                          "FIRST_FRESH_OBSERVATION_PER_TICKER")
 
+    def test_segment_scorecards_separate_frozen_candidate_context(self):
+        first = event()
+        first.update({
+            "screener_groups": {"active_volume": 3, "gainers": 2},
+            "iex_quote_spread_pct": 1.5,
+            "sec_status": "RECENT_FILINGS_REQUIRE_REVIEW",
+        })
+        second = event()
+        second.update({
+            "ticker": "DEF", "chain_hash": "b" * 64,
+            "screener_groups": {"active_volume": 20, "losers": 4},
+            "iex_quote_spread_pct": 8.0,
+            "sec_status": "SEC_NOT_CHECKED_SOURCE_UNAVAILABLE",
+        })
+        result = build_outcomes(ledger_many(first, second), {
+            **BARS,
+            "DEF": BARS["ABC"],
+        }, "2026-11-19T22:00:00Z")
+        segments = result["descriptive_segment_scorecards"]
+        self.assertEqual(segments["volume:rank_1_10"]["independent_ticker_count"], 1)
+        self.assertEqual(segments["volume:rank_11_40"]["independent_ticker_count"], 1)
+        self.assertEqual(segments["mover:gainer"]["horizons"]["1"]["sample_size"], 1)
+        self.assertEqual(segments["mover:loser"]["horizons"]["1"]["sample_size"], 1)
+        self.assertIn("spread:0_2_pct", segments)
+        self.assertIn("spread:over_5_pct", segments)
+        self.assertIn("sec:recent_filings_require_review", segments)
+        self.assertIn("sec:source_unavailable_or_unchecked", segments)
+        self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
+
 
 if __name__ == "__main__":
     unittest.main()

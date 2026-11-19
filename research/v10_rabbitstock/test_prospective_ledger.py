@@ -8,6 +8,8 @@ def watchlist():
     return {
         "collected_at": "2026-11-18T10:00:00+00:00",
         "rows": [{"ticker": "ABC", "iex_price": 1.0,
+                  "screener_groups": {"active_volume": 4, "gainers": 2},
+                  "iex_quote_spread_pct": 1.25,
                   "iex_status": "PENDING_STALE_OR_MISSING",
                   "sec_status": "SEC_NOT_CHECKED_CONTACT_REQUIRED"}],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
@@ -22,6 +24,9 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertEqual(again["new_event_count"], 0)
         self.assertEqual(first["last_chain_hash"], again["last_chain_hash"])
         self.assertEqual(first["events"][0]["observation_status"], "STALE_OR_MISSING_PRICE_BLOCKED")
+        self.assertEqual(first["events"][0]["screener_groups"],
+                         {"active_volume": 4, "gainers": 2})
+        self.assertEqual(first["events"][0]["iex_quote_spread_pct"], 1.25)
         self.assertFalse(first["events"][0]["predicted_spike"])
 
     def test_tampering_with_old_event_is_rejected(self):
@@ -54,6 +59,12 @@ class ProspectiveLedgerTests(unittest.TestCase):
         item = watchlist()
         item["NO_ORDERS"] = False
         with self.assertRaisesRegex(ValueError, "unsafe_watchlist"):
+            append_observations(item, "2026-11-18T10:01:00Z")
+
+    def test_invalid_candidate_context_is_rejected(self):
+        item = watchlist()
+        item["rows"][0]["screener_groups"] = {"active_volume": 0}
+        with self.assertRaisesRegex(ValueError, "invalid_screener_context"):
             append_observations(item, "2026-11-18T10:01:00Z")
 
 

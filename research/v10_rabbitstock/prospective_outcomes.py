@@ -167,6 +167,69 @@ def _first_fresh_observation_per_ticker(records: list[dict]) -> list[dict]:
     return list(first.values())
 
 
+def _rank_segment(prefix: str, rank) -> str:
+    if type(rank) is not int:
+        return f"{prefix}:not_listed"
+    if rank <= 10:
+        return f"{prefix}:rank_1_10"
+    if rank <= 40:
+        return f"{prefix}:rank_11_40"
+    return f"{prefix}:rank_over_40"
+
+
+def _segment_labels(record: dict) -> list[str]:
+    if not record["candidate_context_recorded"]:
+        volume = "volume:legacy_context_missing"
+        trades = "trades:legacy_context_missing"
+        mover = "mover:legacy_context_missing"
+    else:
+        groups = record["screener_groups"]
+        volume = _rank_segment("volume", groups.get("active_volume"))
+        trades = _rank_segment("trades", groups.get("active_trades"))
+        if "gainers" in groups and "losers" in groups:
+            mover = "mover:conflicting_lists"
+        elif "gainers" in groups:
+            mover = "mover:gainer"
+        elif "losers" in groups:
+            mover = "mover:loser"
+        else:
+            mover = "mover:not_listed"
+    spread = record["iex_quote_spread_pct"]
+    if spread is None:
+        spread_label = "spread:unknown"
+    elif spread <= 2:
+        spread_label = "spread:0_2_pct"
+    elif spread <= 5:
+        spread_label = "spread:over_2_to_5_pct"
+    else:
+        spread_label = "spread:over_5_pct"
+    status = record["sec_status"]
+    if status == "RECENT_FILINGS_REQUIRE_REVIEW":
+        sec = "sec:recent_filings_require_review"
+    elif status.startswith("SEC_NOT_CHECKED") or status == "SEC_SUBMISSIONS_UNAVAILABLE":
+        sec = "sec:source_unavailable_or_unchecked"
+    else:
+        sec = "sec:other_not_cleared"
+    return [volume, trades, mover, spread_label, sec]
+
+
+def _segment_scorecards(independent: list[dict]) -> dict:
+    segments = {}
+    for record in independent:
+        for label in _segment_labels(record):
+            segments.setdefault(label, []).append(record)
+    output = {}
+    for label, records in sorted(segments.items()):
+        scorecard = _descriptive_scorecard(records)
+        mature_five = scorecard["5"]["sample_size"]
+        output[label] = {
+            "independent_ticker_count": len(records),
+            "comparison_ready": len(records) >= 10 and mature_five >= 10,
+            "horizons": scorecard,
+        }
+    return output
+
+
 def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str) -> dict:
     now = _time(evaluated_at)
     if ledger.get("schema_version") != "LUCA_V10_PROSPECTIVE_LEDGER_1" or ledger.get("NO_ORDERS") is not True:
@@ -194,6 +257,10 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "ticker": symbol, "observed_at": event["observed_at"],
             "event_chain_hash": event["chain_hash"], "entry_reference": entry,
             "observation_status": event["observation_status"],
+            "candidate_context_recorded": "screener_groups" in event,
+            "screener_groups": event.get("screener_groups", {}),
+            "iex_quote_spread_pct": event.get("iex_quote_spread_pct"),
+            "sec_status": event.get("sec_status", "SEC_STATUS_MISSING"),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })
@@ -206,6 +273,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
                     for record in independent) for h in HORIZONS
     }
     scorecard = _descriptive_scorecard(independent)
+    segment_scorecards = _segment_scorecards(independent)
     return {
         "schema_version": "LUCA_V10_PROSPECTIVE_OUTCOMES_1",
         "evaluated_at": now.isoformat(), "ledger_event_count": len(records),
@@ -215,6 +283,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
         "independent_mature_fresh_horizons": independent_mature,
         "independent_cohort_rule": "FIRST_FRESH_OBSERVATION_PER_TICKER",
         "descriptive_candidate_scorecard": scorecard,
+        "descriptive_segment_scorecards": segment_scorecards,
+        "segment_comparison_minimum": "10_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
         "scorecard_scope": "FIRST_FRESH_OBSERVATION_PER_TICKER_NOT_BUY_SIGNALS",
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,

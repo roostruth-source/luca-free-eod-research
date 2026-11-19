@@ -51,6 +51,8 @@ def bundle_enrichment():
         "rows": [{
             "symbol": "ABC", "price_band_0_20_to_20": True,
             "iex_last_trade_price": 1.0,
+            "screener_groups": {"active_volume": 3, "gainers": 2},
+            "iex_quote_spread_pct": 1.5,
             "research_status": "WATCH_ONLY_FRESH_IEX",
             "buy_allowed": False,
         }],
@@ -147,9 +149,22 @@ class LiveResearchTests(unittest.TestCase):
                          "RECENT_FILINGS_REQUIRE_REVIEW")
         self.assertEqual(result["sec_bundle_provenance"]["source"],
                          "SEC_OFFICIAL")
+        self.assertEqual(result["rows"][0]["screener_groups"],
+                         {"active_volume": 3, "gainers": 2})
+        self.assertEqual(result["rows"][0]["iex_quote_spread_pct"], 1.5)
         self.assertFalse(result["sec_bundle_provenance"]["independently_refetched_in_this_run"])
         self.assertFalse(result["sec_clearance"])
         self.assertTrue(result["NO_ORDERS"])
+
+    def test_invalid_candidate_context_fails_closed(self):
+        enrichment = bundle_enrichment()
+        enrichment["rows"][0]["screener_groups"] = {"invented_source": 1}
+        def blocked(url):
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        with self.assertRaisesRegex(ValueError, "invalid_screener_context"):
+            collect("key", "secret", now=ASOF,
+                    enrichment_runner=lambda *a, **kw: enrichment,
+                    sec_json=blocked, delay=0)
 
     def test_official_bundle_hash_tampering_fails_closed(self):
         bundle = official_bundle()

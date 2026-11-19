@@ -7,6 +7,7 @@ import copy
 from datetime import datetime, timezone
 from html import escape
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -24,6 +25,28 @@ from sec_auto_triage import TICKERS_URL, SUBMISSIONS_ROOT, ticker_cik_map, triag
 
 MAX_DOCUMENTS = 10
 SAFETY = {"WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED"}
+SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
+
+
+def attach_candidate_context(result: dict, selected: list[dict]) -> dict:
+    """Carry frozen screener ranks and IEX spread into V10 without inferring safety."""
+    source = {row["symbol"]: row for row in selected}
+    for row in result.get("rows", []):
+        original = source.get(row["symbol"], {})
+        groups = original.get("screener_groups", {})
+        if (not isinstance(groups, dict) or len(groups) > len(SCREENER_GROUPS)
+                or not set(groups).issubset(SCREENER_GROUPS)
+                or any(type(rank) is not int or not 1 <= rank <= 100
+                       for rank in groups.values())):
+            raise ValueError("invalid_screener_context")
+        spread = original.get("iex_quote_spread_pct")
+        if (spread is not None
+                and (type(spread) not in (int, float) or not math.isfinite(spread)
+                     or not 0 <= spread <= 1000)):
+            raise ValueError("invalid_iex_spread_context")
+        row["screener_groups"] = copy.deepcopy(groups)
+        row["iex_quote_spread_pct"] = spread
+    return result
 
 
 def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> dict:
@@ -57,6 +80,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "iex_price": row.get("iex_price"),
             "iex_status": row.get("iex_status", "PRICE_FRESHNESS_UNVERIFIED"),
             "sec_status": row["sec_status"],
+            "screener_groups": copy.deepcopy(row.get("screener_groups", {})),
+            "iex_quote_spread_pct": row.get("iex_quote_spread_pct"),
             "review_filings": filing_reviews,
             "unreviewed_filings": max(0, len(row.get("review_filings", [])) - len(filing_reviews)),
             "float_verified": False,
@@ -114,7 +139,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                 for row in selected]}
             result["price_band_total"] = len(watch)
             result["truncated_candidates"] = truncated
-            return assemble(result, now, fetcher, delay)
+            return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
         sec_json = lambda url: fetch_sec_json(url, sec_user_agent)
     try:
         mapping = ticker_cik_map(sec_json(TICKERS_URL))
@@ -136,7 +161,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                 result["sec_bundle_provenance"] = bundle_input["provenance"]
                 result["price_band_total"] = len(watch)
                 result["truncated_candidates"] = truncated
-                return assemble(result, now, fetcher, delay)
+                return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
         result = {"status": source_status, "rows": [
             {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
              "iex_status": row.get("research_status", "PRICE_FRESHNESS_UNVERIFIED"),
@@ -165,7 +190,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
         result["sec_fetch_errors"] = errors
     result["price_band_total"] = len(watch)
     result["truncated_candidates"] = truncated
-    return assemble(result, now, fetcher, delay)
+    return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
 
 
 def render_html(report: dict) -> str:
