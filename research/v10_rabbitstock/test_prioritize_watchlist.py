@@ -86,6 +86,32 @@ class PrioritizeWatchlistTests(unittest.TestCase):
         self.assertIn("REGULAR_SESSION_VOLUME_PATTERN_UNAVAILABLE", result["risk_flags"])
         self.assertFalse(result["priority_is_buy_signal"])
 
+    def test_premarket_never_borrows_regular_volume_first_points(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["iex_status"] = "WATCH_ONLY_FRESH_IEX_PREMARKET"
+        strong["price_session_context"] = {
+            "status": "WATCH_ONLY_FRESH_IEX_PREMARKET",
+            "market_session": "PREMARKET", "trade_fresh": True,
+            "quote_fresh": True, "full_market_quote_verified": False,
+            "NO_ORDERS": True,
+        }
+        with_regular_pattern = next(
+            row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG"
+        )
+        strong["volume_first_context"]["volume_first_recent"] = False
+        without_regular_pattern = next(
+            row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG"
+        )
+        self.assertEqual(with_regular_pattern["research_priority_score"],
+                         without_regular_pattern["research_priority_score"])
+        self.assertNotIn("VOLUME_FIRST_RECENT",
+                         {reason["code"] for reason in with_regular_pattern["priority_reasons"]})
+        self.assertIn("PREMARKET_VOLUME_FIRST_UNVERIFIED",
+                      with_regular_pattern["risk_flags"])
+        self.assertNotEqual(with_regular_pattern["research_priority_label"],
+                            "PRIORITY_1_RESEARCH")
+
     def test_premarket_status_without_frozen_context_is_zero_and_held(self):
         item = report()
         item["rows"][1]["iex_status"] = "WATCH_ONLY_FRESH_IEX_PREMARKET"
