@@ -10,6 +10,10 @@ def watchlist():
         "rows": [{"ticker": "ABC", "iex_price": 1.0,
                   "screener_groups": {"active_volume": 4, "gainers": 2},
                   "iex_quote_spread_pct": 1.25,
+                  "volume_first_context": {
+                      "status": "OUTSIDE_US_REGULAR_CONTEXT_WINDOW",
+                      "volume_first_recent": False, "NO_ORDERS": True,
+                  },
                   "iex_status": "PENDING_STALE_OR_MISSING",
                   "sec_status": "SEC_NOT_CHECKED_CONTACT_REQUIRED"}],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
@@ -27,6 +31,8 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertEqual(first["events"][0]["screener_groups"],
                          {"active_volume": 4, "gainers": 2})
         self.assertEqual(first["events"][0]["iex_quote_spread_pct"], 1.25)
+        self.assertEqual(first["events"][0]["volume_first_context"]["status"],
+                         "OUTSIDE_US_REGULAR_CONTEXT_WINDOW")
         self.assertFalse(first["events"][0]["predicted_spike"])
 
     def test_tampering_with_old_event_is_rejected(self):
@@ -66,6 +72,19 @@ class ProspectiveLedgerTests(unittest.TestCase):
         item["rows"][0]["screener_groups"] = {"active_volume": 0}
         with self.assertRaisesRegex(ValueError, "invalid_screener_context"):
             append_observations(item, "2026-11-18T10:01:00Z")
+
+    def test_future_volume_first_pattern_is_rejected(self):
+        item = watchlist()
+        item["rows"][0]["volume_first_context"] = {
+            "status": "RECENT_VOLUME_FIRST_PATTERN_RESEARCH_ONLY",
+            "volume_first_recent": True,
+            "latest_pattern": {"iex_volume_ratio": 4.0,
+                               "six_bar_price_change_pct": 2.0,
+                               "bar_knowable_after_utc": "2026-11-18T10:01:00Z"},
+            "evidence_bars": [], "NO_ORDERS": True,
+        }
+        with self.assertRaisesRegex(ValueError, "future_volume_first_pattern_not_allowed"):
+            append_observations(item, "2026-11-18T10:02:00Z")
 
 
 if __name__ == "__main__":

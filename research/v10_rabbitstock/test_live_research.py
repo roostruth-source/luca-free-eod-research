@@ -59,6 +59,24 @@ def bundle_enrichment():
     }
 
 
+def volume_report():
+    return {
+        "schema_version": "LUCA_V10_VOLUME_FIRST_ASOF_1",
+        "status": "IEX_MINUTE_CONTEXT_COLLECTED",
+        "studied_symbols": 1,
+        "rows": [{
+            "symbol": "ABC", "status": "RECENT_VOLUME_FIRST_PATTERN_RESEARCH_ONLY",
+            "volume_first_recent": True,
+            "latest_pattern": {"iex_volume_ratio": 4.0,
+                               "six_bar_price_change_pct": 3.0,
+                               "bar_knowable_after_utc": "2026-11-17T23:59:00+00:00"},
+            "evidence_bars": [], "selection_limit": "CONCURRENT_SCREENER_SELECTION_NOT_EARLY_PROOF",
+            "NO_ORDERS": True,
+        }],
+        "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
+    }
+
+
 def triage():
     return {"status": "COLLECTED_PARTIAL_NOT_CLEARED", "rows": [{
         "symbol": "ABC", "iex_price": 1.0, "sec_status": "RECENT_FILINGS_REQUIRE_REVIEW",
@@ -140,7 +158,8 @@ class LiveResearchTests(unittest.TestCase):
         result = collect("key", "secret", now=ASOF,
                          enrichment_runner=lambda *a, **kw: bundle_enrichment(),
                          sec_json=blocked, fetcher=lambda url: "", delay=0,
-                         sec_bundle=official_bundle())
+                         sec_bundle=official_bundle(),
+                         volume_context_runner=lambda *a, **kw: volume_report())
         self.assertEqual(result["source_status"],
                          "SEC_OFFICIAL_BUNDLE_PARTIAL_NOT_CLEARED")
         self.assertEqual(result["sec_live_fetch_status"],
@@ -152,6 +171,9 @@ class LiveResearchTests(unittest.TestCase):
         self.assertEqual(result["rows"][0]["screener_groups"],
                          {"active_volume": 3, "gainers": 2})
         self.assertEqual(result["rows"][0]["iex_quote_spread_pct"], 1.5)
+        self.assertTrue(result["rows"][0]["volume_first_context"]["volume_first_recent"])
+        self.assertEqual(result["volume_first_collection_status"],
+                         "IEX_MINUTE_CONTEXT_COLLECTED")
         self.assertFalse(result["sec_bundle_provenance"]["independently_refetched_in_this_run"])
         self.assertFalse(result["sec_clearance"])
         self.assertTrue(result["NO_ORDERS"])

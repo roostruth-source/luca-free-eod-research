@@ -210,7 +210,15 @@ def _segment_labels(record: dict) -> list[str]:
         sec = "sec:source_unavailable_or_unchecked"
     else:
         sec = "sec:other_not_cleared"
-    return [volume, trades, mover, spread_label, sec]
+    if not record["volume_first_context_recorded"]:
+        volume_first = "volume_first:legacy_context_missing"
+    elif record["volume_first_context"].get("volume_first_recent") is True:
+        volume_first = "volume_first:recent_pattern"
+    elif record["volume_first_context"].get("status") == "NO_RECENT_VOLUME_FIRST_PATTERN":
+        volume_first = "volume_first:no_recent_pattern"
+    else:
+        volume_first = "volume_first:unavailable_or_not_studied"
+    return [volume, trades, mover, spread_label, sec, volume_first]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -261,6 +269,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "screener_groups": event.get("screener_groups", {}),
             "iex_quote_spread_pct": event.get("iex_quote_spread_pct"),
             "sec_status": event.get("sec_status", "SEC_STATUS_MISSING"),
+            "volume_first_context_recorded": "volume_first_context" in event,
+            "volume_first_context": event.get("volume_first_context", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })

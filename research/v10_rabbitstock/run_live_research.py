@@ -17,6 +17,8 @@ import urllib.error
 from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
+from volume_first_live import MAX_SYMBOLS as VOLUME_MAX_SYMBOLS
+from volume_first_live import collect as collect_volume_first
 
 V03_DIR = Path(__file__).resolve().parents[1] / "v03_stage24"
 sys.path.insert(0, str(V03_DIR))
@@ -46,7 +48,43 @@ def attach_candidate_context(result: dict, selected: list[dict]) -> dict:
             raise ValueError("invalid_iex_spread_context")
         row["screener_groups"] = copy.deepcopy(groups)
         row["iex_quote_spread_pct"] = spread
+        row["volume_first_context"] = copy.deepcopy(
+            original.get("volume_first_context", {
+                "status": "VOLUME_FIRST_CONTEXT_MISSING",
+                "volume_first_recent": False,
+                "NO_ORDERS": True,
+            }))
     return result
+
+
+def attach_volume_first(selected: list[dict], report: dict) -> None:
+    if (report.get("schema_version") != "LUCA_V10_VOLUME_FIRST_ASOF_1"
+            or report.get("NO_ORDERS") is not True
+            or report.get("validation_status") != "NOT_VALIDATED"):
+        raise ValueError("unsafe_volume_first_report")
+    rows = report.get("rows")
+    if not isinstance(rows, list) or len(rows) > VOLUME_MAX_SYMBOLS:
+        raise ValueError("invalid_volume_first_rows")
+    by_symbol = {}
+    for row in rows:
+        symbol = row.get("symbol")
+        if not isinstance(symbol, str) or symbol in by_symbol:
+            raise ValueError("invalid_volume_first_symbol")
+        by_symbol[symbol] = row
+    allowed = {row["symbol"] for row in selected[:VOLUME_MAX_SYMBOLS]}
+    if not set(by_symbol).issubset(allowed):
+        raise ValueError("volume_first_symbol_outside_studied_cap")
+    for index, row in enumerate(selected):
+        symbol = row["symbol"]
+        if symbol in by_symbol:
+            context = by_symbol[symbol]
+        elif index >= VOLUME_MAX_SYMBOLS:
+            context = {"status": "NOT_STUDIED_TOP_12_CAP", "volume_first_recent": False,
+                       "NO_ORDERS": True}
+        else:
+            context = {"status": report["status"], "volume_first_recent": False,
+                       "NO_ORDERS": True}
+        row["volume_first_context"] = copy.deepcopy(context)
 
 
 def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> dict:
@@ -82,6 +120,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "sec_status": row["sec_status"],
             "screener_groups": copy.deepcopy(row.get("screener_groups", {})),
             "iex_quote_spread_pct": row.get("iex_quote_spread_pct"),
+            "volume_first_context": copy.deepcopy(row.get("volume_first_context", {})),
             "review_filings": filing_reviews,
             "unreviewed_filings": max(0, len(row.get("review_filings", [])) - len(filing_reviews)),
             "float_verified": False,
@@ -104,7 +143,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         "rows": rows,
         **SAFETY,
     }
-    for key in ("sec_live_fetch_status", "sec_bundle_provenance"):
+    for key in ("sec_live_fetch_status", "sec_bundle_provenance",
+                "volume_first_collection_status"):
         if key in triage:
             report[key] = triage[key]
     return report
@@ -113,7 +153,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
 def collect(key: str, secret: str, now: datetime | None = None,
             enrichment_runner=enrich_run, sec_json=None,
             fetcher=None, delay=0.22, sec_user_agent: str = "",
-            sec_bundle: dict | None = None) -> dict:
+            sec_bundle: dict | None = None,
+            volume_context_runner=collect_volume_first) -> dict:
     now = now or datetime.now(timezone.utc)
     if fetcher is None:
         fetcher = lambda url: fetch_filing(url, sec_user_agent)
@@ -124,8 +165,11 @@ def collect(key: str, secret: str, now: datetime | None = None,
         return assemble({"status": "DISCOVERY_UNAVAILABLE", "rows": []}, now, fetcher, delay)
     watch = [row for row in enrichment["rows"] if row["price_band_0_20_to_20"]]
     # Preserve the screener's deterministic order, record exactly what was excluded.
-    selected = watch[:50]
+    selected = copy.deepcopy(watch[:50])
     truncated = len(watch) - len(selected)
+    volume_report = volume_context_runner(
+        [row["symbol"] for row in selected], key, secret, now)
+    attach_volume_first(selected, volume_report)
     bounded = copy.deepcopy(enrichment)
     bounded["rows"] = selected
     if sec_json is None:
@@ -139,6 +183,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                 for row in selected]}
             result["price_band_total"] = len(watch)
             result["truncated_candidates"] = truncated
+            result["volume_first_collection_status"] = volume_report["status"]
             return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
         sec_json = lambda url: fetch_sec_json(url, sec_user_agent)
     try:
@@ -161,6 +206,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                 result["sec_bundle_provenance"] = bundle_input["provenance"]
                 result["price_band_total"] = len(watch)
                 result["truncated_candidates"] = truncated
+                result["volume_first_collection_status"] = volume_report["status"]
                 return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
         result = {"status": source_status, "rows": [
             {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
@@ -190,6 +236,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
         result["sec_fetch_errors"] = errors
     result["price_band_total"] = len(watch)
     result["truncated_candidates"] = truncated
+    result["volume_first_collection_status"] = volume_report["status"]
     return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
 
 
