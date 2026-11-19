@@ -195,6 +195,8 @@ def validate_official_bundle(bundle: dict, asof: datetime,
                                 "sec_bundle_capture_http_date")
             retrieved = _timestamp(receipt.get("retrieved_at_utc"),
                                    "sec_bundle_capture_retrieved")
+            if not started <= retrieved <= completed:
+                raise ValueError("sec_bundle_capture_submission_outside_window")
             if abs(retrieved - server) > MAX_CAPTURE_CLOCK_SKEW:
                 raise ValueError("sec_bundle_capture_clock_skew_excessive")
         timestamp_provenance = "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK"
