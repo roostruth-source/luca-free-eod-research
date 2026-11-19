@@ -6,10 +6,12 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 
 ZERO = "0" * 64
 MAX_EVENTS = 5000
+SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
 
 
 def _time(raw: str) -> datetime:
@@ -22,6 +24,21 @@ def _time(raw: str) -> datetime:
 def _hash(value: dict) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
                                     separators=(",", ":")).encode()).hexdigest()
+
+
+def _candidate_context(row: dict) -> tuple[dict, float | int | None]:
+    groups = row.get("screener_groups", {})
+    if (not isinstance(groups, dict) or len(groups) > len(SCREENER_GROUPS)
+            or not set(groups).issubset(SCREENER_GROUPS)
+            or any(type(rank) is not int or not 1 <= rank <= 100
+                   for rank in groups.values())):
+        raise ValueError("invalid_screener_context")
+    spread = row.get("iex_quote_spread_pct")
+    if (spread is not None
+            and (type(spread) not in (int, float) or not math.isfinite(spread)
+                 or not 0 <= spread <= 1000)):
+        raise ValueError("invalid_iex_spread_context")
+    return dict(groups), spread
 
 
 def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
@@ -61,12 +78,15 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         if identity in known:
             continue
         known.add(identity)
+        groups, spread = _candidate_context(row)
         item = {
             "ticker": row["ticker"],
             "observed_at": observed_at.isoformat(),
             "iex_reference_price": row.get("iex_price"),
             "iex_status": row["iex_status"],
             "sec_status": row["sec_status"],
+            "screener_groups": groups,
+            "iex_quote_spread_pct": spread,
             "observation_status": "FRESH_WATCH_ONLY" if row["iex_status"] == "WATCH_ONLY_FRESH_IEX"
                                   else "STALE_OR_MISSING_PRICE_BLOCKED",
             "outcome_status": "PENDING_NOT_MATURE",
