@@ -67,6 +67,15 @@ class NumericLeadTests(unittest.TestCase):
                 self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
                 self.assertFalse(result['orders_enabled'])
 
+    def test_spaced_signed_amounts_not_reported_as_positive(self):
+        for amount in ('- $0.25', '+ $0.25', '− $0.25', '– 0.25', '＋ $0.25'):
+            with self.subTest(amount=amount):
+                result = extract_numeric_leads('Variable conversion price is ' + amount + '.')
+                self.assertEqual(result['numeric_leads'], [])
+                self.assertEqual(result['decision'], 'HOLD_UNVERIFIED')
+                self.assertEqual(result['sec_status'], 'SEC_UNVERIFIED')
+                self.assertFalse(result['orders_enabled'])
+
     def test_accounting_negative_currency_not_reported_positive(self):
         # Parentheses commonly represent negative values in financial documents.
         result = extract_numeric_leads('Variable conversion price is ($0.25).')
