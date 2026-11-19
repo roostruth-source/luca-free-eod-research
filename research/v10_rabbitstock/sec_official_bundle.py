@@ -125,6 +125,8 @@ def validate_official_bundle(bundle: dict, asof: datetime,
                                "sec_bundle_retrieved")
         if retrieved > collected or retrieved > asof_utc:
             raise ValueError("sec_bundle_future_retrieval_not_allowed")
+        if asof_utc - retrieved > MAX_AGE:
+            raise ValueError("sec_bundle_submission_stale")
         payload = entry.get("payload")
         if not isinstance(payload, dict) or payload.get("cik") != selected_map[symbol]:
             raise ValueError("sec_bundle_submission_payload_invalid")
