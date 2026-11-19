@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>루카 V0.3 · 연구 보고서 보기</title>
+<style>
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif}
+body{margin:0;background:#f3f5f8;color:#192330}main{max-width:720px;margin:auto;padding:22px 16px 50px}
+h1{font-size:1.6rem;margin:0 0 8px}h2{font-size:1.12rem;margin:20px 0 10px}
+p{line-height:1.65}.notice{background:#fff2df;border-left:4px solid #a96612;padding:14px;border-radius:8px}
+.panel{background:white;border:1px solid #d9dfe6;border-radius:14px;padding:18px;margin-top:16px}
+input{max-width:100%;font-size:1rem}button{font-size:1rem;border:0;border-radius:8px;padding:10px 14px;background:#184a7a;color:white}
+.report{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75;font-size:1.02rem}
+small{color:#526170}a{color:#1766aa}
+@media(prefers-color-scheme:dark){body{background:#121b25;color:#e6ebf1}.panel{background:#202d3b;border-color:#3a4857}.notice{background:#3d3020;color:#ffe4b5}small{color:#bac7d5}}
+</style></head><body><main>
+<h1>루카 V0.3 · 연구 보고서</h1>
+<p>아이폰에서 한국어 연구 결과를 읽기 쉽게 보여주는 <strong>오프라인 뷰어</strong>입니다.</p>
+<div class="notice"><strong>연구 전용 · 매수 금지</strong><p>NOT_VALIDATED: 급등 예측 능력이 아직 검증되지 않았습니다.<br>SEC_UNVERIFIED: 증자·전환사채 등 공시 위험을 모두 확인하지 못했습니다.<br>실제 거래 주문은 지원하지 않습니다.</p></div>
+<section class="panel"><h2>보고서 열기</h2><p>루카에서 생성한 한국어 보고서 <code>.md</code> 또는 <code>.txt</code> 파일을 선택하세요. 파일은 기기 안에서만 읽습니다.</p>
+<input id="file" type="file" accept=".md,.txt,text/plain,text/markdown" aria-label="한국어 보고서 파일 선택">
+<p><small id="status" role="status">아직 보고서를 선택하지 않았습니다.</small></p>
+</section>
+<section class="panel"><h2>보고 내용</h2><div class="report" id="report" aria-live="polite">보고서를 선택하면 여기에 표시됩니다. 자료가 없으면 수익률을 임의로 만들지 않습니다.</div></section>
+<section class="panel"><h2>표시 기준</h2><p><strong>분봉:</strong> 1분마다 기록한 주가입니다.<br><strong>신호:</strong> 연구 규칙에 맞는 움직임입니다. 매수 추천이 아닙니다.<br><strong>확인 불가:</strong> 자료가 부족하다는 뜻입니다. 0% 수익률이 아닙니다.</p></section>
+</main><script>
+"use strict";
+const input=document.getElementById("file"),report=document.getElementById("report"),status=document.getElementById("status");
+input.addEventListener("change",async()=>{
+ const file=input.files&&input.files[0];if(!file)return;
+ if(file.size>2000000){status.textContent="파일이 너무 큽니다(최대 2MB).";return}
+ if(!/\.(md|txt)$/i.test(file.name)){status.textContent="MD 또는 TXT 파일만 열 수 있습니다.";return}
+ try{
+  const text=await file.text();
+  report.textContent=text||"빈 보고서입니다.";
+  status.textContent="불러옴: "+file.name+" · 읽기 전용";
+ }catch(e){status.textContent="파일을 읽지 못했습니다.";report.textContent="보고서 표시 실패";}
+});
+</script></body></html>
