@@ -160,7 +160,25 @@ V40 당시 자동검사 107개와 동결 자료 실행은 통과했다. 이후 W
 
 두 번째 실측 Actions 실행은 후보 50개, `SEC_TICKER_MAP_HTTP_403`, 자동검사 123개 통과였다. 보고서는 각 가격의 IEX 신선도 상태도 따로 표시한다. SEC 확인 0건이며, 50개를 매수 신호나 조기포착 성공 사례로 세지 않는다.
 
-SEC의 공식 자동 접근 안내에 맞게 GitHub Actions 변수 `SEC_USER_AGENT`에 `LUCA-Research contact@example.com` 형식의 **실제 연락 가능한 프로젝트 이메일**을 설정해야 SEC 요청을 시작한다. 미설정 시 `SEC_CONTACT_NOT_CONFIGURED`로 후보는 보존하고 SEC 확인을 중단한다. 403이 계속되면 요청을 우회하거나 다른 출처를 SEC 원문으로 가장하지 않는다. 요청은 공식 티커 지도·제출 이력·원문 URL만 허용하고 느린 속도와 크기 상한을 적용한다.
+SEC의 공식 자동 접근 안내에 맞게 GitHub Actions의 암호화된 Secret `SEC_USER_AGENT`에 `LUCA-Research contact@example.com` 형식의 **실제 연락 가능한 프로젝트 이메일**을 설정해야 SEC 요청을 시작한다. 미설정 시 `SEC_CONTACT_NOT_CONFIGURED`로 후보는 보존하고 SEC 확인을 중단한다. 403이 계속되면 요청을 우회하거나 다른 출처를 SEC 원문으로 가장하지 않는다. 요청은 공식 티커 지도·제출 이력·원문 URL만 허용하고 느린 속도와 크기 상한을 적용한다.
+
+GitHub 서버가 SEC 공식 주소를 403으로 막는 경우 `sec_official_bundle.py`는 다른 허용 환경에서 미리 받은 공식 JSON만 제한적으로 받아들인다. 묶음에는 공식 URL, 수집시각, CIK, 원문 JSON의 SHA-256이 들어가며 72시간보다 오래됐거나 미래시각·비공식 주소·해시 불일치·CIK 불일치가 있으면 거부한다. GitHub 실행에서 같은 자료를 다시 받았다고 주장하지 않고 `independently_refetched_in_this_run=false`, `SEC_OFFICIAL_BUNDLE_PARTIAL_NOT_CLEARED`로 표시한다. 이 자료도 SEC 안전 승인이나 매수 허용 근거가 아니다.
+
+`build_sec_official_bundle.py`는 네트워크 요청을 하지 않는다. 허용 환경에서 직접 내려받은 `company_tickers.json`과 `data.sec.gov/submissions/CIK##########.json` 원본을 입력으로 받아 현재 후보만 묶는다. 실사용 시에는 암호화된 Actions Secret `SEC_USER_AGENT`를 사용하며 평문 저장소 변수에 이메일을 두지 않는다.
+
+```bash
+python build_sec_official_bundle.py \
+  --ticker-map raw/company_tickers.json \
+  --submissions-dir raw/submissions \
+  --symbols raw/symbols.json \
+  --collected-at "2026-11-19T01:00:00+09:00" \
+  --output build_inputs/sec_official_bundle.json
+
+python run_live_research.py \
+  --sec-bundle build_inputs/sec_official_bundle.json \
+  --output build_outputs/live_watchlist.json \
+  --html-output build_outputs/live_watchlist.html
+```
 
 `prospective_ledger.py`는 실행 당시 관찰 후보의 시각·IEX 가격 신선도·SEC 상태만 해시 체인으로 보존한다. 이후 가격을 과거 후보에 소급해 쓰거나 이를 매수 신호로 부르지 않는다. Actions는 앞선 성공 실행의 결과물에서 기존 원장을 복원해 덧붙인다. 복원할 자료가 없으면 새 계열(`NEW_SERIES_PREVIOUS_UNAVAILABLE`)로 명확히 표시한다. 아카이브가 만료되면 연속성을 보장할 수 없으므로 장기 보존과 실제 후속 일봉 연결은 추가 작업이다.
 
