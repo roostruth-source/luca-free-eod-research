@@ -108,6 +108,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                   "score": 80, "rank": 1,
                                   "label": "PRIORITY_1_RESEARCH",
                                   "priority_is_buy_signal": False},
+            "security_scope": {"status": "COMMON_EQUITY_CANDIDATE_SCOPE"},
         })
         second = event()
         second.update({
@@ -121,6 +122,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                   "score": 45, "rank": 2,
                                   "label": "PRIORITY_2_WATCH",
                                   "priority_is_buy_signal": False},
+            "security_scope": {"status": "EXCLUDED_ETF_OR_ETP"},
         })
         result = build_outcomes(ledger_many(first, second), {
             **BARS,
@@ -139,6 +141,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("volume_first:no_recent_pattern", segments)
         self.assertIn("priority:priority_1_research", segments)
         self.assertIn("priority:priority_2_watch", segments)
+        self.assertIn("security_scope:common_equity_candidate_scope", segments)
+        self.assertIn("security_scope:excluded_etf_or_etp", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 
 

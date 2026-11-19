@@ -13,7 +13,8 @@ ZERO = "0" * 64
 MAX_EVENTS = 5000
 SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
 PRIORITY_LABELS = {"PRIORITY_1_RESEARCH", "PRIORITY_2_WATCH",
-                   "PRIORITY_3_LOW_EVIDENCE", "HOLD_STALE_OR_MISSING_PRICE"}
+                   "PRIORITY_3_LOW_EVIDENCE", "HOLD_STALE_OR_MISSING_PRICE",
+                   "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED"}
 
 
 def _time(raw: str) -> datetime:
@@ -125,6 +126,20 @@ def _priority_context(row: dict) -> dict:
             "priority_is_buy_signal": False}
 
 
+def _security_scope_context(row: dict) -> dict:
+    raw = row.get("security_scope", {
+        "status": "SYMBOL_SCOPE_CONTEXT_MISSING", "security_name": None,
+    })
+    if not isinstance(raw, dict) or not isinstance(raw.get("status"), str):
+        raise ValueError("invalid_security_scope_context")
+    name = raw.get("security_name")
+    if name is not None and not isinstance(name, str):
+        raise ValueError("invalid_security_scope_name")
+    return {key: raw.get(key) for key in (
+        "status", "security_name", "etf_flag", "test_issue", "exchange_code",
+        "financial_status", "source_url")}
+
+
 def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
     now = _time(built_at)
     observed_at = _time(report["collected_at"])
@@ -165,6 +180,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         groups, spread = _candidate_context(row)
         volume_first = _volume_first_context(row, observed_at)
         priority = _priority_context(row)
+        security_scope = _security_scope_context(row)
         item = {
             "ticker": row["ticker"],
             "observed_at": observed_at.isoformat(),
@@ -175,6 +191,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "iex_quote_spread_pct": spread,
             "volume_first_context": volume_first,
             "research_priority": priority,
+            "security_scope": security_scope,
             "observation_status": "FRESH_WATCH_ONLY" if row["iex_status"] == "WATCH_ONLY_FRESH_IEX"
                                   else "STALE_OR_MISSING_PRICE_BLOCKED",
             "outcome_status": "PENDING_NOT_MATURE",

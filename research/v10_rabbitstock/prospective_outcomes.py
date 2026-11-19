@@ -223,7 +223,12 @@ def _segment_labels(record: dict) -> list[str]:
     else:
         label = record["research_priority"].get("label", "not_computed").lower()
         priority = "priority:" + label
-    return [volume, trades, mover, spread_label, sec, volume_first, priority]
+    if not record["security_scope_recorded"]:
+        scope = "security_scope:legacy_context_missing"
+    else:
+        scope = "security_scope:" + record["security_scope"].get(
+            "status", "missing").lower()
+    return [volume, trades, mover, spread_label, sec, volume_first, priority, scope]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -278,6 +283,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "volume_first_context": event.get("volume_first_context", {}),
             "research_priority_recorded": "research_priority" in event,
             "research_priority": event.get("research_priority", {}),
+            "security_scope_recorded": "security_scope" in event,
+            "security_scope": event.get("security_scope", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })
