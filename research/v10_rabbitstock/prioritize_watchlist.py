@@ -69,9 +69,14 @@ def prioritize(report: dict) -> dict:
         if premarket:
             risks.extend(["PREMARKET_SINGLE_EXCHANGE_CONTEXT",
                           "REGULAR_SESSION_VOLUME_PATTERN_UNAVAILABLE"])
-        if volume.get("volume_first_recent") is True:
+        # A regular-session volume pattern is not proof of premarket volume.
+        regular_volume_confirmed = (volume.get("volume_first_recent") is True
+                                    and not premarket_declared)
+        if regular_volume_confirmed:
             score += 35
             reasons.append({"code": "VOLUME_FIRST_RECENT", "ko": "최근 거래량 선행 연구 패턴"})
+        elif premarket_declared:
+            risks.append("PREMARKET_VOLUME_FIRST_UNVERIFIED")
         else:
             risks.append("VOLUME_FIRST_NOT_CONFIRMED")
         volume_rank = groups.get("active_volume")
@@ -115,7 +120,7 @@ def prioritize(report: dict) -> dict:
             risks.append("PRICE_STALE_OR_MISSING")
         elif premarket:
             label = "PRIORITY_2_WATCH" if score >= 40 else "PRIORITY_3_LOW_EVIDENCE"
-        elif volume.get("volume_first_recent") is True and score >= 60:
+        elif regular_volume_confirmed and score >= 60:
             label = "PRIORITY_1_RESEARCH"
         elif score >= 40:
             label = "PRIORITY_2_WATCH"
