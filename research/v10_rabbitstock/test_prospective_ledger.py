@@ -109,6 +109,42 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_research_priority"):
             append_observations(item, "2026-11-18T10:01:00Z")
 
+    def test_premarket_price_context_is_frozen_as_separate_fresh_observation(self):
+        item = watchlist()
+        item["collected_at"] = "2026-11-18T12:05:00Z"
+        row = item["rows"][0]
+        row["iex_status"] = "WATCH_ONLY_FRESH_IEX_PREMARKET"
+        row["price_session_context"] = {
+            "status": "WATCH_ONLY_FRESH_IEX_PREMARKET",
+            "market_session": "PREMARKET",
+            "trade_timestamp_utc": "2026-11-18T12:04:00Z",
+            "quote_timestamp_utc": "2026-11-18T12:04:30Z",
+            "trade_age_seconds": 60, "quote_age_seconds": 30,
+            "trade_fresh": True, "quote_fresh": True,
+            "full_market_quote_verified": False,
+            "source": "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP", "NO_ORDERS": True,
+        }
+        result = append_observations(item, "2026-11-18T12:06:00Z")
+        event = result["events"][0]
+        self.assertEqual(event["observation_status"], "FRESH_PREMARKET_WATCH_ONLY")
+        self.assertEqual(event["price_session_context"]["market_session"], "PREMARKET")
+
+    def test_future_or_full_market_price_context_claim_is_rejected(self):
+        item = watchlist()
+        row = item["rows"][0]
+        row["price_session_context"] = {
+            "status": row["iex_status"], "market_session": "PREMARKET",
+            "trade_timestamp_utc": "2026-11-18T10:01:00Z",
+            "quote_timestamp_utc": "2026-11-18T09:59:00Z",
+            "full_market_quote_verified": False, "NO_ORDERS": True,
+        }
+        with self.assertRaisesRegex(ValueError, "future_price_session_evidence"):
+            append_observations(item, "2026-11-18T10:02:00Z")
+        row["price_session_context"]["trade_timestamp_utc"] = "2026-11-18T09:59:00Z"
+        row["price_session_context"]["full_market_quote_verified"] = True
+        with self.assertRaisesRegex(ValueError, "full_market_quote_claim_not_allowed"):
+            append_observations(item, "2026-11-18T10:02:00Z")
+
 
 if __name__ == "__main__":
     unittest.main()

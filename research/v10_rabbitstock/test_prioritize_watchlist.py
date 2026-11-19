@@ -68,6 +68,32 @@ class PrioritizeWatchlistTests(unittest.TestCase):
                          "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED")
         self.assertIn("EXCLUDED_ETF_OR_ETP", strong["risk_flags"])
 
+    def test_premarket_fresh_context_is_ranked_but_never_priority_one(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["iex_status"] = "WATCH_ONLY_FRESH_IEX_PREMARKET"
+        strong["price_session_context"] = {
+            "status": "WATCH_ONLY_FRESH_IEX_PREMARKET",
+            "market_session": "PREMARKET", "trade_fresh": True,
+            "quote_fresh": True, "full_market_quote_verified": False,
+            "NO_ORDERS": True,
+        }
+        result = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
+        self.assertEqual(result["research_priority_label"], "PRIORITY_2_WATCH")
+        self.assertIn("FRESH_PREMARKET_IEX",
+                      {reason["code"] for reason in result["priority_reasons"]})
+        self.assertIn("PREMARKET_SINGLE_EXCHANGE_CONTEXT", result["risk_flags"])
+        self.assertIn("REGULAR_SESSION_VOLUME_PATTERN_UNAVAILABLE", result["risk_flags"])
+        self.assertFalse(result["priority_is_buy_signal"])
+
+    def test_premarket_status_without_frozen_context_is_zero_and_held(self):
+        item = report()
+        item["rows"][1]["iex_status"] = "WATCH_ONLY_FRESH_IEX_PREMARKET"
+        result = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
+        self.assertEqual(result["research_priority_score"], 0)
+        self.assertEqual(result["research_priority_label"], "HOLD_STALE_OR_MISSING_PRICE")
+        self.assertIn("PREMARKET_CONTEXT_INVALID", result["risk_flags"])
+
 
 if __name__ == "__main__":
     unittest.main()

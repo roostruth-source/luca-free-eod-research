@@ -19,6 +19,7 @@ from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
 from prioritize_watchlist import prioritize
 from nasdaq_symbol_scope import collect as collect_symbol_scope
+from price_session_context import classify as classify_price_session
 from volume_first_live import MAX_SYMBOLS as VOLUME_MAX_SYMBOLS
 from volume_first_live import collect as collect_volume_first
 
@@ -61,6 +62,19 @@ def attach_candidate_context(result: dict, selected: list[dict]) -> dict:
                 "status": "SYMBOL_SCOPE_CONTEXT_MISSING",
                 "security_name": None,
             }))
+        price_context = copy.deepcopy(original.get("price_session_context", {
+            "status": row.get("iex_status", "PRICE_FRESHNESS_UNVERIFIED"),
+            "market_session": "UNKNOWN", "NO_ORDERS": True,
+        }))
+        if (not isinstance(price_context, dict)
+                or price_context.get("NO_ORDERS") is not True):
+            raise ValueError("unsafe_price_session_context")
+        row["price_session_context"] = price_context
+        row["iex_status"] = price_context["status"]
+    sessions = {row.get("price_session_context", {}).get("market_session")
+                for row in result.get("rows", [])}
+    if len(sessions) == 1:
+        result["market_session"] = sessions.pop()
     return result
 
 
@@ -151,6 +165,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "iex_quote_spread_pct": row.get("iex_quote_spread_pct"),
             "volume_first_context": copy.deepcopy(row.get("volume_first_context", {})),
             "security_scope": copy.deepcopy(row.get("security_scope", {})),
+            "price_session_context": copy.deepcopy(row.get("price_session_context", {})),
             "review_filings": filing_reviews,
             "unreviewed_filings": max(0, len(row.get("review_filings", [])) - len(filing_reviews)),
             "float_verified": False,
@@ -173,7 +188,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         "rows": rows,
         **SAFETY,
     }
-    for key in ("sec_live_fetch_status", "sec_bundle_provenance",
+    for key in ("sec_live_fetch_status", "sec_bundle_provenance", "market_session",
                 "volume_first_collection_status", "security_scope_collection_status"):
         if key in triage:
             report[key] = triage[key]
@@ -198,6 +213,8 @@ def collect(key: str, secret: str, now: datetime | None = None,
     # Preserve the screener's deterministic order, record exactly what was excluded.
     selected = copy.deepcopy(watch[:50])
     truncated = len(watch) - len(selected)
+    for row in selected:
+        row["price_session_context"] = classify_price_session(row, now)
     volume_report = volume_context_runner(
         [row["symbol"] for row in selected], key, secret, now)
     attach_volume_first(selected, volume_report)
