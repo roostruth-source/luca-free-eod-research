@@ -164,14 +164,19 @@ SEC의 공식 자동 접근 안내에 맞게 GitHub Actions의 암호화된 Secr
 
 GitHub 서버가 SEC 공식 주소를 403으로 막는 경우 `sec_official_bundle.py`는 다른 허용 환경에서 미리 받은 공식 JSON만 제한적으로 받아들인다. 묶음에는 공식 URL, 수집시각, CIK, 원문 JSON의 SHA-256이 들어가며 72시간보다 오래됐거나 미래시각·비공식 주소·해시 불일치·CIK 불일치가 있으면 거부한다. GitHub 실행에서 같은 자료를 다시 받았다고 주장하지 않고 `independently_refetched_in_this_run=false`, `SEC_OFFICIAL_BUNDLE_PARTIAL_NOT_CLEARED`로 표시한다. 이 자료도 SEC 안전 승인이나 매수 허용 근거가 아니다.
 
-`build_sec_official_bundle.py`는 네트워크 요청을 하지 않는다. 허용 환경에서 직접 내려받은 `company_tickers.json`과 `data.sec.gov/submissions/CIK##########.json` 원본을 입력으로 받아 현재 후보만 묶는다. 실사용 시에는 암호화된 Actions Secret `SEC_USER_AGENT`를 사용하며 평문 저장소 변수에 이메일을 두지 않는다.
+`capture_sec_official_inputs.py`는 SEC 공식 주소에 직접 GET 요청하고 응답의 HTTP `Date`와 로컬 UTC 완료시각이 15분 이내인지 확인한다. 서버 시간이 없거나 시계 차이가 크면 수집을 거부한다. 연락 이메일은 결과 파일에 저장하지 않는다. `build_sec_official_bundle.py`는 수집기가 만든 원본과 `capture_manifest.json`을 다시 대조하며, 사용자가 직접 입력하는 `--collected-at`은 더 이상 받지 않는다. 이 영수증도 제3자 전자서명은 아니므로 `independent_timestamp_fully_verified=false`를 유지한다.
 
 ```bash
-python build_sec_official_bundle.py \
-  --ticker-map raw/company_tickers.json \
-  --submissions-dir raw/submissions \
+python capture_sec_official_inputs.py \
   --symbols raw/symbols.json \
-  --collected-at "2026-11-19T01:00:00+09:00" \
+  --user-agent "$SEC_USER_AGENT" \
+  --output-dir raw/sec_capture
+
+python build_sec_official_bundle.py \
+  --ticker-map raw/sec_capture/company_tickers.json \
+  --submissions-dir raw/sec_capture/submissions \
+  --symbols raw/symbols.json \
+  --capture-manifest raw/sec_capture/capture_manifest.json \
   --output build_inputs/sec_official_bundle.json
 
 python run_live_research.py \

@@ -27,6 +27,8 @@ MAX_EXPECTED_SYMBOLS = 50
 MAX_TICKER_ENTRIES = 5_000
 MAX_SUBMISSIONS = 100
 MAX_AGE = timedelta(hours=72)
+CAPTURE_SCHEMA = "LUCA_V10_SEC_DIRECT_CAPTURE_1"
+MAX_CAPTURE_CLOCK_SKEW = timedelta(minutes=15)
 
 
 def canonical_sha256(value: object) -> str:
@@ -141,6 +143,63 @@ def validate_official_bundle(bundle: dict, asof: datetime,
             "sha256": digest,
         }
 
+    capture_manifest = bundle.get("capture_manifest")
+    if capture_manifest is None:
+        timestamp_provenance = "LEGACY_BUILDER_CLOCK_ONLY"
+        capture_revalidated = False
+    else:
+        if (not isinstance(capture_manifest, dict)
+                or capture_manifest.get("schema_version") != CAPTURE_SCHEMA
+                or capture_manifest.get("source") != SOURCE
+                or capture_manifest.get("NO_ORDERS") is not True
+                or capture_manifest.get("timestamp_basis")
+                != "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK"
+                or capture_manifest.get("independent_timestamp_fully_verified") is not False):
+            raise ValueError("sec_bundle_capture_manifest_invalid")
+        manifest_expected = capture_manifest.get("expected_symbols")
+        if (not isinstance(manifest_expected, list)
+                or len(manifest_expected) != len(expected)
+                or set(manifest_expected) != expected):
+            raise ValueError("sec_bundle_capture_expected_symbols_mismatch")
+        started = _timestamp(capture_manifest.get("started_at_utc"),
+                             "sec_bundle_capture_started")
+        completed = _timestamp(capture_manifest.get("completed_at_utc"),
+                               "sec_bundle_capture_completed")
+        if (completed != collected or completed < started
+                or completed - started > timedelta(minutes=20)):
+            raise ValueError("sec_bundle_capture_window_invalid")
+        ticker_receipt = capture_manifest.get("ticker_map")
+        if (not isinstance(ticker_receipt, dict)
+                or ticker_receipt.get("source_url") != TICKERS_URL
+                or not isinstance(ticker_receipt.get("canonical_sha256"), str)
+                or not SHA256.fullmatch(ticker_receipt["canonical_sha256"])):
+            raise ValueError("sec_bundle_capture_ticker_receipt_invalid")
+        ticker_retrieved = _timestamp(ticker_receipt.get("retrieved_at_utc"),
+                                      "sec_bundle_capture_ticker_retrieved")
+        ticker_server = _timestamp(ticker_receipt.get("http_date_utc"),
+                                   "sec_bundle_capture_ticker_http_date")
+        if (not started <= ticker_retrieved <= completed
+                or abs(ticker_retrieved - ticker_server) > MAX_CAPTURE_CLOCK_SKEW):
+            raise ValueError("sec_bundle_capture_ticker_time_invalid")
+        receipts = capture_manifest.get("submissions")
+        if not isinstance(receipts, dict) or set(receipts) != set(submissions):
+            raise ValueError("sec_bundle_capture_receipts_mismatch")
+        for symbol, source in selected_sources.items():
+            receipt = receipts.get(symbol)
+            if (not isinstance(receipt, dict)
+                    or receipt.get("source_url") != source["source_url"]
+                    or receipt.get("retrieved_at_utc") != source["retrieved_at_utc"]
+                    or receipt.get("canonical_sha256") != source["sha256"]):
+                raise ValueError("sec_bundle_capture_receipt_invalid")
+            server = _timestamp(receipt.get("http_date_utc"),
+                                "sec_bundle_capture_http_date")
+            retrieved = _timestamp(receipt.get("retrieved_at_utc"),
+                                   "sec_bundle_capture_retrieved")
+            if abs(retrieved - server) > MAX_CAPTURE_CLOCK_SKEW:
+                raise ValueError("sec_bundle_capture_clock_skew_excessive")
+        timestamp_provenance = "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK"
+        capture_revalidated = True
+
     mapped = len(selected_map)
     available = len(selected_submissions)
     return {
@@ -158,6 +217,9 @@ def validate_official_bundle(bundle: dict, asof: datetime,
             "mapped_symbols": mapped,
             "submissions_available": available,
             "submission_sources": selected_sources,
+            "retrieval_time_provenance": timestamp_provenance,
+            "capture_manifest_revalidated": capture_revalidated,
+            "independent_timestamp_fully_verified": False,
             "independently_refetched_in_this_run": False,
             "sec_clearance": False,
             "validation_status": "NOT_VALIDATED",
