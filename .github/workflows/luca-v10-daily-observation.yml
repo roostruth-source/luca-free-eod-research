@@ -39,7 +39,11 @@ jobs:
           ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: |
-          python run_live_research.py \
+          bundle_args=()
+          if [ -f build_inputs/sec_official_bundle.json ]; then
+            bundle_args=(--sec-bundle build_inputs/sec_official_bundle.json)
+          fi
+          python run_live_research.py "${bundle_args[@]}" \
             --output build_outputs/live_watchlist.json \
             --html-output build_outputs/live_watchlist.html
       - name: Restore preceding daily ledger
