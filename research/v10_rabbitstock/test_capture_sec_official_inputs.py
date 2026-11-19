@@ -82,6 +82,21 @@ class CaptureSecOfficialInputsTests(unittest.TestCase):
         self.assertTrue(provenance["capture_manifest_revalidated"])
         self.assertFalse(provenance["independent_timestamp_fully_verified"])
 
+    def test_validator_rejects_receipt_outside_capture_window(self):
+        result = capture(["ABC"], "LUCA-Research contact@example.com",
+                         opener=opener, clock=lambda: NOW, sleeper=lambda _: None)
+        bundle = build(result["ticker_payload"], result["submission_payloads"],
+                       ["ABC"], NOW, capture_manifest=result["manifest"])
+        # A consistent hash and HTTP Date cannot justify a receipt timestamp
+        # outside the capture's own started/completed window.
+        earlier = "2026-11-19T08:00:00+00:00"
+        bundle["submissions"]["ABC"]["retrieved_at_utc"] = earlier
+        receipt = bundle["capture_manifest"]["submissions"]["ABC"]
+        receipt["retrieved_at_utc"] = earlier
+        receipt["http_date_utc"] = earlier
+        with self.assertRaisesRegex(ValueError, "submission_outside_window"):
+            validate_official_bundle(bundle, NOW, ["ABC"])
+
     def test_tampered_capture_receipt_is_rejected_by_builder(self):
         result = capture(["ABC"], "LUCA-Research contact@example.com",
                          opener=opener, clock=lambda: NOW, sleeper=lambda _: None)
