@@ -14,7 +14,8 @@ MAX_EVENTS = 5000
 SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
 PRIORITY_LABELS = {"PRIORITY_1_RESEARCH", "PRIORITY_2_WATCH",
                    "PRIORITY_3_LOW_EVIDENCE", "HOLD_STALE_OR_MISSING_PRICE",
-                   "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED"}
+                   "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED",
+                   "HOLD_FINANCIAL_OR_LISTING_STATUS"}
 
 
 def _time(raw: str) -> datetime:
@@ -137,7 +138,8 @@ def _security_scope_context(row: dict) -> dict:
         raise ValueError("invalid_security_scope_name")
     return {key: raw.get(key) for key in (
         "status", "security_name", "etf_flag", "test_issue", "exchange_code",
-        "financial_status", "source_url")}
+        "financial_status", "financial_status_label", "financial_status_risk",
+        "financial_status_ko", "source_url")}
 
 
 def _price_session_context(row: dict, observed_at: datetime) -> dict:
@@ -155,7 +157,7 @@ def _price_session_context(row: dict, observed_at: datetime) -> dict:
     frozen = {key: raw.get(key) for key in (
         "status", "market_session", "trade_timestamp_utc", "quote_timestamp_utc",
         "trade_age_seconds", "quote_age_seconds", "trade_fresh", "quote_fresh",
-        "full_market_quote_verified", "source")}
+        "full_market_quote_verified", "source", "rejection_reasons")}
     for key in ("trade_timestamp_utc", "quote_timestamp_utc"):
         if frozen[key] is not None and _time(frozen[key]) > observed_at:
             raise ValueError("future_price_session_evidence_not_allowed")

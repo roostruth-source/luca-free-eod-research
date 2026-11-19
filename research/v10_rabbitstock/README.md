@@ -197,9 +197,11 @@ python run_live_research.py \
 
 `prioritize_watchlist.py`는 모바일 보고서의 관찰 순서만 정한다. 신선한 IEX 가격 20점, 최근 Volume-First 연구 패턴 35점, 거래량 순위 최대 20점, 거래 횟수 순위 최대 10점, 상승 목록 5점, IEX 스프레드 최대 10점을 미리 정한 공식으로 합산한다. 가격이 오래됐으면 다른 조건과 무관하게 0점 보류이며, 넓은 스프레드는 10점을 뺀다. 60점 이상이면서 정규장 Volume-First가 있을 때만 `우선 관찰`, 40점 이상은 `일반 관찰`로 표시한다. 모든 카드에 SEC·Float 미검증과 동시점 스크리너 편향을 표시하며 점수는 매수 점수가 아니다. 점수·이유·위험은 해시 원장에 함께 고정되어 나중에 결과를 보고 바꿀 수 없다.
 
-`price_session_context.py`는 미국 동부시간 평일 오전 4시부터 9시 30분까지를 Premarket(장전)으로 분리한다. 장전에는 IEX 최근 체결과 호가가 모두 관찰시각보다 미래가 아니고 10분 이내이며, 유효한 매수·매도 호가로 스프레드를 계산할 수 있을 때만 `WATCH_ONLY_FRESH_IEX_PREMARKET`으로 남긴다. IEX는 미국 전체 통합시세가 아니라 단일 거래소 자료이므로 `PREMARKET_SINGLE_EXCHANGE_CONTEXT` 위험을 붙이고, 정규장 Volume-First가 없으므로 장전 후보는 `우선 관찰`로 올리지 않는다. 장전 표본은 해시 원장과 성과표에서 정규장 표본과 별도 구간으로 평가하며 주문 기능은 계속 없다.
+`price_session_context.py`는 미국 동부시간 평일 오전 4시부터 9시 30분까지를 Premarket(장전)으로 분리한다. 장전에는 IEX 최근 체결과 호가가 모두 관찰시각보다 미래가 아니고 10분 이내이며, 유효한 매수·매도 호가로 스프레드를 계산할 수 있을 때만 `WATCH_ONLY_FRESH_IEX_PREMARKET`으로 남긴다. 라이브 관찰시각은 API 요청 시작시각이 아니라 모든 snapshot 응답을 받은 완료시각으로 고정하며, 그래도 미래로 표시된 체결·호가는 `FUTURE_TIMESTAMP_REJECTED`로 버린다. IEX는 미국 전체 통합시세가 아니라 단일 거래소 자료이므로 `PREMARKET_SINGLE_EXCHANGE_CONTEXT` 위험을 붙이고, 정규장 Volume-First가 없으므로 장전 후보는 `우선 관찰`로 올리지 않는다. 장전 표본은 해시 원장과 성과표에서 정규장 표본과 별도 구간으로 평가하며 주문 기능은 계속 없다.
 
 `nasdaq_symbol_scope.py`는 Nasdaq Trader의 공식 `nasdaqlisted.txt`와 `otherlisted.txt`를 읽어 ETF 표시, Test Issue, 종목명을 보존한다. 공식 디렉터리에서 보통주 후보 범위로 확인된 종목만 관찰 점수를 받을 수 있다. ETF·ETP, 시험 종목, 이름에 Warrant·Unit·Right·Preferred·Note·Bond가 표시된 증권은 삭제하지 않고 0점 보류로 남겨 제외 이유를 감사할 수 있게 한다. 공식 디렉터리 접근 실패나 미매핑도 추정하지 않고 0점 보류한다.
+
+Nasdaq 상장종목의 `Financial Status`도 같은 공식 디렉터리에서 고정한다. `N`은 Normal(정상)이며, `D`(계속상장 요건 미달), `E`(규제 공시기한 미준수), `Q`(파산)와 결합 상태 `G/H/J/K`, `S`(거래정지), `C`(ETP 설정·환매 정지)는 거래량·장전 가격이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점 보류로 남긴다. 이 표시는 Nasdaq의 현재 상태 경고이지 최저주가 유예기간·청문·상장폐지 효력일 전체를 대신하지 않으므로 별도 공시 검증은 계속 필요하다. 다른 거래소 종목은 이 필드가 공식 파일에 없으므로 정상으로 추정하지 않고 `NOT_AVAILABLE`로 보존한다.
 
 `validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
 

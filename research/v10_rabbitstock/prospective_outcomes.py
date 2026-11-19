@@ -228,6 +228,11 @@ def _segment_labels(record: dict) -> list[str]:
     else:
         scope = "security_scope:" + record["security_scope"].get(
             "status", "missing").lower()
+    if not record["security_scope_recorded"]:
+        financial = "financial_status:legacy_context_missing"
+    else:
+        financial = "financial_status:" + str(record["security_scope"].get(
+            "financial_status", "unverified")).lower()
     if record["observation_status"] == "FRESH_PREMARKET_WATCH_ONLY":
         session = "session:premarket"
     elif record["observation_status"] == "FRESH_WATCH_ONLY":
@@ -235,7 +240,7 @@ def _segment_labels(record: dict) -> list[str]:
     else:
         session = "session:stale_or_missing_blocked"
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            session]
+            financial, session]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:

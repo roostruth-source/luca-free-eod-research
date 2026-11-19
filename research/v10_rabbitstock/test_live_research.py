@@ -113,6 +113,8 @@ def symbol_scope_report(symbols):
                   "security_name": symbol + " Inc. Common Stock",
                   "etf_flag": "N", "test_issue": "N",
                   "exchange_code": "NASDAQ", "financial_status": "N",
+                  "financial_status_label": "NORMAL", "financial_status_risk": False,
+                  "financial_status_ko": "정상",
                   "source_url": "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"}
                  for symbol in symbols],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
@@ -251,6 +253,28 @@ class LiveResearchTests(unittest.TestCase):
         self.assertIn("PREMARKET_SINGLE_EXCHANGE_CONTEXT", first["risk_flags"])
         self.assertFalse(first["priority_is_buy_signal"])
         self.assertTrue(first["NO_ORDERS"])
+
+    def test_live_asof_uses_enrichment_completion_not_request_start(self):
+        start = datetime(2026, 11, 18, 12, 4, 55, tzinfo=timezone.utc)
+        completed = datetime(2026, 11, 18, 12, 5, tzinfo=timezone.utc)
+        wall = completed + timedelta(seconds=1)
+        live = bundle_enrichment()
+        live["collected_at_utc"] = completed.isoformat()
+        live["rows"][0]["iex_last_trade_utc"] = "2026-11-18T12:04:59Z"
+        live["rows"][0]["iex_quote_utc"] = "2026-11-18T12:04:59Z"
+        live["rows"][0]["research_status"] = "PENDING_STALE_OR_MISSING"
+        ticks = iter([start, wall])
+        result = collect(
+            "key", "secret", enrichment_runner=lambda *a, **kw: live, delay=0,
+            volume_context_runner=lambda *a, **kw: {
+                "schema_version": "LUCA_V10_VOLUME_FIRST_ASOF_1",
+                "status": "OUTSIDE_US_REGULAR_CONTEXT_WINDOW", "rows": [],
+                "NO_ORDERS": True, "validation_status": "NOT_VALIDATED"},
+            symbol_scope_runner=lambda symbols, asof: symbol_scope_report(symbols),
+            clock=lambda: next(ticks))
+        self.assertEqual(result["collected_at"], completed.isoformat())
+        self.assertEqual(result["rows"][0]["iex_status"],
+                         "WATCH_ONLY_FRESH_IEX_PREMARKET")
 
     def test_invalid_candidate_context_fails_closed(self):
         enrichment = bundle_enrichment()

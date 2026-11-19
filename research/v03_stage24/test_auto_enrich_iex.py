@@ -126,6 +126,21 @@ class EnrichmentTests(unittest.TestCase):
         self.assertEqual(r["discovered_count"],2)
         self.assertEqual(r["fresh_iex_watch_count"],1)
 
+    def test_live_collection_timestamp_is_after_snapshot_fetch(self):
+        ticks = iter([
+            dt.datetime(2026, 10, 27, 13, 58, tzinfo=dt.timezone.utc),
+            T,
+        ])
+        def opener(req,timeout):
+            if "/snapshots" in req.full_url:
+                return FakeResponse(json.dumps(S).encode())
+            if "most-actives" in req.full_url:
+                return FakeResponse(json.dumps({"most_actives":[{"symbol":"GPUS"},{"symbol":"LAES"}]}).encode())
+            return FakeResponse(json.dumps({"gainers":[],"losers":[]}).encode())
+        result = run("k", "s", opener=opener, clock=lambda: next(ticks))
+        self.assertEqual(result["collected_at_utc"], T.isoformat())
+        self.assertEqual(result["fresh_iex_watch_count"], 1)
+
 
 if __name__=="__main__":
     unittest.main()

@@ -10,6 +10,7 @@ ABC|ABC Inc. - Common Stock|S|N|N|100|N|N
 FUND|Example Daily ETF|G|N|N|100|Y|N
 WRTW|Example Inc. - Warrants|S|N|N|100|N|N
 TEST|Nasdaq Test Issue|Q|Y|N|100|N|N
+RISK|Risk Inc. - Common Stock|S|N|D|100|N|N
 File Creation Time: 1119202612:00||||||||
 """
 OTHER = """ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol
@@ -42,6 +43,13 @@ class NasdaqSymbolScopeTests(unittest.TestCase):
         self.assertEqual(records["FUND"]["status"], "EXCLUDED_ETF_OR_ETP")
         self.assertEqual(records["WRTW"]["status"], "EXCLUDED_NON_COMMON_NAME")
         self.assertEqual(records["TEST"]["status"], "EXCLUDED_TEST_ISSUE")
+        self.assertEqual(records["ABC"]["financial_status_label"], "NORMAL")
+        self.assertFalse(records["ABC"]["financial_status_risk"])
+        self.assertEqual(records["RISK"]["financial_status_label"],
+                         "DEFICIENT_CONTINUED_LISTING_REQUIREMENTS")
+        self.assertEqual(records["RISK"]["financial_status_ko"],
+                         "계속상장 요건 미달")
+        self.assertTrue(records["RISK"]["financial_status_risk"])
         self.assertTrue(creation.startswith("File Creation Time:"))
 
     def test_collect_joins_both_official_directories_and_keeps_missing_unknown(self):
@@ -50,6 +58,8 @@ class NasdaqSymbolScopeTests(unittest.TestCase):
         self.assertEqual(result["status"], "OFFICIAL_NASDAQ_DIRECTORY_COLLECTED")
         self.assertEqual(by["ABC"]["status"], "COMMON_EQUITY_CANDIDATE_SCOPE")
         self.assertEqual(by["XYZ"]["exchange_code"], "N")
+        self.assertEqual(by["XYZ"]["financial_status"], "NOT_AVAILABLE")
+        self.assertIsNone(by["XYZ"]["financial_status_risk"])
         self.assertEqual(by["NONE"]["status"], "SYMBOL_DIRECTORY_NOT_MAPPED")
         self.assertTrue(result["NO_ORDERS"])
 

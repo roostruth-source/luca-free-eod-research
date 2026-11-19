@@ -15,6 +15,30 @@ MAX_BYTES = 5_000_000
 SYMBOL = re.compile(r"[A-Z][A-Z0-9.\-]{0,13}")
 NON_COMMON_NAME = re.compile(
     r"\b(WARRANTS?|UNITS?|RIGHTS?|PREFERRED|NOTES?|BONDS?)\b", re.IGNORECASE)
+FINANCIAL_STATUS_LABELS = {
+    "N": "NORMAL",
+    "D": "DEFICIENT_CONTINUED_LISTING_REQUIREMENTS",
+    "E": "DELINQUENT_REGULATORY_FILING",
+    "Q": "BANKRUPT",
+    "G": "DEFICIENT_AND_BANKRUPT",
+    "H": "DEFICIENT_AND_DELINQUENT",
+    "J": "DELINQUENT_AND_BANKRUPT",
+    "K": "DEFICIENT_DELINQUENT_AND_BANKRUPT",
+    "S": "SUSPENDED",
+    "C": "ETP_CREATIONS_OR_REDEMPTIONS_SUSPENDED",
+}
+FINANCIAL_STATUS_KO = {
+    "N": "정상",
+    "D": "계속상장 요건 미달",
+    "E": "규제 공시기한 미준수",
+    "Q": "파산",
+    "G": "계속상장 요건 미달·파산",
+    "H": "계속상장 요건 미달·공시 지연",
+    "J": "공시 지연·파산",
+    "K": "계속상장 요건 미달·공시 지연·파산",
+    "S": "거래정지",
+    "C": "ETP 설정·환매 정지",
+}
 
 
 def _fetch(url: str, opener=None) -> tuple[str, dict]:
@@ -58,7 +82,11 @@ def parse_directory(text: str, source_url: str) -> tuple[dict[str, dict], str]:
     data_lines = [line for line in lines if not line.startswith("File Creation Time:")]
     reader = csv.DictReader(io.StringIO("\n".join(data_lines)), delimiter="|")
     symbol_field = "Symbol" if source_url == NASDAQ_URL else "ACT Symbol"
-    required = {symbol_field, "Security Name", "Test Issue"}
+    required = {symbol_field, "Security Name", "Test Issue", "ETF"}
+    if source_url == NASDAQ_URL:
+        required.add("Financial Status")
+    else:
+        required.add("Exchange")
     if reader.fieldnames is None or not required.issubset(reader.fieldnames):
         raise ValueError("symbol_directory_columns_missing")
     records = {}
@@ -88,11 +116,25 @@ def parse_directory(text: str, source_url: str) -> tuple[dict[str, dict], str]:
             status = "EXCLUDED_NON_COMMON_NAME"
         else:
             status = "COMMON_EQUITY_CANDIDATE_SCOPE"
+        financial_status = row.get("Financial Status", "").strip().upper()
+        if source_url == NASDAQ_URL:
+            financial_label = FINANCIAL_STATUS_LABELS.get(
+                financial_status, "UNRECOGNIZED_FINANCIAL_STATUS")
+            financial_ko = FINANCIAL_STATUS_KO.get(financial_status, "알 수 없는 상태 코드")
+            financial_risk = financial_status != "N"
+        else:
+            financial_status = "NOT_AVAILABLE"
+            financial_label = "NOT_AVAILABLE_FOR_OTHER_LISTED"
+            financial_ko = "다른 거래소 공식 파일에 미제공"
+            financial_risk = None
         records[symbol] = {
             "status": status, "security_name": name,
             "etf_flag": etf or "UNKNOWN", "test_issue": test_issue,
             "exchange_code": row.get("Exchange") or "NASDAQ",
-            "financial_status": row.get("Financial Status") or "UNKNOWN",
+            "financial_status": financial_status or "UNKNOWN",
+            "financial_status_label": financial_label,
+            "financial_status_ko": financial_ko,
+            "financial_status_risk": financial_risk,
             "source_url": source_url,
         }
     return records, creation
@@ -132,6 +174,9 @@ def collect(symbols: list[str], asof: datetime, opener=None) -> dict:
             "status": "SYMBOL_DIRECTORY_NOT_MAPPED",
             "security_name": None, "etf_flag": "UNKNOWN", "test_issue": "UNKNOWN",
             "exchange_code": "UNKNOWN", "financial_status": "UNKNOWN",
+            "financial_status_label": "UNVERIFIED",
+            "financial_status_ko": "미확인",
+            "financial_status_risk": None,
             "source_url": None,
         })})
     return {

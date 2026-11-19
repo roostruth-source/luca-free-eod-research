@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 import json
 import math
@@ -200,15 +200,29 @@ def collect(key: str, secret: str, now: datetime | None = None,
             fetcher=None, delay=0.22, sec_user_agent: str = "",
             sec_bundle: dict | None = None,
             volume_context_runner=collect_volume_first,
-            symbol_scope_runner=None) -> dict:
-    now = now or datetime.now(timezone.utc)
+            symbol_scope_runner=None, clock=None) -> dict:
+    clock = clock or (lambda: datetime.now(timezone.utc))
+    fixed_asof = now is not None
+    started_at = now or clock()
+    now = started_at
     if fetcher is None:
         fetcher = lambda url: fetch_filing(url, sec_user_agent)
     if not key or not secret:
         return assemble({"status": "NO_ALPACA_KEYS", "rows": []}, now, fetcher, delay)
-    enrichment = enrichment_runner(key, secret, now=now)
+    enrichment = enrichment_runner(key, secret, now=now if fixed_asof else None)
     if enrichment.get("status") != "COLLECTED_UNVERIFIED":
         return assemble({"status": "DISCOVERY_UNAVAILABLE", "rows": []}, now, fetcher, delay)
+    if not fixed_asof:
+        try:
+            collected = datetime.fromisoformat(
+                enrichment["collected_at_utc"].replace("Z", "+00:00"))
+        except (KeyError, AttributeError, ValueError) as exc:
+            raise ValueError("enrichment_collection_timestamp_invalid") from exc
+        wall_now = clock()
+        if (collected.tzinfo is None or collected < started_at
+                or collected > wall_now + timedelta(seconds=5)):
+            raise ValueError("enrichment_collection_timestamp_out_of_bounds")
+        now = collected.astimezone(timezone.utc)
     watch = [row for row in enrichment["rows"] if row["price_band_0_20_to_20"]]
     # Preserve the screener's deterministic order, record exactly what was excluded.
     selected = copy.deepcopy(watch[:50])
@@ -330,6 +344,12 @@ def render_html(report: dict) -> str:
                      + "<br>종목 종류: "
                      + escape(row["security_scope"].get("status", "미확인"))
                      + (" · " + escape(row["security_scope"].get("security_name") or ""))
+                     + "<br>거래소 재무상태: "
+                     + escape(row["security_scope"].get("financial_status", "미확인"))
+                     + " · "
+                     + escape(row["security_scope"].get("financial_status_ko", "미확인"))
+                     + " (" + escape(row["security_scope"].get(
+                         "financial_status_label", "UNVERIFIED")) + ")"
                      + "<br>Volume-First: "
                      + escape(row["volume_first_context"].get("status", "미확인"))
                      + "<br>SEC: " + escape(row["sec_status"])
