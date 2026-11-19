@@ -157,7 +157,7 @@ def _price_session_context(row: dict, observed_at: datetime) -> dict:
     frozen = {key: raw.get(key) for key in (
         "status", "market_session", "trade_timestamp_utc", "quote_timestamp_utc",
         "trade_age_seconds", "quote_age_seconds", "trade_fresh", "quote_fresh",
-        "full_market_quote_verified", "source")}
+        "full_market_quote_verified", "source", "rejection_reasons")}
     for key in ("trade_timestamp_utc", "quote_timestamp_utc"):
         if frozen[key] is not None and _time(frozen[key]) > observed_at:
             raise ValueError("future_price_session_evidence_not_allowed")

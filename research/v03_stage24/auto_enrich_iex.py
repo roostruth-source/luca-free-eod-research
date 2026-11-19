@@ -136,9 +136,11 @@ def annotate(discovery, snapshots, now):
     }
 
 
-def run(key, secret, opener=None, now=None):
-    now = now or dt.datetime.now(UTC)
-    discovery = collect(key, secret, opener=opener, now=now)
+def run(key, secret, opener=None, now=None, clock=None):
+    clock = clock or (lambda: dt.datetime.now(UTC))
+    fixed_asof = now is not None
+    discovery_now = now or clock()
+    discovery = collect(key, secret, opener=opener, now=discovery_now)
     if discovery.get("discovery_status") != "COLLECTED_UNVERIFIED":
         return {"status":"DISCOVERY_UNAVAILABLE","details":discovery,"validation_status":"NOT_VALIDATED",
                 "real_trades_allowed":False}
@@ -159,7 +161,10 @@ def run(key, secret, opener=None, now=None):
         return {"status":"SNAPSHOTS_UNAVAILABLE","discovered_count":len(symbols),
                 "batches":batches,"validation_status":"NOT_VALIDATED",
                 "real_trades_allowed":False,"rows":[]}
-    out=annotate(discovery,snapshots,now)
+    # A live observation is knowable only after all snapshot responses return.
+    # Tests and frozen replays may still supply an explicit immutable as-of.
+    observation_now = now if fixed_asof else clock()
+    out=annotate(discovery,snapshots,observation_now)
     out["status"]="COLLECTED_UNVERIFIED"
     out["batches"]=batches
     return out

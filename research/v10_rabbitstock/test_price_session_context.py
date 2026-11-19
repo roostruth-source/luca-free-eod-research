@@ -35,6 +35,9 @@ class PriceSessionContextTests(unittest.TestCase):
         asof = datetime(2026, 11, 19, 12, 5, tzinfo=timezone.utc)
         self.assertEqual(classify(row(trade="2026-11-19T11:00:00Z"), asof)["status"], PENDING)
         self.assertEqual(classify(row(trade="2026-11-19T12:06:00Z"), asof)["status"], PENDING)
+        future = classify(row(trade="2026-11-19T12:06:00Z"), asof)
+        self.assertIsNone(future["trade_timestamp_utc"])
+        self.assertIn("FUTURE_TRADE_TIMESTAMP_REJECTED", future["rejection_reasons"])
         item = row()
         item["iex_quote_spread_pct"] = None
         self.assertEqual(classify(item, asof)["status"], PENDING)

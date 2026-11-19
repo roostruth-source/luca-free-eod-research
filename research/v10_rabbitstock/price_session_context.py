@@ -53,6 +53,8 @@ def classify(row: dict, asof: datetime) -> dict:
     quote_time = _timestamp(row.get("iex_quote_utc"))
     trade_age = (now - trade_time).total_seconds() if trade_time else None
     quote_age = (now - quote_time).total_seconds() if quote_time else None
+    trade_future = trade_age is not None and trade_age < 0
+    quote_future = quote_age is not None and quote_age < 0
     trade_fresh = trade_age is not None and 0 <= trade_age <= MAX_AGE_SECONDS
     quote_fresh = quote_age is not None and 0 <= quote_age <= MAX_AGE_SECONDS
     spread = row.get("iex_quote_spread_pct")
@@ -71,13 +73,15 @@ def classify(row: dict, asof: datetime) -> dict:
     return {
         "status": status,
         "market_session": session,
-        "trade_timestamp_utc": trade_time.isoformat() if trade_time else None,
-        "quote_timestamp_utc": quote_time.isoformat() if quote_time else None,
-        "trade_age_seconds": round(trade_age) if trade_age is not None else None,
-        "quote_age_seconds": round(quote_age) if quote_age is not None else None,
+        "trade_timestamp_utc": trade_time.isoformat() if trade_time and not trade_future else None,
+        "quote_timestamp_utc": quote_time.isoformat() if quote_time and not quote_future else None,
+        "trade_age_seconds": round(trade_age) if trade_age is not None and not trade_future else None,
+        "quote_age_seconds": round(quote_age) if quote_age is not None and not quote_future else None,
         "trade_fresh": trade_fresh,
         "quote_fresh": quote_fresh,
         "full_market_quote_verified": False,
         "source": "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP",
+        "rejection_reasons": (["FUTURE_TRADE_TIMESTAMP_REJECTED"] if trade_future else [])
+                             + (["FUTURE_QUOTE_TIMESTAMP_REJECTED"] if quote_future else []),
         "NO_ORDERS": True,
     }
