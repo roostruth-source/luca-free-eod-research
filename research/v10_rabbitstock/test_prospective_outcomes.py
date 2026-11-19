@@ -13,6 +13,11 @@ def ledger(item):
             "NO_ORDERS": True}
 
 
+def ledger_many(*items):
+    return {"schema_version": "LUCA_V10_PROSPECTIVE_LEDGER_1", "events": list(items),
+            "NO_ORDERS": True}
+
+
 BARS = {"ABC": [
     {"session_date": "2026-11-18", "o": 1.0, "h": 1.2, "l": .9, "c": 1.1},
     {"session_date": "2026-11-19", "o": 1.1, "h": 1.4, "l": 1.0, "c": 1.3},
@@ -44,6 +49,40 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                 BARS, "2026-11-19T22:00:00Z")
         self.assertEqual(result["fresh_observation_count"], 0)
         self.assertFalse(result["records"][0]["eligible_for_model_validation"])
+
+    def test_descriptive_scorecard_uses_only_mature_fresh_candidates(self):
+        second = event()
+        second["ticker"] = "DEF"
+        second["chain_hash"] = "b" * 64
+        stale = event(status="STALE_OR_MISSING_PRICE_BLOCKED")
+        stale["ticker"] = "STALE"
+        stale["chain_hash"] = "c" * 64
+        bars = {
+            **BARS,
+            "DEF": [
+                {"session_date": "2026-11-18", "o": 1.0, "h": 1.05, "l": .80, "c": .90},
+                {"session_date": "2026-11-19", "o": .90, "h": 1.00, "l": .85, "c": .95},
+            ],
+            "STALE": BARS["ABC"],
+        }
+        result = build_outcomes(ledger_many(event(), second, stale), bars,
+                                "2026-11-19T22:00:00Z")
+        one_day = result["descriptive_candidate_scorecard"]["1"]
+        self.assertEqual(one_day["sample_size"], 2)
+        self.assertAlmostEqual(one_day["positive_close_rate_pct"], 50.0)
+        self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["5"], 100.0)
+        self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["10"], 50.0)
+        self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["20"], 50.0)
+        self.assertAlmostEqual(one_day["mae_minus_10_or_worse_rate_pct"], 50.0)
+        self.assertEqual(result["scorecard_scope"],
+                         "FRESH_PRICE_BAND_WATCHLIST_CANDIDATES_NOT_BUY_SIGNALS")
+        self.assertFalse(result["prediction_accuracy_verified"])
+
+    def test_scorecard_does_not_count_immature_horizon(self):
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
+        three_day = result["descriptive_candidate_scorecard"]["3"]
+        self.assertEqual(three_day["sample_size"], 0)
+        self.assertIsNone(three_day["mfe_hit_rates_pct"]["10"])
 
 
 if __name__ == "__main__":
