@@ -51,6 +51,17 @@ class SecOfficialBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unexpected_submission_symbol"):
             validate_official_bundle(bundle, ASOF, ["ABC"])
 
+    def test_validator_rejects_old_submission_with_fresh_bundle_timestamp(self):
+        ticker_payload = {
+            "0": {"ticker": "ABC", "cik_str": 123, "title": "ABC Inc."},
+        }
+        submission = {"cik": 123, "filings": {"recent": {}}}
+        bundle = build(ticker_payload, {"ABC": submission}, ["ABC"], ASOF)
+        bundle["submissions"]["ABC"]["retrieved_at_utc"] = (
+            ASOF - timedelta(hours=73)).isoformat()
+        with self.assertRaisesRegex(ValueError, "sec_bundle_submission_stale"):
+            validate_official_bundle(bundle, ASOF, ["ABC"])
+
     def test_validator_rejects_duplicate_expected_symbols(self):
         ticker_payload = {
             "0": {"ticker": "ABC", "cik_str": 123, "title": "ABC Inc."},
