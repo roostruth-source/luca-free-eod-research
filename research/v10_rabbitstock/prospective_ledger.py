@@ -12,6 +12,8 @@ from pathlib import Path
 ZERO = "0" * 64
 MAX_EVENTS = 5000
 SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
+PRIORITY_LABELS = {"PRIORITY_1_RESEARCH", "PRIORITY_2_WATCH",
+                   "PRIORITY_3_LOW_EVIDENCE", "HOLD_STALE_OR_MISSING_PRICE"}
 
 
 def _time(raw: str) -> datetime:
@@ -93,6 +95,36 @@ def _volume_first_context(row: dict, observed_at: datetime) -> dict:
             "selection_limit": raw.get("selection_limit"), "NO_ORDERS": True}
 
 
+def _priority_context(row: dict) -> dict:
+    if "research_priority_score" not in row:
+        return {"status": "PRIORITY_NOT_COMPUTED", "priority_is_buy_signal": False}
+    score = row.get("research_priority_score")
+    rank = row.get("research_priority_rank")
+    label = row.get("research_priority_label")
+    reasons = row.get("priority_reasons")
+    risks = row.get("risk_flags")
+    if (type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 100
+            or type(rank) is not int or not 1 <= rank <= 50
+            or label not in PRIORITY_LABELS
+            or row.get("priority_is_buy_signal") is not False
+            or row.get("buy_allowed") is not False
+            or not isinstance(reasons, list) or len(reasons) > 12
+            or not isinstance(risks, list) or len(risks) > 12):
+        raise ValueError("invalid_research_priority")
+    frozen_reasons = []
+    for reason in reasons:
+        if (not isinstance(reason, dict) or not isinstance(reason.get("code"), str)
+                or not isinstance(reason.get("ko"), str)):
+            raise ValueError("invalid_research_priority_reason")
+        frozen_reasons.append({"code": reason["code"], "ko": reason["ko"]})
+    if any(not isinstance(risk, str) or not risk for risk in risks):
+        raise ValueError("invalid_research_priority_risk")
+    return {"status": "PREDECLARED_RESEARCH_ORDER_NOT_BUY_SIGNAL",
+            "score": score, "rank": rank, "label": label,
+            "reasons": frozen_reasons, "risk_flags": list(risks),
+            "priority_is_buy_signal": False}
+
+
 def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
     now = _time(built_at)
     observed_at = _time(report["collected_at"])
@@ -132,6 +164,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         known.add(identity)
         groups, spread = _candidate_context(row)
         volume_first = _volume_first_context(row, observed_at)
+        priority = _priority_context(row)
         item = {
             "ticker": row["ticker"],
             "observed_at": observed_at.isoformat(),
@@ -141,6 +174,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "screener_groups": groups,
             "iex_quote_spread_pct": spread,
             "volume_first_context": volume_first,
+            "research_priority": priority,
             "observation_status": "FRESH_WATCH_ONLY" if row["iex_status"] == "WATCH_ONLY_FRESH_IEX"
                                   else "STALE_OR_MISSING_PRICE_BLOCKED",
             "outcome_status": "PENDING_NOT_MATURE",

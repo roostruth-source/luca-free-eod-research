@@ -104,6 +104,10 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             "sec_status": "RECENT_FILINGS_REQUIRE_REVIEW",
             "volume_first_context": {"status": "RECENT_VOLUME_FIRST_PATTERN_RESEARCH_ONLY",
                                      "volume_first_recent": True, "NO_ORDERS": True},
+            "research_priority": {"status": "PREDECLARED_RESEARCH_ORDER_NOT_BUY_SIGNAL",
+                                  "score": 80, "rank": 1,
+                                  "label": "PRIORITY_1_RESEARCH",
+                                  "priority_is_buy_signal": False},
         })
         second = event()
         second.update({
@@ -113,6 +117,10 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             "sec_status": "SEC_NOT_CHECKED_SOURCE_UNAVAILABLE",
             "volume_first_context": {"status": "NO_RECENT_VOLUME_FIRST_PATTERN",
                                      "volume_first_recent": False, "NO_ORDERS": True},
+            "research_priority": {"status": "PREDECLARED_RESEARCH_ORDER_NOT_BUY_SIGNAL",
+                                  "score": 45, "rank": 2,
+                                  "label": "PRIORITY_2_WATCH",
+                                  "priority_is_buy_signal": False},
         })
         result = build_outcomes(ledger_many(first, second), {
             **BARS,
@@ -129,6 +137,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("sec:source_unavailable_or_unchecked", segments)
         self.assertIn("volume_first:recent_pattern", segments)
         self.assertIn("volume_first:no_recent_pattern", segments)
+        self.assertIn("priority:priority_1_research", segments)
+        self.assertIn("priority:priority_2_watch", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 
 

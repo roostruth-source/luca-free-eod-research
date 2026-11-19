@@ -17,6 +17,7 @@ import urllib.error
 from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
+from prioritize_watchlist import prioritize
 from volume_first_live import MAX_SYMBOLS as VOLUME_MAX_SYMBOLS
 from volume_first_live import collect as collect_volume_first
 
@@ -147,7 +148,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
                 "volume_first_collection_status"):
         if key in triage:
             report[key] = triage[key]
-    return report
+    return prioritize(report)
 
 
 def collect(key: str, secret: str, now: datetime | None = None,
@@ -243,7 +244,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
 def render_html(report: dict) -> str:
     lines = ["<!doctype html><html lang='ko'><meta charset='utf-8'>",
              "<meta name='viewport' content='width=device-width, initial-scale=1'>",
-             "<title>LUCA 실측 관찰 보고</title><style>body{font:16px/1.6 system-ui;max-width:720px;margin:auto;padding:18px;background:#f6f7fb;color:#18202c}article{background:white;border:1px solid #ddd;border-radius:12px;padding:12px;margin:12px 0;overflow-wrap:anywhere}</style><main>",
+             "<title>LUCA 실측 관찰 보고</title><style>body{font:16px/1.55 system-ui;max-width:720px;margin:auto;padding:16px;background:#f4f6fa;color:#18202c}article{background:white;border:1px solid #d9deea;border-radius:14px;padding:14px;margin:12px 0;overflow-wrap:anywhere}.rank{font-size:14px;color:#667085}.score{font-size:24px;font-weight:800}.p1{border-left:6px solid #e65100}.p2{border-left:6px solid #1565c0}.hold{opacity:.72}.tag{display:inline-block;background:#eef2f8;border-radius:999px;padding:3px 8px;margin:2px;font-size:13px}.risk{color:#a12b2b}small{color:#667085}</style><main>",
              "<h1>LUCA 새 종목 관찰</h1>",
              "<p>관찰 전용 · 주문 없음 · 예측 미검증 · SEC 안전 판정 없음</p>",
              "<p>자료 기준: " + escape(report["collected_at"]) + " · 수집 상태: " + escape(report["source_status"]) + "</p>"]
@@ -254,10 +255,25 @@ def render_html(report: dict) -> str:
         lines.append("<p>이번 실행에서는 새 후보 자료를 확보하지 못했습니다.</p>")
     for row in report["rows"]:
         terms = sorted({m["term"] for f in row["review_filings"] for m in f.get("matched_terms", [])})
-        lines.append("<article><h2>" + escape(row["ticker"]) + "</h2><p>" + escape(row["state"])
-                     + " · 가격 기준: " + escape(row["iex_status"])
-                     + " · SEC: " + escape(row["sec_status"]) + "</p><p>문서 키워드: "
-                     + escape(", ".join(terms) or "확인 없음/미확인") + "</p></article>")
+        label = row["research_priority_label"]
+        css = "p1" if label == "PRIORITY_1_RESEARCH" else (
+            "p2" if label == "PRIORITY_2_WATCH" else "hold")
+        reasons = "".join("<span class='tag'>" + escape(item["ko"]) + "</span>"
+                          for item in row["priority_reasons"])
+        risks = ", ".join(row["risk_flags"])
+        lines.append("<article class='" + css + "'><div class='rank'>관찰 순위 #"
+                     + str(row["research_priority_rank"]) + "</div><h2>"
+                     + escape(row["ticker"]) + "</h2><div class='score'>"
+                     + str(row["research_priority_score"]) + "점 · "
+                     + escape(row["research_priority_ko"]) + "</div><p>" + reasons
+                     + "</p><p>가격: " + escape(row["iex_status"])
+                     + "<br>Volume-First: "
+                     + escape(row["volume_first_context"].get("status", "미확인"))
+                     + "<br>SEC: " + escape(row["sec_status"])
+                     + "<br>공시 키워드: "
+                     + escape(", ".join(terms) or "확인 없음/미확인")
+                     + "</p><p class='risk'>주의: " + escape(risks)
+                     + "</p><small>이 점수는 관찰 순서이며 매수 점수가 아닙니다.</small></article>")
     lines.append("<p>스크리너 일부 후보만 다룹니다. 공시 키워드는 계약 조건·현재 잔여 수량의 확정 근거가 아닙니다.</p></main></html>")
     return "\n".join(lines)
 

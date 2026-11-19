@@ -218,7 +218,12 @@ def _segment_labels(record: dict) -> list[str]:
         volume_first = "volume_first:no_recent_pattern"
     else:
         volume_first = "volume_first:unavailable_or_not_studied"
-    return [volume, trades, mover, spread_label, sec, volume_first]
+    if not record["research_priority_recorded"]:
+        priority = "priority:legacy_context_missing"
+    else:
+        label = record["research_priority"].get("label", "not_computed").lower()
+        priority = "priority:" + label
+    return [volume, trades, mover, spread_label, sec, volume_first, priority]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -271,6 +276,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "sec_status": event.get("sec_status", "SEC_STATUS_MISSING"),
             "volume_first_context_recorded": "volume_first_context" in event,
             "volume_first_context": event.get("volume_first_context", {}),
+            "research_priority_recorded": "research_priority" in event,
+            "research_priority": event.get("research_priority", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })

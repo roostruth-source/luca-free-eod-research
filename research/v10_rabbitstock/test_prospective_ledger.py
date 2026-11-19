@@ -14,6 +14,12 @@ def watchlist():
                       "status": "OUTSIDE_US_REGULAR_CONTEXT_WINDOW",
                       "volume_first_recent": False, "NO_ORDERS": True,
                   },
+                  "research_priority_score": 52,
+                  "research_priority_rank": 1,
+                  "research_priority_label": "PRIORITY_2_WATCH",
+                  "priority_reasons": [{"code": "FRESH_IEX", "ko": "최근 가격"}],
+                  "risk_flags": ["SEC_UNVERIFIED"],
+                  "priority_is_buy_signal": False, "buy_allowed": False,
                   "iex_status": "PENDING_STALE_OR_MISSING",
                   "sec_status": "SEC_NOT_CHECKED_CONTACT_REQUIRED"}],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
@@ -33,6 +39,9 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertEqual(first["events"][0]["iex_quote_spread_pct"], 1.25)
         self.assertEqual(first["events"][0]["volume_first_context"]["status"],
                          "OUTSIDE_US_REGULAR_CONTEXT_WINDOW")
+        self.assertEqual(first["events"][0]["research_priority"]["label"],
+                         "PRIORITY_2_WATCH")
+        self.assertFalse(first["events"][0]["research_priority"]["priority_is_buy_signal"])
         self.assertFalse(first["events"][0]["predicted_spike"])
 
     def test_tampering_with_old_event_is_rejected(self):
@@ -85,6 +94,12 @@ class ProspectiveLedgerTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "future_volume_first_pattern_not_allowed"):
             append_observations(item, "2026-11-18T10:02:00Z")
+
+    def test_priority_cannot_be_turned_into_buy_signal(self):
+        item = watchlist()
+        item["rows"][0]["priority_is_buy_signal"] = True
+        with self.assertRaisesRegex(ValueError, "invalid_research_priority"):
+            append_observations(item, "2026-11-18T10:01:00Z")
 
 
 if __name__ == "__main__":
