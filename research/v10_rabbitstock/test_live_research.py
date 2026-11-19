@@ -14,6 +14,9 @@ ASOF = datetime(2026, 11, 18, tzinfo=timezone.utc)
 
 def official_bundle(*, collected_at=None):
     collected_at = collected_at or ASOF - timedelta(minutes=5)
+    started_at = collected_at - timedelta(minutes=2)
+    ticker_retrieved_at = started_at
+    submission_retrieved_at = collected_at - timedelta(minutes=1)
     ticker_map = {"ABC": 123}
     payload = {
         "cik": 123,
@@ -34,10 +37,32 @@ def official_bundle(*, collected_at=None):
         "ticker_map_sha256": canonical_sha256(ticker_map),
         "submissions": {"ABC": {
             "source_url": "https://data.sec.gov/submissions/CIK0000000123.json",
-            "retrieved_at_utc": (collected_at - timedelta(minutes=1)).isoformat(),
+            "retrieved_at_utc": submission_retrieved_at.isoformat(),
             "payload": payload,
             "sha256": canonical_sha256(payload),
         }},
+        "capture_manifest": {
+            "schema_version": "LUCA_V10_SEC_DIRECT_CAPTURE_1",
+            "source": "SEC_OFFICIAL",
+            "expected_symbols": ["ABC"],
+            "started_at_utc": started_at.isoformat(),
+            "completed_at_utc": collected_at.isoformat(),
+            "timestamp_basis": "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK",
+            "independent_timestamp_fully_verified": False,
+            "ticker_map": {
+                "source_url": "https://www.sec.gov/files/company_tickers.json",
+                "retrieved_at_utc": ticker_retrieved_at.isoformat(),
+                "http_date_utc": ticker_retrieved_at.isoformat(),
+                "canonical_sha256": canonical_sha256(ticker_map),
+            },
+            "submissions": {"ABC": {
+                "source_url": "https://data.sec.gov/submissions/CIK0000000123.json",
+                "retrieved_at_utc": submission_retrieved_at.isoformat(),
+                "http_date_utc": submission_retrieved_at.isoformat(),
+                "canonical_sha256": canonical_sha256(payload),
+            }},
+            "NO_ORDERS": True,
+        },
     }
 
 
@@ -73,6 +98,21 @@ def volume_report():
             "evidence_bars": [], "selection_limit": "CONCURRENT_SCREENER_SELECTION_NOT_EARLY_PROOF",
             "NO_ORDERS": True,
         }],
+        "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
+    }
+
+
+def symbol_scope_report(symbols):
+    return {
+        "schema_version": "LUCA_V10_SYMBOL_SCOPE_1",
+        "status": "OFFICIAL_NASDAQ_DIRECTORY_COLLECTED",
+        "rows": [{"symbol": symbol,
+                  "status": "COMMON_EQUITY_CANDIDATE_SCOPE",
+                  "security_name": symbol + " Inc. Common Stock",
+                  "etf_flag": "N", "test_issue": "N",
+                  "exchange_code": "NASDAQ", "financial_status": "N",
+                  "source_url": "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"}
+                 for symbol in symbols],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
     }
 
@@ -159,7 +199,9 @@ class LiveResearchTests(unittest.TestCase):
                          enrichment_runner=lambda *a, **kw: bundle_enrichment(),
                          sec_json=blocked, fetcher=lambda url: "", delay=0,
                          sec_bundle=official_bundle(),
-                         volume_context_runner=lambda *a, **kw: volume_report())
+                         volume_context_runner=lambda *a, **kw: volume_report(),
+                         symbol_scope_runner=lambda symbols, now:
+                             symbol_scope_report(symbols))
         self.assertEqual(result["source_status"],
                          "SEC_OFFICIAL_BUNDLE_PARTIAL_NOT_CLEARED")
         self.assertEqual(result["sec_live_fetch_status"],
@@ -176,6 +218,8 @@ class LiveResearchTests(unittest.TestCase):
                          "IEX_MINUTE_CONTEXT_COLLECTED")
         self.assertEqual(result["rows"][0]["research_priority_label"],
                          "PRIORITY_1_RESEARCH")
+        self.assertEqual(result["rows"][0]["security_scope"]["status"],
+                         "COMMON_EQUITY_CANDIDATE_SCOPE")
         self.assertFalse(result["rows"][0]["priority_is_buy_signal"])
         self.assertFalse(result["sec_bundle_provenance"]["independently_refetched_in_this_run"])
         self.assertFalse(result["sec_clearance"])

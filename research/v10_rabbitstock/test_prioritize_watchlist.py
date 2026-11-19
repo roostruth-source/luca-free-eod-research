@@ -8,14 +8,20 @@ def report():
         "rows": [
             {"ticker": "WEAK", "iex_status": "WATCH_ONLY_FRESH_IEX",
              "screener_groups": {}, "iex_quote_spread_pct": 12.0,
-             "volume_first_context": {"volume_first_recent": False}, "NO_ORDERS": True},
+             "volume_first_context": {"volume_first_recent": False},
+             "security_scope": {"status": "COMMON_EQUITY_CANDIDATE_SCOPE"},
+             "NO_ORDERS": True},
             {"ticker": "STRONG", "iex_status": "WATCH_ONLY_FRESH_IEX",
              "screener_groups": {"active_volume": 2, "active_trades": 3, "gainers": 1},
              "iex_quote_spread_pct": 1.0,
-             "volume_first_context": {"volume_first_recent": True}, "NO_ORDERS": True},
+             "volume_first_context": {"volume_first_recent": True},
+             "security_scope": {"status": "COMMON_EQUITY_CANDIDATE_SCOPE"},
+             "NO_ORDERS": True},
             {"ticker": "STALE", "iex_status": "PENDING_STALE_OR_MISSING",
              "screener_groups": {"active_volume": 1}, "iex_quote_spread_pct": 1.0,
-             "volume_first_context": {"volume_first_recent": True}, "NO_ORDERS": True},
+             "volume_first_context": {"volume_first_recent": True},
+             "security_scope": {"status": "COMMON_EQUITY_CANDIDATE_SCOPE"},
+             "NO_ORDERS": True},
         ],
         "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
     }
@@ -52,6 +58,15 @@ class PrioritizeWatchlistTests(unittest.TestCase):
         original["NO_ORDERS"] = False
         with self.assertRaisesRegex(ValueError, "unsafe_watchlist_report"):
             prioritize(original)
+
+    def test_etf_is_zero_score_even_with_strong_market_activity(self):
+        item = report()
+        item["rows"][1]["security_scope"] = {"status": "EXCLUDED_ETF_OR_ETP"}
+        strong = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
+        self.assertEqual(strong["research_priority_score"], 0)
+        self.assertEqual(strong["research_priority_label"],
+                         "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED")
+        self.assertIn("EXCLUDED_ETF_OR_ETP", strong["risk_flags"])
 
 
 if __name__ == "__main__":

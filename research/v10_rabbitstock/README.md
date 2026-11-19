@@ -197,6 +197,8 @@ python run_live_research.py \
 
 `prioritize_watchlist.py`는 모바일 보고서의 관찰 순서만 정한다. 신선한 IEX 가격 20점, 최근 Volume-First 연구 패턴 35점, 거래량 순위 최대 20점, 거래 횟수 순위 최대 10점, 상승 목록 5점, IEX 스프레드 최대 10점을 미리 정한 공식으로 합산한다. 가격이 오래됐으면 다른 조건과 무관하게 0점 보류이며, 넓은 스프레드는 10점을 뺀다. 60점 이상이면서 Volume-First가 있을 때만 `우선 관찰`, 40점 이상은 `일반 관찰`로 표시한다. 모든 카드에 SEC·Float 미검증과 동시점 스크리너 편향을 표시하며 점수는 매수 점수가 아니다. 점수·이유·위험은 해시 원장에 함께 고정되어 나중에 결과를 보고 바꿀 수 없다.
 
+`nasdaq_symbol_scope.py`는 Nasdaq Trader의 공식 `nasdaqlisted.txt`와 `otherlisted.txt`를 읽어 ETF 표시, Test Issue, 종목명을 보존한다. 공식 디렉터리에서 보통주 후보 범위로 확인된 종목만 관찰 점수를 받을 수 있다. ETF·ETP, 시험 종목, 이름에 Warrant·Unit·Right·Preferred·Note·Bond가 표시된 증권은 삭제하지 않고 0점 보류로 남겨 제외 이유를 감사할 수 있게 한다. 공식 디렉터리 접근 실패나 미매핑도 추정하지 않고 0점 보류한다.
+
 `validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
 
 ```bash

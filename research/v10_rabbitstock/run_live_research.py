@@ -18,6 +18,7 @@ from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
 from prioritize_watchlist import prioritize
+from nasdaq_symbol_scope import collect as collect_symbol_scope
 from volume_first_live import MAX_SYMBOLS as VOLUME_MAX_SYMBOLS
 from volume_first_live import collect as collect_volume_first
 
@@ -55,6 +56,11 @@ def attach_candidate_context(result: dict, selected: list[dict]) -> dict:
                 "volume_first_recent": False,
                 "NO_ORDERS": True,
             }))
+        row["security_scope"] = copy.deepcopy(
+            original.get("security_scope", {
+                "status": "SYMBOL_SCOPE_CONTEXT_MISSING",
+                "security_name": None,
+            }))
     return result
 
 
@@ -86,6 +92,28 @@ def attach_volume_first(selected: list[dict], report: dict) -> None:
             context = {"status": report["status"], "volume_first_recent": False,
                        "NO_ORDERS": True}
         row["volume_first_context"] = copy.deepcopy(context)
+
+
+def attach_security_scope(selected: list[dict], report: dict) -> None:
+    if (report.get("schema_version") != "LUCA_V10_SYMBOL_SCOPE_1"
+            or report.get("NO_ORDERS") is not True
+            or report.get("validation_status") != "NOT_VALIDATED"):
+        raise ValueError("unsafe_symbol_scope_report")
+    rows = report.get("rows")
+    if not isinstance(rows, list) or len(rows) > 50:
+        raise ValueError("invalid_symbol_scope_rows")
+    by_symbol = {}
+    allowed = {row["symbol"] for row in selected}
+    for row in rows:
+        symbol = row.get("symbol")
+        if not isinstance(symbol, str) or symbol in by_symbol or symbol not in allowed:
+            raise ValueError("invalid_symbol_scope_symbol")
+        by_symbol[symbol] = row
+    for row in selected:
+        row["security_scope"] = copy.deepcopy(by_symbol.get(row["symbol"], {
+            "status": report["status"], "security_name": None,
+            "source_url": None,
+        }))
 
 
 def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> dict:
@@ -122,6 +150,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "screener_groups": copy.deepcopy(row.get("screener_groups", {})),
             "iex_quote_spread_pct": row.get("iex_quote_spread_pct"),
             "volume_first_context": copy.deepcopy(row.get("volume_first_context", {})),
+            "security_scope": copy.deepcopy(row.get("security_scope", {})),
             "review_filings": filing_reviews,
             "unreviewed_filings": max(0, len(row.get("review_filings", [])) - len(filing_reviews)),
             "float_verified": False,
@@ -145,7 +174,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         **SAFETY,
     }
     for key in ("sec_live_fetch_status", "sec_bundle_provenance",
-                "volume_first_collection_status"):
+                "volume_first_collection_status", "security_scope_collection_status"):
         if key in triage:
             report[key] = triage[key]
     return prioritize(report)
@@ -155,7 +184,8 @@ def collect(key: str, secret: str, now: datetime | None = None,
             enrichment_runner=enrich_run, sec_json=None,
             fetcher=None, delay=0.22, sec_user_agent: str = "",
             sec_bundle: dict | None = None,
-            volume_context_runner=collect_volume_first) -> dict:
+            volume_context_runner=collect_volume_first,
+            symbol_scope_runner=None) -> dict:
     now = now or datetime.now(timezone.utc)
     if fetcher is None:
         fetcher = lambda url: fetch_filing(url, sec_user_agent)
@@ -171,6 +201,16 @@ def collect(key: str, secret: str, now: datetime | None = None,
     volume_report = volume_context_runner(
         [row["symbol"] for row in selected], key, secret, now)
     attach_volume_first(selected, volume_report)
+    if symbol_scope_runner is None:
+        symbol_scope_report = {
+            "schema_version": "LUCA_V10_SYMBOL_SCOPE_1",
+            "status": "SYMBOL_DIRECTORY_NOT_REQUESTED",
+            "rows": [], "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
+        }
+    else:
+        symbol_scope_report = symbol_scope_runner(
+            [row["symbol"] for row in selected], now)
+    attach_security_scope(selected, symbol_scope_report)
     bounded = copy.deepcopy(enrichment)
     bounded["rows"] = selected
     if sec_json is None:
@@ -185,6 +225,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
             result["price_band_total"] = len(watch)
             result["truncated_candidates"] = truncated
             result["volume_first_collection_status"] = volume_report["status"]
+            result["security_scope_collection_status"] = symbol_scope_report["status"]
             return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
         sec_json = lambda url: fetch_sec_json(url, sec_user_agent)
     try:
@@ -208,6 +249,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                 result["price_band_total"] = len(watch)
                 result["truncated_candidates"] = truncated
                 result["volume_first_collection_status"] = volume_report["status"]
+                result["security_scope_collection_status"] = symbol_scope_report["status"]
                 return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
         result = {"status": source_status, "rows": [
             {"symbol": row["symbol"], "iex_price": row.get("iex_last_trade_price"),
@@ -238,6 +280,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
     result["price_band_total"] = len(watch)
     result["truncated_candidates"] = truncated
     result["volume_first_collection_status"] = volume_report["status"]
+    result["security_scope_collection_status"] = symbol_scope_report["status"]
     return assemble(attach_candidate_context(result, selected), now, fetcher, delay)
 
 
@@ -267,6 +310,9 @@ def render_html(report: dict) -> str:
                      + str(row["research_priority_score"]) + "점 · "
                      + escape(row["research_priority_ko"]) + "</div><p>" + reasons
                      + "</p><p>가격: " + escape(row["iex_status"])
+                     + "<br>종목 종류: "
+                     + escape(row["security_scope"].get("status", "미확인"))
+                     + (" · " + escape(row["security_scope"].get("security_name") or ""))
                      + "<br>Volume-First: "
                      + escape(row["volume_first_context"].get("status", "미확인"))
                      + "<br>SEC: " + escape(row["sec_status"])
@@ -287,7 +333,8 @@ def main() -> int:
     sec_bundle = load_bundle_file(args.sec_bundle) if args.sec_bundle else None
     report = collect(os.getenv("ALPACA_KEY", ""), os.getenv("ALPACA_SECRET", ""),
                      sec_user_agent=os.getenv("SEC_USER_AGENT", ""),
-                     sec_bundle=sec_bundle)
+                     sec_bundle=sec_bundle,
+                     symbol_scope_runner=collect_symbol_scope)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.html_output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

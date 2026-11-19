@@ -10,6 +10,7 @@ LABELS = {
     "PRIORITY_2_WATCH": "일반 관찰",
     "PRIORITY_3_LOW_EVIDENCE": "근거 부족",
     "HOLD_STALE_OR_MISSING_PRICE": "가격 확인 전 보류",
+    "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED": "종목 종류 확인 전 보류",
 }
 
 
@@ -38,6 +39,9 @@ def prioritize(report: dict) -> dict:
         groups = row.get("screener_groups", {})
         spread = row.get("iex_quote_spread_pct")
         volume = row.get("volume_first_context", {})
+        security_scope = row.get("security_scope", {})
+        scope_status = security_scope.get("status")
+        common_scope = scope_status == "COMMON_EQUITY_CANDIDATE_SCOPE"
         fresh = row.get("iex_status") == "WATCH_ONLY_FRESH_IEX"
         score = 0
         reasons = []
@@ -80,8 +84,11 @@ def prioritize(report: dict) -> dict:
                 risks.append("WIDE_IEX_SPREAD")
         else:
             risks.append("IEX_SPREAD_UNKNOWN")
-        score = max(0, min(100, score)) if fresh else 0
-        if not fresh:
+        score = max(0, min(100, score)) if fresh and common_scope else 0
+        if not common_scope:
+            label = "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED"
+            risks.append(scope_status or "SYMBOL_SCOPE_UNVERIFIED")
+        elif not fresh:
             label = "HOLD_STALE_OR_MISSING_PRICE"
             risks.append("PRICE_STALE_OR_MISSING")
         elif volume.get("volume_first_recent") is True and score >= 60:
@@ -100,7 +107,7 @@ def prioritize(report: dict) -> dict:
             "buy_allowed": False,
         })
     rows.sort(key=lambda row: (
-        row["research_priority_label"] == "HOLD_STALE_OR_MISSING_PRICE",
+        row["research_priority_label"].startswith("HOLD_"),
         -row["research_priority_score"], row["ticker"]))
     for index, row in enumerate(rows, 1):
         row["research_priority_rank"] = index
