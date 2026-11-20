@@ -128,6 +128,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             "sec_supply_context": {
                 "status": "SEC_TEXT_SUPPLY_RISK_REVIEW_REQUIRED",
                 "dilution_risk_detected": True,
+                "os_verified": True,
                 "signals": [{"code": "ATM"}, {"code": "WARRANT"}],
             },
         })
@@ -180,6 +181,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("sec_supply:atm", segments)
         self.assertIn("sec_supply:warrant", segments)
         self.assertIn("sec_supply:unavailable_or_partial", segments)
+        self.assertIn("os:verified_point_in_time", segments)
+        self.assertIn("os:unverified", segments)
         self.assertIn("session:regular", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 

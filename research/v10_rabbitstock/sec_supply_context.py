@@ -7,6 +7,7 @@ exerciseability, registration effectiveness, outstanding shares, or float.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from urllib.parse import urlsplit
 
 
@@ -44,8 +45,68 @@ def _official_archive_url(raw: object) -> str:
     return raw
 
 
+def _os_evidence(raw: dict | None, asof: datetime) -> dict:
+    if raw is None:
+        return {
+            "shares_outstanding": None, "os_verified": False,
+            "os_status": "SEC_COMPANYFACTS_OS_NOT_AVAILABLE",
+            "os_rejection_reason": None,
+            "os_asof_date": None, "os_filed_date": None,
+            "os_knowable_at_utc": None, "os_form": None,
+            "os_accession": None, "os_source_url": None,
+            "os_retrieved_at_utc": None,
+            "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+        }
+    required = {
+        "schema_version": "LUCA_V10_SEC_OS_CONTEXT_1", "NO_ORDERS": True,
+        "float_shares": None, "float_verified": False,
+        "float_basis": "NOT_DERIVED_ENTITY_PUBLIC_FLOAT_IS_USD_VALUE",
+    }
+    if not isinstance(raw, dict) or any(raw.get(k) != v for k, v in required.items()):
+        raise ValueError("invalid_companyfacts_os_context")
+    verified = raw.get("os_verified")
+    shares = raw.get("shares_outstanding")
+    if verified is False and shares is None:
+        status = raw.get("status")
+        reason = raw.get("rejection_reason")
+        if (not isinstance(status, str) or not status
+                or (reason is not None and not isinstance(reason, str))):
+            raise ValueError("invalid_unverified_companyfacts_os_status")
+        output = {key: raw.get(key) for key in (
+            "shares_outstanding", "os_verified", "os_asof_date", "os_filed_date",
+            "os_knowable_at_utc", "os_form", "os_accession", "os_source_url",
+            "os_retrieved_at_utc", "os_basis")}
+        output["os_status"] = status
+        output["os_rejection_reason"] = reason
+        return output
+    if (verified is not True or type(shares) is not int or shares <= 0
+            or raw.get("status") != "SEC_COMPANYFACTS_OS_VERIFIED_POINT_IN_TIME"
+            or raw.get("os_basis") != "SEC_COMPANYFACTS_POINT_IN_TIME"):
+        raise ValueError("invalid_verified_companyfacts_os_context")
+    known = _time(raw.get("os_knowable_at_utc"))
+    retrieved = _time(raw.get("os_retrieved_at_utc"))
+    if known > asof or retrieved > asof:
+        raise ValueError("future_companyfacts_os_evidence_not_allowed")
+    parsed = urlsplit(raw.get("os_source_url") or "")
+    if (parsed.scheme != "https" or parsed.netloc != "data.sec.gov"
+            or re.fullmatch(
+                r"/api/xbrl/companyfacts/CIK\d{10}\.json", parsed.path) is None
+            or parsed.query or parsed.fragment):
+        raise ValueError("companyfacts_os_source_not_official")
+    for key in ("os_asof_date", "os_filed_date", "os_form", "os_accession"):
+        if not isinstance(raw.get(key), str) or not raw[key]:
+            raise ValueError("companyfacts_os_metadata_required")
+    output = {key: raw.get(key) for key in (
+        "shares_outstanding", "os_verified", "os_asof_date", "os_filed_date",
+        "os_knowable_at_utc", "os_form", "os_accession", "os_source_url",
+        "os_retrieved_at_utc", "os_basis")}
+    output["os_status"] = raw.get("status")
+    output["os_rejection_reason"] = None
+    return output
+
+
 def build(review_filings: list[dict], unreviewed_filings: int,
-          asof: datetime) -> dict:
+          asof: datetime, os_context: dict | None = None) -> dict:
     if not isinstance(asof, datetime) or asof.tzinfo is None:
         raise ValueError("supply_context_asof_timezone_required")
     if (not isinstance(review_filings, list) or len(review_filings) > MAX_REVIEWS
@@ -55,6 +116,7 @@ def build(review_filings: list[dict], unreviewed_filings: int,
     completed = 0
     unavailable = 0
     asof_utc = asof.astimezone(timezone.utc)
+    official_os = _os_evidence(os_context, asof_utc)
     for review in review_filings:
         if not isinstance(review, dict):
             raise ValueError("invalid_supply_review")
@@ -104,13 +166,13 @@ def build(review_filings: list[dict], unreviewed_filings: int,
         "reviewed_documents": completed,
         "unavailable_documents": unavailable,
         "unreviewed_filings": unreviewed_filings,
-        "shares_outstanding": None,
-        "os_verified": False,
+        **official_os,
         "float_shares": None,
         "float_verified": False,
         "registration_effectiveness_verified": False,
         "remaining_capacity_verified": False,
-        "source": "SEC_FILING_TEXT",
+        "source": ("SEC_FILING_TEXT_PLUS_COMPANYFACTS"
+                   if official_os["os_verified"] else "SEC_FILING_TEXT"),
         "sec_clearance": False,
         "NO_ORDERS": True,
     }

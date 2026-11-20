@@ -220,6 +220,38 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_sec_supply_signal"):
             append_observations(item, "2026-11-18T10:01:00Z")
 
+    def test_verified_point_in_time_os_is_frozen_and_future_evidence_rejected(self):
+        item = watchlist()
+        row = item["rows"][0]
+        row["sec_supply_context"] = {
+            "schema_version": "LUCA_V10_SEC_SUPPLY_CONTEXT_1",
+            "status": "SEC_SUPPLY_TEXT_UNAVAILABLE",
+            "dilution_risk_detected": False, "signals": [],
+            "reviewed_documents": 0, "unavailable_documents": 0,
+            "unreviewed_filings": 0, "shares_outstanding": 1_250_000,
+            "os_verified": True, "os_asof_date": "2026-11-15",
+            "os_filed_date": "2026-11-17",
+            "os_knowable_at_utc": "2026-11-18T00:00:00Z",
+            "os_form": "8-K", "os_accession": "0000000123-26-000020",
+            "os_source_url": (
+                "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000123.json"),
+            "os_retrieved_at_utc": "2026-11-18T09:59:00Z",
+            "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+            "float_shares": None, "float_verified": False,
+            "registration_effectiveness_verified": False,
+            "remaining_capacity_verified": False,
+            "source": "SEC_FILING_TEXT_PLUS_COMPANYFACTS",
+            "sec_clearance": False, "NO_ORDERS": True,
+        }
+        result = append_observations(item, "2026-11-18T10:01:00Z")
+        frozen = result["events"][0]["sec_supply_context"]
+        self.assertEqual(frozen["shares_outstanding"], 1_250_000)
+        self.assertTrue(frozen["os_verified"])
+        self.assertFalse(frozen["float_verified"])
+        row["sec_supply_context"]["os_knowable_at_utc"] = "2026-11-19T00:00:00Z"
+        with self.assertRaisesRegex(ValueError, "future_verified_os_evidence"):
+            append_observations(item, "2026-11-18T10:01:00Z")
+
 
 if __name__ == "__main__":
     unittest.main()

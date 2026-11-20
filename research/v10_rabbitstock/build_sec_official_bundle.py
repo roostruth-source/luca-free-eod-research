@@ -22,6 +22,22 @@ sys.path.insert(0, str(V03_DIR))
 from sec_auto_triage import ticker_cik_map  # noqa: E402
 
 
+def _bounded_companyfacts(payload: dict) -> dict:
+    """Keep only the official OS concept so a 50-symbol bundle stays bounded."""
+    output = {"cik": payload.get("cik"), "facts": {}}
+    facts = payload.get("facts")
+    if not isinstance(facts, dict):
+        return output
+    dei = facts.get("dei")
+    if not isinstance(dei, dict):
+        return output
+    concept = dei.get("EntityCommonStockSharesOutstanding")
+    if concept is not None:
+        output["facts"]["dei"] = {
+            "EntityCommonStockSharesOutstanding": concept}
+    return output
+
+
 def _read_object(path: Path) -> dict:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -50,7 +66,9 @@ def _time(raw: object, label: str) -> datetime:
 
 def _validate_capture_manifest(manifest: dict, ticker_payload: dict,
                                submission_payloads: dict[str, dict],
-                               symbols: list[str]) -> tuple[datetime, dict[str, str]]:
+                               companyfacts_payloads: dict[str, dict],
+                               symbols: list[str]) -> tuple[
+                                   datetime, dict[str, str], dict[str, str]]:
     if (not isinstance(manifest, dict)
             or manifest.get("schema_version") != CAPTURE_SCHEMA
             or manifest.get("source") != SOURCE
@@ -89,12 +107,26 @@ def _validate_capture_manifest(manifest: dict, ticker_payload: dict,
         url = f"https://data.sec.gov/submissions/CIK{cik:010d}.json"
         retrieved_at[symbol] = check(receipts[symbol], payload, url,
                                      "sec_capture_submission")
-    return completed, retrieved_at
+    companyfacts_receipts = manifest.get("companyfacts", {})
+    if (not isinstance(companyfacts_receipts, dict)
+            or set(companyfacts_receipts) != set(companyfacts_payloads)):
+        raise ValueError("sec_capture_companyfacts_receipts_mismatch")
+    companyfacts_retrieved_at = {}
+    for symbol, payload in companyfacts_payloads.items():
+        cik = full_map.get(symbol)
+        if cik is None:
+            raise ValueError("sec_capture_companyfacts_symbol_not_mapped")
+        url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
+        companyfacts_retrieved_at[symbol] = check(
+            companyfacts_receipts[symbol], payload, url,
+            "sec_capture_companyfacts")
+    return completed, retrieved_at, companyfacts_retrieved_at
 
 
 def build(ticker_payload: dict, submission_payloads: dict[str, dict],
           symbols: list[str], collected_at: datetime,
-          *, capture_manifest: dict | None = None) -> dict:
+          *, capture_manifest: dict | None = None,
+          companyfacts_payloads: dict[str, dict] | None = None) -> dict:
     if capture_manifest is None:
         raise ValueError("sec_capture_manifest_required")
     if collected_at.tzinfo is None:
@@ -102,9 +134,11 @@ def build(ticker_payload: dict, submission_payloads: dict[str, dict],
     full_map = ticker_cik_map(ticker_payload)
     selected_map = {symbol: full_map[symbol] for symbol in symbols
                     if symbol in full_map}
-    retrieved_at = {}
-    manifest_completed, retrieved_at = _validate_capture_manifest(
-        capture_manifest, ticker_payload, submission_payloads, symbols)
+    companyfacts_payloads = companyfacts_payloads or {}
+    manifest_completed, retrieved_at, companyfacts_retrieved_at = (
+        _validate_capture_manifest(capture_manifest, ticker_payload,
+                                   submission_payloads, companyfacts_payloads,
+                                   symbols))
     if manifest_completed != collected_at.astimezone(timezone.utc):
         raise ValueError("sec_capture_completed_time_mismatch")
     collected_text = collected_at.astimezone(timezone.utc).isoformat()
@@ -121,6 +155,24 @@ def build(ticker_payload: dict, submission_payloads: dict[str, dict],
             "payload": payload,
             "sha256": canonical_sha256(payload),
         }
+    companyfacts = {}
+    for symbol, payload in companyfacts_payloads.items():
+        if symbol not in selected_map:
+            raise ValueError("sec_companyfacts_symbol_not_mapped")
+        cik = selected_map[symbol]
+        if payload.get("cik") != cik:
+            raise ValueError("sec_companyfacts_cik_mismatch")
+        bounded = _bounded_companyfacts(payload)
+        source_digest = capture_manifest["companyfacts"][symbol][
+            "canonical_sha256"]
+        companyfacts[symbol] = {
+            "source_url": (
+                f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"),
+            "retrieved_at_utc": companyfacts_retrieved_at[symbol],
+            "payload": bounded,
+            "sha256": canonical_sha256(bounded),
+            "source_sha256": source_digest,
+        }
     bundle = {
         "schema_version": SCHEMA,
         "source": SOURCE,
@@ -129,6 +181,7 @@ def build(ticker_payload: dict, submission_payloads: dict[str, dict],
         "ticker_map": selected_map,
         "ticker_map_sha256": canonical_sha256(selected_map),
         "submissions": submissions,
+        "companyfacts": companyfacts,
     }
     bundle["capture_manifest"] = capture_manifest
     validate_official_bundle(bundle, collected_at, symbols)
@@ -139,6 +192,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ticker-map", type=Path, required=True)
     parser.add_argument("--submissions-dir", type=Path, required=True)
+    parser.add_argument("--companyfacts-dir", type=Path,
+                        help="companyfacts directory emitted by direct capture")
     parser.add_argument("--symbols", type=Path, required=True,
                         help="JSON array of uppercase ticker symbols")
     parser.add_argument("--capture-manifest", type=Path, required=True,
@@ -151,10 +206,15 @@ def main() -> int:
     submissions = {}
     for path in sorted(args.submissions_dir.glob("*.json")):
         submissions[path.stem.upper()] = _read_object(path)
+    companyfacts = {}
+    if args.companyfacts_dir:
+        for path in sorted(args.companyfacts_dir.glob("*.json")):
+            companyfacts[path.stem.upper()] = _read_object(path)
     manifest = _read_object(args.capture_manifest)
     collected_at = _time(manifest.get("completed_at_utc"), "sec_capture_completed")
     bundle = build(_read_object(args.ticker_map), submissions, symbols, collected_at,
-                   capture_manifest=manifest)
+                   capture_manifest=manifest,
+                   companyfacts_payloads=companyfacts)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n",
                            encoding="utf-8")
@@ -163,6 +223,7 @@ def main() -> int:
         "symbols": len(symbols),
         "mapped": len(bundle["ticker_map"]),
         "submissions": len(bundle["submissions"]),
+        "companyfacts": len(bundle["companyfacts"]),
         "NO_ORDERS": True,
         "validation_status": "NOT_VALIDATED",
     }))

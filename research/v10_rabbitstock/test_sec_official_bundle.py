@@ -25,6 +25,9 @@ def captured_bundle(ticker_payload, submissions, symbols):
     def opener(request, timeout):
         if "company_tickers" in request.full_url:
             return Response(ticker_payload)
+        if "/companyfacts/" in request.full_url:
+            cik = int(request.full_url.rsplit("CIK", 1)[1].split(".json")[0])
+            return Response({"cik": cik, "facts": {}})
         cik = int(request.full_url.rsplit("CIK", 1)[1].split(".json")[0])
         for payload in submissions.values():
             if payload.get("cik") == cik:
@@ -38,7 +41,8 @@ def captured_bundle(ticker_payload, submissions, symbols):
     result = capture(symbols, "LUCA-Research contact@example.com",
                      opener=opener, clock=lambda: ASOF, sleeper=lambda _: None)
     bundle = build(result["ticker_payload"], result["submission_payloads"],
-                   symbols, ASOF, capture_manifest=result["manifest"])
+                   symbols, ASOF, capture_manifest=result["manifest"],
+                   companyfacts_payloads=result["companyfacts_payloads"])
     if requested_empty:
         bundle["submissions"].clear()
         bundle["capture_manifest"]["submissions"].clear()

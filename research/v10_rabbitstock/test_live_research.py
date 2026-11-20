@@ -12,7 +12,7 @@ URL = "https://www.sec.gov/Archives/edgar/data/123/000000012326000001/filing.htm
 ASOF = datetime(2026, 11, 18, 15, tzinfo=timezone.utc)
 
 
-def official_bundle(*, collected_at=None):
+def official_bundle(*, collected_at=None, with_companyfacts=False):
     collected_at = collected_at or ASOF - timedelta(minutes=5)
     started_at = collected_at - timedelta(minutes=2)
     ticker_retrieved_at = started_at
@@ -28,7 +28,7 @@ def official_bundle(*, collected_at=None):
             "primaryDocument": ["filing.htm"],
         }},
     }
-    return {
+    bundle = {
         "schema_version": "LUCA_V10_SEC_OFFICIAL_BUNDLE_1",
         "source": "SEC_OFFICIAL",
         "collected_at_utc": collected_at.isoformat(),
@@ -64,6 +64,28 @@ def official_bundle(*, collected_at=None):
             "NO_ORDERS": True,
         },
     }
+    if with_companyfacts:
+        companyfacts = {"cik": 123, "facts": {"dei": {
+            "EntityCommonStockSharesOutstanding": {"units": {"shares": [{
+                "val": 1_250_000, "end": "2026-11-15",
+                "filed": "2026-11-17", "form": "8-K",
+                "accn": "0000000123-26-000020",
+            }]}}
+        }}}
+        url = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000123.json"
+        bundle["companyfacts"] = {"ABC": {
+            "source_url": url,
+            "retrieved_at_utc": submission_retrieved_at.isoformat(),
+            "payload": companyfacts,
+            "sha256": canonical_sha256(companyfacts),
+        }}
+        bundle["capture_manifest"]["companyfacts"] = {"ABC": {
+            "source_url": url,
+            "retrieved_at_utc": submission_retrieved_at.isoformat(),
+            "http_date_utc": submission_retrieved_at.isoformat(),
+            "canonical_sha256": canonical_sha256(companyfacts),
+        }}
+    return bundle
 
 
 def bundle_enrichment():
@@ -285,6 +307,53 @@ class LiveResearchTests(unittest.TestCase):
         self.assertFalse(result["sec_bundle_provenance"]["independently_refetched_in_this_run"])
         self.assertFalse(result["sec_clearance"])
         self.assertTrue(result["NO_ORDERS"])
+
+    def test_official_companyfacts_os_reaches_report_and_html_but_float_does_not(self):
+        def blocked(url):
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        result = collect(
+            "key", "secret", now=ASOF,
+            enrichment_runner=lambda *a, **kw: bundle_enrichment(),
+            sec_json=blocked, fetcher=lambda url: "", delay=0,
+            sec_bundle=official_bundle(with_companyfacts=True),
+            volume_context_runner=lambda *a, **kw: volume_report(),
+            symbol_scope_runner=lambda symbols, now: symbol_scope_report(symbols))
+        supply = result["rows"][0]["sec_supply_context"]
+        self.assertTrue(supply["os_verified"])
+        self.assertEqual(supply["shares_outstanding"], 1_250_000)
+        self.assertFalse(supply["float_verified"])
+        rendered = render_html(result)
+        self.assertIn("1,250,000주", rendered)
+        self.assertIn("Float(유통주식 수): 공식값 미확인", rendered)
+
+    def test_ambiguous_companyfacts_rejects_only_os_not_all_sec_filings(self):
+        bundle = official_bundle(with_companyfacts=True)
+        payload = bundle["companyfacts"]["ABC"]["payload"]
+        facts = payload["facts"]["dei"]["EntityCommonStockSharesOutstanding"][
+            "units"]["shares"]
+        duplicate = copy.deepcopy(facts[0])
+        duplicate["val"] = 9_999_999
+        facts.append(duplicate)
+        digest = canonical_sha256(payload)
+        bundle["companyfacts"]["ABC"]["sha256"] = digest
+        bundle["companyfacts"]["ABC"]["source_sha256"] = digest
+        bundle["capture_manifest"]["companyfacts"]["ABC"][
+            "canonical_sha256"] = digest
+        def blocked(url):
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        result = collect(
+            "key", "secret", now=ASOF,
+            enrichment_runner=lambda *a, **kw: bundle_enrichment(),
+            sec_json=blocked, fetcher=lambda url: "", delay=0,
+            sec_bundle=bundle,
+            volume_context_runner=lambda *a, **kw: volume_report(),
+            symbol_scope_runner=lambda symbols, now: symbol_scope_report(symbols))
+        row = result["rows"][0]
+        self.assertEqual(row["sec_status"], "RECENT_FILINGS_REQUIRE_REVIEW")
+        self.assertFalse(row["sec_supply_context"]["os_verified"])
+        self.assertEqual(row["sec_supply_context"]["os_status"],
+                         "SEC_COMPANYFACTS_OS_REJECTED_NOT_USED")
+        self.assertIn("ABC", result["companyfacts_os_rejections"])
 
     def test_recent_premarket_trade_and_quote_can_be_ranked_but_never_priority_one(self):
         premarket = bundle_enrichment()

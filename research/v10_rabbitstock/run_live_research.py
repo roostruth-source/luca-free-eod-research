@@ -17,6 +17,7 @@ import urllib.error
 from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
+from sec_companyfacts_os import extract as extract_companyfacts_os
 from listing_action_context import build as build_listing_action_context
 from sec_supply_context import build as build_sec_supply_context
 from prioritize_watchlist import prioritize
@@ -132,6 +133,41 @@ def attach_security_scope(selected: list[dict], report: dict) -> None:
         }))
 
 
+def attach_companyfacts_os(result: dict, bundle_input: dict,
+                           asof: datetime) -> None:
+    payloads = bundle_input.get("companyfacts", {})
+    sources = bundle_input.get("companyfact_sources", {})
+    for row in result.get("rows", []):
+        symbol = row.get("symbol")
+        if symbol not in payloads:
+            continue
+        source = sources.get(symbol)
+        if not isinstance(source, dict):
+            raise ValueError("companyfacts_source_metadata_required")
+        try:
+            row["official_os_context"] = extract_companyfacts_os(
+                payloads[symbol], source.get("source_url"),
+                source.get("retrieved_at_utc"), asof)
+        except ValueError as exc:
+            reason = str(exc)[:120]
+            row["official_os_context"] = {
+                "schema_version": "LUCA_V10_SEC_OS_CONTEXT_1",
+                "status": "SEC_COMPANYFACTS_OS_REJECTED_NOT_USED",
+                "rejection_reason": reason,
+                "shares_outstanding": None, "os_verified": False,
+                "os_asof_date": None, "os_filed_date": None,
+                "os_knowable_at_utc": None, "os_form": None,
+                "os_accession": None,
+                "os_source_url": source.get("source_url"),
+                "os_retrieved_at_utc": source.get("retrieved_at_utc"),
+                "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+                "float_shares": None, "float_verified": False,
+                "float_basis": "NOT_DERIVED_ENTITY_PUBLIC_FLOAT_IS_USD_VALUE",
+                "NO_ORDERS": True,
+            }
+            result.setdefault("companyfacts_os_rejections", {})[symbol] = reason
+
+
 def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> dict:
     if asof.tzinfo is None:
         raise ValueError("asof_timezone_required")
@@ -164,7 +200,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         listing_context = build_listing_action_context(
             filing_reviews, unreviewed, asof)
         supply_context = build_sec_supply_context(
-            filing_reviews, unreviewed, asof)
+            filing_reviews, unreviewed, asof,
+            row.get("official_os_context"))
         rows.append({
             "ticker": row["symbol"],
             "iex_price": row.get("iex_price"),
@@ -200,7 +237,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         **SAFETY,
     }
     for key in ("sec_live_fetch_status", "sec_bundle_provenance", "market_session",
-                "volume_first_collection_status", "security_scope_collection_status"):
+                "volume_first_collection_status", "security_scope_collection_status",
+                "companyfacts_os_rejections"):
         if key in triage:
             report[key] = triage[key]
     return prioritize(report)
@@ -282,6 +320,7 @@ def collect(key: str, secret: str, now: datetime | None = None,
                     sec_bundle, now, [row["symbol"] for row in selected])
                 result = triage(bounded, bundle_input["ticker_map"],
                                 bundle_input["submissions"], now)
+                attach_companyfacts_os(result, bundle_input, now)
             except (ValueError, TypeError, AttributeError) as bundle_exc:
                 source_status += "_BUNDLE_" + type(bundle_exc).__name__.upper()
             else:
@@ -378,7 +417,13 @@ def render_html(report: dict) -> str:
                          signal["ko"] for signal in
                          row["sec_supply_context"].get("signals", [])))
                         if row["sec_supply_context"].get("signals") else "")
-                     + "<br>OS(발행주식 수): 공식값 미확인"
+                     + "<br>OS(발행주식 수): "
+                     + (format(row["sec_supply_context"]["shares_outstanding"], ",")
+                        + "주 · SEC Company Facts 기준일 "
+                        + escape(row["sec_supply_context"].get("os_asof_date") or "미확인")
+                        if row["sec_supply_context"].get("os_verified") else
+                        "공식값 미확인 · " + escape(
+                            row["sec_supply_context"].get("os_status") or "미확인"))
                      + " · Float(유통주식 수): 공식값 미확인"
                      + "</p><p class='risk'>주의: " + escape(risks)
                      + "</p><small>이 점수는 관찰 순서이며 매수 점수가 아닙니다.</small></article>")
