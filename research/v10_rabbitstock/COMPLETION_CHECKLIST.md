@@ -88,3 +88,10 @@
 - 관찰 시각 `2026-11-20T01:15:13.638970Z`, 세션 `OVERNIGHT_OR_CLOSED` 50행. 보류 이유별 28개 가격 오래됨/없음, 14개 범위 밖/미확인, 8개 상장상태 위험. **50개 모두 0점**, 행별 `WATCH_ONLY=true`, `NO_ORDERS=true`, `buy_allowed=false`, `NOT_VALIDATED` 위반 0건. `SEC_UNVERIFIED`와 `FLOAT_UNVERIFIED` 각 50개.
 - 범위 분류: 일반주 후보 36, ETF/ETP 제외 7, 비보통주 제외 6, 심볼 디렉터리 미매핑 1. 전체가 야간/휴장 데이터이므로 PREMARKET Screener Rank 점수 분리의 실관찰 검증은 **불가**. CI 205개 통과 사실과 분리해 `CI_PASSED_LIVE_PREMARKET_UNOBSERVED` 유지.
 - 새 코드 변경 없음. 본 증거 기록 커밋 자체의 후속 Actions는 별도 검증 전까지 완료 근거로 사용 금지. SEC 403 우회·주문·main 병합·배포 금지.
+
+## 2026-11-20 SEC 공식 URL 출처 검증 강화 (실행 검증 대기)
+
+- 코드 커밋 `bf49420`: SEC listing-action 입력 URL을 URL parser로 분해해 HTTPS, 정확한 `www.sec.gov` 호스트, 공식 EDGAR 경로, query/fragment 부재를 확인한다. 호스트 위장과 사용자정보 삽입을 거절한다.
+- 테스트 커밋 `df55445`: 위장 도메인, @userinfo, query, HTTP URL을 거부하는 회귀 사례 추가.
+- 최신 전체 CI 및 live artifact는 **아직 검증되지 않았다**. 이 변경을 완료 근거로 사용하지 않는다. SEC 403을 우회하지 않고 실제 원문이 없으면 SEC_UNVERIFIED/FLOAT_UNVERIFIED를 유지한다.
+- 다음 검증: 최신 HEAD의 전체 Actions 실행, artifact 내부 URL 검증 및 주문 금지 확인. 주문·main 병합·배포 금지.
