@@ -18,6 +18,7 @@ from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
 from listing_action_context import build as build_listing_action_context
+from sec_supply_context import build as build_sec_supply_context
 from prioritize_watchlist import prioritize
 from nasdaq_symbol_scope import collect as collect_symbol_scope
 from price_session_context import classify as classify_price_session
@@ -162,6 +163,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         unreviewed = max(0, len(row.get("review_filings", [])) - len(filing_reviews))
         listing_context = build_listing_action_context(
             filing_reviews, unreviewed, asof)
+        supply_context = build_sec_supply_context(
+            filing_reviews, unreviewed, asof)
         rows.append({
             "ticker": row["symbol"],
             "iex_price": row.get("iex_price"),
@@ -175,6 +178,7 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "review_filings": filing_reviews,
             "unreviewed_filings": unreviewed,
             "listing_action_context": listing_context,
+            "sec_supply_context": supply_context,
             "float_verified": False,
             "supply_clearance": False,
             "state": "WATCH_ONLY_BLOCKED",
@@ -368,6 +372,14 @@ def render_html(report: dict) -> str:
                          signal["ko"] for signal in
                          row["listing_action_context"].get("signals", [])))
                         if row["listing_action_context"].get("signals") else "")
+                     + "<br>SEC 희석위험: "
+                     + escape(row["sec_supply_context"].get("status", "미확인"))
+                     + (" · " + escape(", ".join(
+                         signal["ko"] for signal in
+                         row["sec_supply_context"].get("signals", [])))
+                        if row["sec_supply_context"].get("signals") else "")
+                     + "<br>OS(발행주식 수): 공식값 미확인"
+                     + " · Float(유통주식 수): 공식값 미확인"
                      + "</p><p class='risk'>주의: " + escape(risks)
                      + "</p><small>이 점수는 관찰 순서이며 매수 점수가 아닙니다.</small></article>")
     lines.append("<p>스크리너 일부 후보만 다룹니다. 공시 키워드는 계약 조건·현재 잔여 수량의 확정 근거가 아닙니다.</p></main></html>")

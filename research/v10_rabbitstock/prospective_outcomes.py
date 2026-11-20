@@ -251,8 +251,20 @@ def _segment_labels(record: dict) -> list[str]:
             listing = ["listing_action:no_term_found_not_cleared"]
         else:
             listing = ["listing_action:unavailable_or_partial"]
+    if not record["sec_supply_context_recorded"]:
+        supply = ["sec_supply:legacy_context_missing"]
+    else:
+        supply_context = record["sec_supply_context"]
+        signals = supply_context.get("signals", [])
+        if supply_context.get("dilution_risk_detected") is True and signals:
+            supply = ["sec_supply:" + str(signal.get("code", "invalid")).lower()
+                      for signal in signals]
+        elif supply_context.get("status") == "REVIEWED_TEXT_NO_SUPPLY_TERM_NOT_CLEARED":
+            supply = ["sec_supply:no_term_found_not_cleared"]
+        else:
+            supply = ["sec_supply:unavailable_or_partial"]
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            financial, session, *listing]
+            financial, session, *listing, *supply]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -314,6 +326,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "price_session_context": event.get("price_session_context", {}),
             "listing_action_context_recorded": "listing_action_context" in event,
             "listing_action_context": event.get("listing_action_context", {}),
+            "sec_supply_context_recorded": "sec_supply_context" in event,
+            "sec_supply_context": event.get("sec_supply_context", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })

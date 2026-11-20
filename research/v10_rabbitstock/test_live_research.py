@@ -137,7 +137,32 @@ class LiveResearchTests(unittest.TestCase):
         self.assertEqual({x["term"] for x in review["matched_terms"]}, {"CB", "WARRANT"})
         self.assertEqual(review["source_url"], URL)
         self.assertFalse(review["supply_clearance"])
+        supply = result["rows"][0]["sec_supply_context"]
+        self.assertTrue(supply["dilution_risk_detected"])
+        self.assertEqual({signal["code"] for signal in supply["signals"]},
+                         {"CB", "WARRANT"})
+        self.assertFalse(supply["float_verified"])
         self.assertEqual(result["rows"][0]["state"], "WATCH_ONLY_BLOCKED")
+
+    def test_supply_risk_forces_zero_score_without_claiming_current_capacity(self):
+        item = triage()
+        item["rows"][0]["iex_status"] = "WATCH_ONLY_FRESH_IEX"
+        item["rows"][0]["security_scope"] = {
+            "status": "COMMON_EQUITY_CANDIDATE_SCOPE",
+            "financial_status": "N", "financial_status_risk": False,
+        }
+        result = assemble(
+            item, ASOF,
+            fetcher=lambda url: "<p>at-the-market equity purchase agreement and warrants</p>",
+            delay=0)
+        row = result["rows"][0]
+        self.assertEqual(row["research_priority_score"], 0)
+        self.assertEqual(row["research_priority_label"], "HOLD_SEC_SUPPLY_RISK")
+        self.assertIn("SEC_FILING_ATM", row["risk_flags"])
+        self.assertIn("SEC_FILING_ELOC", row["risk_flags"])
+        self.assertIsNone(row["sec_supply_context"]["shares_outstanding"])
+        self.assertFalse(row["sec_supply_context"]["remaining_capacity_verified"])
+        self.assertFalse(row["buy_allowed"])
 
     def test_reverse_split_and_listing_notice_terms_force_zero_score_hold(self):
         item = triage()
@@ -178,6 +203,8 @@ class LiveResearchTests(unittest.TestCase):
         self.assertEqual(result["rows"][0]["review_filings"][0]["status"], "HTTP_403_NOT_CLEARED")
         self.assertEqual(result["rows"][0]["listing_action_context"]["status"],
                          "SEC_LISTING_TEXT_UNAVAILABLE")
+        self.assertEqual(result["rows"][0]["sec_supply_context"]["status"],
+                         "SEC_SUPPLY_TEXT_UNAVAILABLE")
         self.assertFalse(result["sec_clearance"])
 
     def test_missing_credentials_still_creates_honest_report(self):

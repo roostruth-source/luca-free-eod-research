@@ -8,10 +8,10 @@
 |---:|---|---|---|
 | 1 | NASDAQ 7.0·중국계 1.0 독립 탐지와 통합 watchlist | PARTIAL | Alpaca screener 출처 순위와 관찰시각은 원장에 고정된다. 중국계 1.0을 별도 cohort(집단)로 표시하는 live 필드는 아직 필요하다. |
 | 2 | Volume-First·종목종류·역분할·상장위험 연결 | PARTIAL | Volume-First, 장전/정규장, ETF·Warrant·Unit 차단과 Nasdaq Financial Status 0점 보류는 실제 artifact로 확인됐다. SEC 원문에서 역분할·최저주가·상장미달·상장폐지/청문 문구를 보수적으로 0점 보류하는 연결도 구현됐다. 최신 실제 artifact에서 해당 원문 신호가 있는 종목을 확인하기 전까지 PARTIAL을 유지한다. |
-| 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | 동결 연구 모듈은 존재하지만 현재 live watchlist와 완전히 연결되지 않았다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않고 미검증 상태를 유지한다. |
+| 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | ATM·ELOC·CB·Warrant·Shelf 원문 문구를 live 후보의 희석위험 0점 보류·전향 원장·성과집단에 연결했다. 문구만으로 잔여한도나 등록효력을 확정하지 않는다. 공식 OS·Float 숫자와 CB Reset 계약식의 live 연결은 남아 있다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않는다. |
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
 | 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 독립 5거래일 표본 30개 전에는 성능 검증 완료가 아니다. |
-| 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류를 표시한다. SEC 공급위험과 상장상태의 쉬운 설명을 더 연결해야 한다. |
+| 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류·상장상태·SEC 희석위험을 쉬운 한국어로 표시한다. 공식 OS·Float와 계약별 잔여한도 설명은 아직 필요하다. |
 | 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #21 run 44531212641과 PR #22 run 44542213435 성공. 최신 후보 50개에서 Nasdaq `D` 4개가 모두 거래소 상태 위험으로 0점 보류됐고 위험 종목의 비정상 점수는 0건이었다. |
 | 8 | 주문 금지 안전 상태 | COMPLETE | 실제 artifact와 테스트에서 WATCH_ONLY·NOT_VALIDATED·NO_ORDERS가 유지된다. 자동매수·주문 endpoint는 없다. |
 | 9 | 체크리스트와 근거 지속 갱신 | ACTIVE | 이 파일을 매 작업 후 커밋·Actions·artifact 근거와 함께 갱신한다. |
@@ -28,9 +28,27 @@
 ## 다음 순서
 
 1. 역분할·상장통지 0점 보류를 최신 CI와 실제 SEC 원문 artifact로 검증한다.
-2. SEC 공식 bundle이 있을 때만 OS·Float·희석 증거를 live 후보에 붙인다.
+2. SEC 공식 bundle에 Company Facts/공식 공시 근거를 추가해 OS를 붙이고, Float는 공식 주식 수 근거가 있을 때만 붙인다.
 3. 중국계 1.0 cohort를 별도 표시하고 성과표도 분리한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
+
+## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
+
+- SEC 원문에서 `ATM`, `ELOC`, `CB`, `WARRANT`, `SHELF`를 분리해 원문 URL·접수시각·문맥과 함께 `sec_supply_context`에 고정한다.
+- 한 항목이라도 발견된 일반주는 `HOLD_SEC_SUPPLY_RISK` 0점 보류한다. 전향 원장과 신호별 성과집단에도 같은 근거를 저장한다.
+- 문구 검출은 현재 잔여한도, 실제 전환 가능 수량, 등록효력, 희석 완료의 확정 근거가 아니다. 해당 값은 계속 미검증으로 둔다.
+- 공식 OS·Float 숫자를 아직 연결하지 않았으므로 `shares_outstanding=null`, `float_shares=null`, `os_verified=false`, `float_verified=false`를 강제한다. 임의 추정값을 넣지 않는다.
+- 아이폰 HTML에는 영어 원문과 쉬운 한국어 뜻을 함께 표시한다. 로컬 테스트 이후 PR·Actions·실제 artifact 검증이 남아 있다.
+
+### PR #24 CI와 실제 artifact 확인
+
+- PR: https://github.com/roostruth-source/luca-free-eod-research/pull/24
+- Actions #44802069010 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44802069010
+- Artifact `14661033340` ZIP SHA-256 `abb8ad7e7f4c4af018f3a16283243cdb5afedce0314ed3557d928253c0808d95` 일치 확인.
+- 정규장 후보 40개: 우선 관찰 1, 근거 부족 12, 가격 보류 5, 범위 보류 15, 상장상태 보류 7, SEC 희석위험 보류 0. 모든 보류 종목의 양수 점수 0건, 주문 금지 위반 0건.
+- 40행 모두 `SEC_SUPPLY_TEXT_UNAVAILABLE`; `shares_outstanding`·`float_shares` 임의 입력 0건, `os_verified`·`float_verified` 오표시 0건.
+- 전향 원장은 1,585건에서 1,625건으로 `CHAIN_CONTINUED`; 신규 40행의 `sec_supply_context` 저장을 확인했다.
+- 이번 실행은 `SEC_TICKER_MAP_HTTP_403`으로 실제 ATM·ELOC·CB·Warrant·Shelf 원문 적중 사례가 없었다. 상태는 `CI_PASSED_LIVE_SEC_SUPPLY_TEXT_UNOBSERVED`이며 완성 기준 3은 PARTIAL을 유지한다.
 
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 
