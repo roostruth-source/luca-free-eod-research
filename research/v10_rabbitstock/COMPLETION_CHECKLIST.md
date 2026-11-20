@@ -102,3 +102,11 @@
 - 직전 실행의 ZIP 내부 전수 검사 기록: 후보 50개 모두 `OVERNIGHT_OR_CLOSED`, 가격 보류 28·범위 보류 14·상장상태 보류 8, 모두 0점; 주문 금지 위반 0. 이 항목은 **직전 실행의 검사 기록**이며 이번 실행에서 ZIP을 재다운로드해 독립 재검증한 결과는 아니다.
 - 본 실행에서 `prioritize_watchlist.py`를 직접 읽어 PREMARKET 출처 불명 Screener Rank 및 정규장 Volume-First 가산점 차단, SEC listing-action 위험의 0점 보류 로직 존재를 확인했다. 이는 **코드 확인**이지 실제 PREMARKET/SEC 적중 후보의 live 검증이 아니다.
 - 완성 기준 2·3·4·5·6은 계속 PARTIAL. SEC 403 및 실제 장전/역분할 적중 사례 부족을 숨기지 않는다. 본 기록 커밋 후 CI/새 artifact 검증은 아직 이뤄지지 않았다. 주문·main 병합·배포 금지.
+
+## 2026-11-20 22:18 KST 최신 Artifact 전수검사 (장전 세션 확인)
+
+- HEAD `ef5c9c216ddada74d9824be05db423fc1f6b3db8`, Actions #44726347007, artifact `14624785304` ZIP 직접 다운로드; SHA-256 `026db454db3711c09c3523203048d94e26aa9ceebc19569581c776698d696b17`가 GitHub digest와 일치.
+- `live_watchlist.json` 수집 UTC `2026-11-20T11:17:24.267910+00:00`, 50행 전부 `PREMARKET`으로 표기. 직전 실행의 `OVERNIGHT_OR_CLOSED`와 달라졌으나, **행별 trade_fresh=false / quote_fresh=false**여서 유효한 장전 가격 관찰이 아니다. 세션 라벨만으로 장전 점수 실전 검증 완료 처리 금지.
+- 보류: 오래된/없는 가격 28, 범위 밖/미확인 14, 상장상태 위험 8. 50행 모두 score=0, WATCH_ONLY=true, NO_ORDERS=true, buy_allowed=false, validation_status=NOT_VALIDATED. 위반 0건. SEC_UNVERIFIED/FLOAT_UNVERIFIED 각 50행.
+- screener_groups에 active_volume/gainers 등이 존재해도 유효 장전 거래·호가가 없어 점수 가산 0. SEC source `SEC_TICKER_MAP_HTTP_403`; 실제 SEC 역분할 신호 0건. 독립 5일 표본 30개 전 prediction accuracy 미검증 유지.
+- 이 문서 커밋 이후의 CI/새 artifact는 아직 별도 확인 필요. 다음 작업은 **유효한 장전 가격/호가가 있는 후보**에서 session-specific Volume-First/Screener Rank 분리의 실관찰 검증. 주문·main 병합·배포 금지.
