@@ -79,12 +79,32 @@ class PrioritizeWatchlistTests(unittest.TestCase):
             "NO_ORDERS": True,
         }
         result = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
-        self.assertEqual(result["research_priority_label"], "PRIORITY_2_WATCH")
+        self.assertEqual(result["research_priority_label"], "PRIORITY_3_LOW_EVIDENCE")
         self.assertIn("FRESH_PREMARKET_IEX",
                       {reason["code"] for reason in result["priority_reasons"]})
         self.assertIn("PREMARKET_SINGLE_EXCHANGE_CONTEXT", result["risk_flags"])
         self.assertIn("REGULAR_SESSION_VOLUME_PATTERN_UNAVAILABLE", result["risk_flags"])
         self.assertFalse(result["priority_is_buy_signal"])
+
+    def test_premarket_screener_ranks_cannot_inflate_score(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["iex_status"] = "WATCH_ONLY_FRESH_IEX_PREMARKET"
+        strong["price_session_context"] = {
+            "status": "WATCH_ONLY_FRESH_IEX_PREMARKET",
+            "market_session": "PREMARKET", "trade_fresh": True,
+            "quote_fresh": True, "full_market_quote_verified": False,
+            "NO_ORDERS": True,
+        }
+        ranked = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
+        strong["screener_groups"] = {}
+        unranked = next(row for row in prioritize(item)["rows"] if row["ticker"] == "STRONG")
+        self.assertEqual(ranked["research_priority_score"], unranked["research_priority_score"])
+        self.assertEqual(ranked["research_priority_label"], "PRIORITY_3_LOW_EVIDENCE")
+        self.assertIn("PREMARKET_SCREENER_RANK_SESSION_UNVERIFIED", ranked["risk_flags"])
+        self.assertFalse({"ACTIVE_VOLUME_RANK", "ACTIVE_TRADES_RANK", "MOVER_GAINER"} &
+                         {reason["code"] for reason in ranked["priority_reasons"]})
+        self.assertFalse(ranked["buy_allowed"])
 
     def test_premarket_never_borrows_regular_volume_first_points(self):
         item = report()
