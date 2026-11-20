@@ -171,6 +171,21 @@ class PrioritizeWatchlistTests(unittest.TestCase):
         self.assertIn("SEC_FILING_LISTING_DEFICIENCY", result["risk_flags"])
         self.assertFalse(result["buy_allowed"])
 
+    def test_sec_supply_risk_is_zero_and_held_separately(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["sec_supply_context"] = {
+            "dilution_risk_detected": True,
+            "signals": [{"code": "ATM"}, {"code": "ELOC"}],
+        }
+        result = next(row for row in prioritize(item)["rows"]
+                      if row["ticker"] == "STRONG")
+        self.assertEqual(result["research_priority_score"], 0)
+        self.assertEqual(result["research_priority_label"], "HOLD_SEC_SUPPLY_RISK")
+        self.assertIn("SEC_FILING_ATM", result["risk_flags"])
+        self.assertIn("SEC_FILING_ELOC", result["risk_flags"])
+        self.assertFalse(result["buy_allowed"])
+
 
 if __name__ == "__main__":
     unittest.main()

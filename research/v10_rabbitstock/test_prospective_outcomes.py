@@ -125,6 +125,11 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                 "risk_detected": True,
                 "signals": [{"code": "REVERSE_SPLIT"}],
             },
+            "sec_supply_context": {
+                "status": "SEC_TEXT_SUPPLY_RISK_REVIEW_REQUIRED",
+                "dilution_risk_detected": True,
+                "signals": [{"code": "ATM"}, {"code": "WARRANT"}],
+            },
         })
         second = event()
         second.update({
@@ -143,6 +148,10 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             "listing_action_context": {
                 "status": "SEC_LISTING_TEXT_UNAVAILABLE",
                 "risk_detected": False, "signals": [],
+            },
+            "sec_supply_context": {
+                "status": "SEC_SUPPLY_TEXT_UNAVAILABLE",
+                "dilution_risk_detected": False, "signals": [],
             },
         })
         result = build_outcomes(ledger_many(first, second), {
@@ -168,6 +177,9 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("financial_status:d", segments)
         self.assertIn("listing_action:reverse_split", segments)
         self.assertIn("listing_action:unavailable_or_partial", segments)
+        self.assertIn("sec_supply:atm", segments)
+        self.assertIn("sec_supply:warrant", segments)
+        self.assertIn("sec_supply:unavailable_or_partial", segments)
         self.assertIn("session:regular", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 

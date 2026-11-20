@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ZERO = "0" * 64
 MAX_EVENTS = 5000
@@ -15,7 +16,7 @@ SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
 PRIORITY_LABELS = {"PRIORITY_1_RESEARCH", "PRIORITY_2_WATCH",
                    "PRIORITY_3_LOW_EVIDENCE", "HOLD_STALE_OR_MISSING_PRICE",
                    "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED",
-                   "HOLD_FINANCIAL_OR_LISTING_STATUS"}
+                   "HOLD_FINANCIAL_OR_LISTING_STATUS", "HOLD_SEC_SUPPLY_RISK"}
 
 
 def _time(raw: str) -> datetime:
@@ -28,6 +29,16 @@ def _time(raw: str) -> datetime:
 def _hash(value: dict) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
                                     separators=(",", ":")).encode()).hexdigest()
+
+
+def _official_sec_archive_url(raw: object) -> bool:
+    if not isinstance(raw, str):
+        return False
+    parsed = urlsplit(raw)
+    return (parsed.scheme == "https" and parsed.netloc == "www.sec.gov"
+            and parsed.path.startswith("/Archives/edgar/data/")
+            and not parsed.query and not parsed.fragment
+            and parsed.username is None and parsed.password is None)
 
 
 def _candidate_context(row: dict) -> tuple[dict, float | int | None]:
@@ -172,9 +183,7 @@ def _listing_action_context(row: dict, observed_at: datetime) -> dict:
                                                "DELISTING_OR_HEARING"}
                 or not isinstance(signal.get("ko"), str)
                 or not isinstance(signal.get("form"), str)
-                or not isinstance(signal.get("source_url"), str)
-                or not signal["source_url"].startswith(
-                    "https://www.sec.gov/Archives/edgar/data/")
+                or not _official_sec_archive_url(signal.get("source_url"))
                 or not isinstance(signal.get("context"), str)):
             raise ValueError("invalid_listing_action_signal")
         accepted = _time(signal.get("accepted_at_utc"))
@@ -195,6 +204,67 @@ def _listing_action_context(row: dict, observed_at: datetime) -> dict:
         "risk_detected": raw["risk_detected"], "signals": frozen,
         **counts, "source": raw["source"],
         "current_status_confirmed": False, "effective_date_confirmed": False,
+        "sec_clearance": False, "NO_ORDERS": True,
+    }
+
+
+def _sec_supply_context(row: dict, observed_at: datetime) -> dict:
+    raw = row.get("sec_supply_context", {
+        "schema_version": "LUCA_V10_SEC_SUPPLY_CONTEXT_1",
+        "status": "SEC_SUPPLY_TEXT_UNAVAILABLE",
+        "dilution_risk_detected": False, "signals": [],
+        "reviewed_documents": 0, "unavailable_documents": 0,
+        "unreviewed_filings": 0, "shares_outstanding": None,
+        "os_verified": False, "float_shares": None, "float_verified": False,
+        "registration_effectiveness_verified": False,
+        "remaining_capacity_verified": False, "source": "SEC_FILING_TEXT",
+        "sec_clearance": False, "NO_ORDERS": True,
+    })
+    if (not isinstance(raw, dict)
+            or raw.get("schema_version") != "LUCA_V10_SEC_SUPPLY_CONTEXT_1"
+            or raw.get("NO_ORDERS") is not True
+            or raw.get("sec_clearance") is not False
+            or type(raw.get("dilution_risk_detected")) is not bool
+            or raw.get("os_verified") is not False
+            or raw.get("float_verified") is not False
+            or raw.get("shares_outstanding") is not None
+            or raw.get("float_shares") is not None
+            or raw.get("registration_effectiveness_verified") is not False
+            or raw.get("remaining_capacity_verified") is not False
+            or raw.get("source") != "SEC_FILING_TEXT"
+            or not isinstance(raw.get("status"), str)):
+        raise ValueError("invalid_or_unsafe_sec_supply_context")
+    signals = raw.get("signals")
+    if not isinstance(signals, list) or len(signals) > 10:
+        raise ValueError("invalid_sec_supply_signals")
+    frozen = []
+    for signal in signals:
+        if (not isinstance(signal, dict)
+                or signal.get("code") not in {"ATM", "ELOC", "CB", "WARRANT", "SHELF"}
+                or not isinstance(signal.get("ko"), str)
+                or not isinstance(signal.get("form"), str)
+                or not _official_sec_archive_url(signal.get("source_url"))
+                or not isinstance(signal.get("context"), str)):
+            raise ValueError("invalid_sec_supply_signal")
+        if _time(signal.get("accepted_at_utc")) > observed_at:
+            raise ValueError("future_sec_supply_evidence_not_allowed")
+        frozen.append({key: signal[key] for key in (
+            "code", "ko", "form", "accepted_at_utc", "source_url", "context")})
+    if raw["dilution_risk_detected"] != bool(frozen):
+        raise ValueError("sec_supply_risk_mismatch")
+    counts = {}
+    for key in ("reviewed_documents", "unavailable_documents", "unreviewed_filings"):
+        value = raw.get(key)
+        if type(value) is not int or value < 0:
+            raise ValueError("invalid_sec_supply_coverage")
+        counts[key] = value
+    return {
+        "schema_version": raw["schema_version"], "status": raw["status"],
+        "dilution_risk_detected": raw["dilution_risk_detected"],
+        "signals": frozen, **counts, "shares_outstanding": None,
+        "os_verified": False, "float_shares": None, "float_verified": False,
+        "registration_effectiveness_verified": False,
+        "remaining_capacity_verified": False, "source": raw["source"],
         "sec_clearance": False, "NO_ORDERS": True,
     }
 
@@ -275,6 +345,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         priority = _priority_context(row)
         security_scope = _security_scope_context(row)
         listing_action = _listing_action_context(row, observed_at)
+        sec_supply = _sec_supply_context(row, observed_at)
         price_session = _price_session_context(row, observed_at)
         item = {
             "ticker": row["ticker"],
@@ -288,6 +359,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "research_priority": priority,
             "security_scope": security_scope,
             "listing_action_context": listing_action,
+            "sec_supply_context": sec_supply,
             "price_session_context": price_session,
             "observation_status": (
                 "FRESH_PREMARKET_WATCH_ONLY"

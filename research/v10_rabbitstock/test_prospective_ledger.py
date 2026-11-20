@@ -181,6 +181,45 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "future_listing_action_evidence"):
             append_observations(item, "2026-11-19T00:01:00Z")
 
+    def test_sec_supply_evidence_is_frozen_without_os_or_float_guess(self):
+        item = watchlist()
+        row = item["rows"][0]
+        row["sec_supply_context"] = {
+            "schema_version": "LUCA_V10_SEC_SUPPLY_CONTEXT_1",
+            "status": "SEC_TEXT_SUPPLY_RISK_REVIEW_REQUIRED",
+            "dilution_risk_detected": True,
+            "signals": [{
+                "code": "CB", "ko": "CB(전환사채) 언급", "form": "8-K",
+                "accepted_at_utc": "2026-11-17T12:00:00Z",
+                "source_url": (
+                    "https://www.sec.gov/Archives/edgar/data/123/"
+                    "000000012326000001/filing.htm"),
+                "context": "convertible note",
+            }],
+            "reviewed_documents": 1, "unavailable_documents": 0,
+            "unreviewed_filings": 0, "shares_outstanding": None,
+            "os_verified": False, "float_shares": None, "float_verified": False,
+            "registration_effectiveness_verified": False,
+            "remaining_capacity_verified": False, "source": "SEC_FILING_TEXT",
+            "sec_clearance": False, "NO_ORDERS": True,
+        }
+        result = append_observations(item, "2026-11-18T10:01:00Z")
+        frozen = result["events"][0]["sec_supply_context"]
+        self.assertTrue(frozen["dilution_risk_detected"])
+        self.assertEqual(frozen["signals"][0]["code"], "CB")
+        self.assertIsNone(frozen["shares_outstanding"])
+        self.assertIsNone(frozen["float_shares"])
+        row["sec_supply_context"]["signals"][0]["accepted_at_utc"] = (
+            "2026-11-19T00:00:00Z")
+        with self.assertRaisesRegex(ValueError, "future_sec_supply_evidence"):
+            append_observations(item, "2026-11-19T00:01:00Z")
+        row["sec_supply_context"]["signals"][0]["accepted_at_utc"] = (
+            "2026-11-17T12:00:00Z")
+        row["sec_supply_context"]["signals"][0]["source_url"] = (
+            "https://www.sec.gov.evil.test/Archives/edgar/data/123/x.htm")
+        with self.assertRaisesRegex(ValueError, "invalid_sec_supply_signal"):
+            append_observations(item, "2026-11-18T10:01:00Z")
+
 
 if __name__ == "__main__":
     unittest.main()

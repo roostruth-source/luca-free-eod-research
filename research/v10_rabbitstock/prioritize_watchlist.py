@@ -12,6 +12,7 @@ LABELS = {
     "HOLD_STALE_OR_MISSING_PRICE": "가격 확인 전 보류",
     "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED": "종목 종류 확인 전 보류",
     "HOLD_FINANCIAL_OR_LISTING_STATUS": "거래소 상태 위험 보류",
+    "HOLD_SEC_SUPPLY_RISK": "SEC 희석 위험 보류",
 }
 def _rank_points(rank, maximum: int) -> int:
     if type(rank) is not int or rank < 1:
@@ -50,6 +51,13 @@ def prioritize(report: dict) -> dict:
         listing_signals = listing_context.get("signals", [])
         if not isinstance(listing_signals, list):
             raise ValueError("invalid_listing_action_signals")
+        supply_context = row.get("sec_supply_context", {})
+        if not isinstance(supply_context, dict):
+            raise ValueError("invalid_sec_supply_context")
+        supply_risk = supply_context.get("dilution_risk_detected") is True
+        supply_signals = supply_context.get("signals", [])
+        if not isinstance(supply_signals, list):
+            raise ValueError("invalid_sec_supply_signals")
         price_context = row.get("price_session_context", {})
         premarket_declared = row.get("iex_status") == "WATCH_ONLY_FRESH_IEX_PREMARKET"
         premarket = (premarket_declared and isinstance(price_context, dict)
@@ -122,7 +130,7 @@ def prioritize(report: dict) -> dict:
             risks.append("IEX_SPREAD_UNKNOWN")
         score = (max(0, min(100, score))
                  if fresh and common_scope and not financial_risk
-                 and not listing_action_risk else 0)
+                 and not listing_action_risk and not supply_risk else 0)
         if not common_scope:
             label = "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED"
             risks.append(scope_status or "SYMBOL_SCOPE_UNVERIFIED")
@@ -139,6 +147,15 @@ def prioritize(report: dict) -> dict:
                         raise ValueError("invalid_listing_action_signal")
                     codes.append(signal["code"])
                 risks.extend("SEC_FILING_" + code for code in dict.fromkeys(codes))
+        elif supply_risk:
+            label = "HOLD_SEC_SUPPLY_RISK"
+            codes = []
+            for signal in supply_signals:
+                if not isinstance(signal, dict) or signal.get("code") not in {
+                        "ATM", "ELOC", "CB", "WARRANT", "SHELF"}:
+                    raise ValueError("invalid_sec_supply_signal")
+                codes.append(signal["code"])
+            risks.extend("SEC_FILING_" + code for code in dict.fromkeys(codes))
         elif not fresh:
             label = "HOLD_STALE_OR_MISSING_PRICE"
             risks.append("PRICE_STALE_OR_MISSING")
