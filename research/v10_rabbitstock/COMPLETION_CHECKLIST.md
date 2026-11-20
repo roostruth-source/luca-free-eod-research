@@ -40,6 +40,16 @@
 - 공식 OS·Float 숫자를 아직 연결하지 않았으므로 `shares_outstanding=null`, `float_shares=null`, `os_verified=false`, `float_verified=false`를 강제한다. 임의 추정값을 넣지 않는다.
 - 아이폰 HTML에는 영어 원문과 쉬운 한국어 뜻을 함께 표시한다. 로컬 테스트 이후 PR·Actions·실제 artifact 검증이 남아 있다.
 
+### PR #24 CI와 실제 artifact 확인
+
+- PR: https://github.com/roostruth-source/luca-free-eod-research/pull/24
+- Actions #44802069010 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44802069010
+- Artifact `14661033340` ZIP SHA-256 `abb8ad7e7f4c4af018f3a16283243cdb5afedce0314ed3557d928253c0808d95` 일치 확인.
+- 정규장 후보 40개: 우선 관찰 1, 근거 부족 12, 가격 보류 5, 범위 보류 15, 상장상태 보류 7, SEC 희석위험 보류 0. 모든 보류 종목의 양수 점수 0건, 주문 금지 위반 0건.
+- 40행 모두 `SEC_SUPPLY_TEXT_UNAVAILABLE`; `shares_outstanding`·`float_shares` 임의 입력 0건, `os_verified`·`float_verified` 오표시 0건.
+- 전향 원장은 1,585건에서 1,625건으로 `CHAIN_CONTINUED`; 신규 40행의 `sec_supply_context` 저장을 확인했다.
+- 이번 실행은 `SEC_TICKER_MAP_HTTP_403`으로 실제 ATM·ELOC·CB·Warrant·Shelf 원문 적중 사례가 없었다. 상태는 `CI_PASSED_LIVE_SEC_SUPPLY_TEXT_UNOBSERVED`이며 완성 기준 3은 PARTIAL을 유지한다.
+
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 
 - SEC 공시 원문에서 `REVERSE_SPLIT`, `MINIMUM_BID`, `LISTING_DEFICIENCY`, `DELISTING_OR_HEARING`을 분리해 원문 URL·접수시각·문맥과 함께 고정한다.
