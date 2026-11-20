@@ -110,3 +110,13 @@
 - 보류: 오래된/없는 가격 28, 범위 밖/미확인 14, 상장상태 위험 8. 50행 모두 score=0, WATCH_ONLY=true, NO_ORDERS=true, buy_allowed=false, validation_status=NOT_VALIDATED. 위반 0건. SEC_UNVERIFIED/FLOAT_UNVERIFIED 각 50행.
 - screener_groups에 active_volume/gainers 등이 존재해도 유효 장전 거래·호가가 없어 점수 가산 0. SEC source `SEC_TICKER_MAP_HTTP_403`; 실제 SEC 역분할 신호 0건. 독립 5일 표본 30개 전 prediction accuracy 미검증 유지.
 - 이 문서 커밋 이후의 CI/새 artifact는 아직 별도 확인 필요. 다음 작업은 **유효한 장전 가격/호가가 있는 후보**에서 session-specific Volume-First/Screener Rank 분리의 실관찰 검증. 주문·main 병합·배포 금지.
+
+## 2026-11-21 00:17 KST — 최신 HEAD의 실제 장전 신선도·점수 검증
+
+- 원격 HEAD `46cfce9f22f946b93de3a7b66f401ec71df2d906`; push Actions #44743180580 **success** (모든 test-and-build 단계 성공): https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44743180580
+- 실제 artifact ID `14632365404` ZIP을 다운로드하여 SHA-256 `a114ad91ffbbfffa01b3045d42f0fc86fccbfab6e21e5081e20c2e6dfac863ee`가 GitHub digest와 일치함을 독립 확인. `live_watchlist.json` 50행 검사. 관찰 UTC `2026-11-20T13:18:54.999252+00:00`, 모두 PREMARKET.
+- **새로운 실관찰 근거**: `trade_fresh=true` 9행, `quote_fresh=true` 9행, 양쪽 모두 true 7행. 그중 GRAB·NOK·PLUG 3개만 `PRIORITY_3_LOW_EVIDENCE` 30점(최근 IEX 장전 체결/호가 및 좁은 스프레드); KORU·NVD·PLTD·SNXX 4개는 신선한 가격/호가에도 종목 범위 미달로 **0점 보류**. 나머지 43행도 0점. 총 47행 보류(가격 25, 범위 14, 상장상태 8), 보류의 비정상 양수 점수 0건.
+- 유효 장전 일반주 3행 모두 `PREMARKET_VOLUME_FIRST_UNVERIFIED`와 `PREMARKET_SCREENER_RANK_SESSION_UNVERIFIED` 위험을 표시하고, 정규장 거래량/검색기 순위 점수를 가산하지 않음. `active_volume` 검색기 순위가 존재해도 장전 근거로 오인하지 않음. IEX 단일 거래소 자료는 SIP 전체시장 검증이 아님.
+- 50행 모두 `WATCH_ONLY=true`, `NO_ORDERS=true`, `buy_allowed=false`, `validation_status=NOT_VALIDATED`; 위반 0건. `SEC_UNVERIFIED`·`FLOAT_UNVERIFIED` 각 50행, SEC ticker map HTTP 403으로 공식 검증 불가.
+- `prospective_outcomes.json`: 전향 원장 1,540건, 독립 1일 성과 61개, 독립 3/5/10일 성과 각 0개. 예측 정확도 검증 금지. **장전 신선 자료 점수 분리는 실제 artifact로 관찰됐으나 완성 기준 2 전체는 SEC 원문 역분할 적중 검증 부족으로 PARTIAL 유지.**
+- 이 문서 변경 커밋 이후 CI/새 artifact는 별도 확인 전까지 완료 근거로 쓰지 않는다. 주문·main 병합·배포 금지.
