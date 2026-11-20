@@ -64,3 +64,10 @@
 - 로그의 최신 수집: `SEC_TICKER_MAP_HTTP_403`, 가격대 후보 51개 중 50개 제한(1개 제외). 1/3/5/10일 전향 평가 `mature_fresh={1:134,3:0,5:0,10:0}` 및 `ready=false`이므로 정확도 검증 불가.
 - **주의**: 이번 점검은 Actions 로그와 artifact 메타데이터 검증이다. ZIP 내부의 실제 PREMARKET 후보, 종목별 0점, SEC/FLOAT 위험 필드까지 재검사하지 못했다. 장전 Screener Rank 분리는 `CI_PASSED_LIVE_PREMARKET_UNOBSERVED`로 유지하고 COMPLETE로 올리지 않는다.
 - 다음 작업: 해당 artifact 내부 `live_watchlist.json`을 검사해 장전 순위 가산점 0점·세션 위험 표기·보류 0점·NO_ORDERS를 행별 검증한다. 주문·main 병합·배포 금지.
+
+## 2026-11-20 12:12 KST 실제 ZIP 내부 검증
+
+- Actions #44652204318의 artifact `14591443219`를 직접 다운로드하여 ZIP SHA-256 `ca4f9661af9c1480f9979dd3e8fc956b5d47070ab1dc4dbe2322fea6c77d3dc1` 일치 확인. `live_watchlist.json` 50행 전수 검사.
+- 관찰 시각 `2026-11-20T01:15:13.638970Z`, 세션 `OVERNIGHT_OR_CLOSED` 50행. 보류 이유별 28개 가격 오래됨/없음, 14개 범위 밖/미확인, 8개 상장상태 위험. **50개 모두 0점**, 행별 `WATCH_ONLY=true`, `NO_ORDERS=true`, `buy_allowed=false`, `NOT_VALIDATED` 위반 0건. `SEC_UNVERIFIED`와 `FLOAT_UNVERIFIED` 각 50개.
+- 범위 분류: 일반주 후보 36, ETF/ETP 제외 7, 비보통주 제외 6, 심볼 디렉터리 미매핑 1. 전체가 야간/휴장 데이터이므로 PREMARKET Screener Rank 점수 분리의 실관찰 검증은 **불가**. CI 205개 통과 사실과 분리해 `CI_PASSED_LIVE_PREMARKET_UNOBSERVED` 유지.
+- 새 코드 변경 없음. 본 증거 기록 커밋 자체의 후속 Actions는 별도 검증 전까지 완료 근거로 사용 금지. SEC 403 우회·주문·main 병합·배포 금지.
