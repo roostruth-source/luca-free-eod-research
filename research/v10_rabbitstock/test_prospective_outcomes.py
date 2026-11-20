@@ -106,6 +106,30 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertEqual(result["independent_cohort_rule"],
                          "FIRST_FRESH_OBSERVATION_PER_TICKER")
 
+    def test_sample_gate_alone_never_claims_performance_validation_ready(self):
+        sessions = ["2026-11-16", "2026-11-17", "2026-11-18",
+                    "2026-11-19", "2026-11-20"]
+        events = []
+        bars = {}
+        for index in range(30):
+            ticker = f"T{index:02d}"
+            item = event("2026-11-16T15:00:00Z")
+            item["ticker"] = ticker
+            events.append(item)
+            bars[ticker] = [
+                {"session_date": day, "o": 1.0, "h": 1.1,
+                 "l": .9, "c": 1.0} for day in sessions]
+        result = build_outcomes(ledger_many(*events), bars,
+                                "2026-11-20T22:00:00Z")
+        self.assertTrue(result["sample_size_gate_met"])
+        self.assertEqual(result["independent_mature_fresh_horizons"]["5"], 30)
+        self.assertFalse(result["corporate_action_basis_verified"])
+        self.assertFalse(result["performance_validation_ready"])
+        self.assertIn("CORPORATE_ACTION_BASIS_UNVERIFIED",
+                      result["readiness_blockers"])
+        self.assertIn("REAL_FILL_AND_SLIPPAGE_NOT_MEASURED",
+                      result["readiness_blockers"])
+
     def test_segment_scorecards_separate_frozen_candidate_context(self):
         first = event()
         first.update({

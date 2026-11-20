@@ -352,6 +352,19 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
     }
     scorecard = _descriptive_scorecard(independent)
     segment_scorecards = _segment_scorecards(independent)
+    sample_size_gate_met = len(independent) >= 30 and independent_mature["5"] >= 30
+    corporate_action_basis_verified = False
+    readiness_blockers = []
+    if len(independent) < 30:
+        readiness_blockers.append("INDEPENDENT_FRESH_TICKERS_BELOW_30")
+    if independent_mature["5"] < 30:
+        readiness_blockers.append("INDEPENDENT_MATURE_5_SESSION_OUTCOMES_BELOW_30")
+    if not corporate_action_basis_verified:
+        readiness_blockers.append("CORPORATE_ACTION_BASIS_UNVERIFIED")
+    readiness_blockers.extend([
+        "IEX_SINGLE_FEED_REFERENCE_ONLY",
+        "REAL_FILL_AND_SLIPPAGE_NOT_MEASURED",
+    ])
     return {
         "schema_version": "LUCA_V10_PROSPECTIVE_OUTCOMES_1",
         "evaluated_at": now.isoformat(), "ledger_event_count": len(records),
@@ -367,8 +380,13 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
-        "corporate_action_basis_verified": False,
-        "performance_validation_ready": len(independent) >= 30 and independent_mature["5"] >= 30,
+        "sample_size_gate_met": sample_size_gate_met,
+        "sample_size_rule": "30_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
+        "corporate_action_basis_verified": corporate_action_basis_verified,
+        "readiness_blockers": readiness_blockers,
+        "performance_validation_ready": (
+            sample_size_gate_met and corporate_action_basis_verified
+            and not readiness_blockers),
         "prediction_accuracy_verified": False,
         "WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
     }
@@ -379,7 +397,12 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
         "schema_version": "LUCA_V10_PROSPECTIVE_OUTCOMES_1",
         "evaluated_at": _time(evaluated_at).isoformat(),
         "ledger_event_count": len(ledger.get("events", [])), "records": [],
-        "source_status": reason, "performance_validation_ready": False,
+        "source_status": reason,
+        "sample_size_gate_met": False,
+        "sample_size_rule": "30_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
+        "corporate_action_basis_verified": False,
+        "readiness_blockers": ["OUTCOME_SOURCE_UNAVAILABLE", reason],
+        "performance_validation_ready": False,
         "prediction_accuracy_verified": False,
         "WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
     }

@@ -10,7 +10,7 @@
 | 2 | Volume-First·종목종류·역분할·상장위험 연결 | PARTIAL | Volume-First, 장전/정규장, ETF·Warrant·Unit 차단과 Nasdaq Financial Status 0점 보류는 실제 artifact로 확인됐다. SEC 원문에서 역분할·최저주가·상장미달·상장폐지/청문 문구를 보수적으로 0점 보류하는 연결도 구현됐다. 최신 실제 artifact에서 해당 원문 신호가 있는 종목을 확인하기 전까지 PARTIAL을 유지한다. |
 | 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | ATM·ELOC·CB·Warrant·Shelf 문구와 SEC Company Facts의 공시 기준일 OS를 live 후보·전향 원장·성과집단에 연결했다. Float 주식 수·잔여한도·등록효력·CB Reset 계약식은 아직 미검증이다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않는다. |
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
-| 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 독립 5거래일 표본 30개 전에는 성능 검증 완료가 아니다. |
+| 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 표본 30개 문턱과 실제 성능 검증을 분리했으며, 기업행사 보정·독립 시세·실제 체결 검증 전에는 완료로 바뀌지 않는다. |
 | 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류·상장상태·SEC 희석위험과 검증된 공시 기준일 OS를 쉬운 한국어로 표시한다. Float와 계약별 잔여한도 설명은 아직 필요하다. |
 | 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #25와 병합 HEAD의 전체 CI가 성공했다. 최신 후보 40개에서 주문금지 위반·보류종목 양수 점수는 모두 0건이었다. SEC 403 때문에 실제 OS 관측은 없었으며 이를 검증 완료로 과장하지 않는다. |
 | 8 | 주문 금지 안전 상태 | COMPLETE | 실제 artifact와 테스트에서 WATCH_ONLY·NOT_VALIDATED·NO_ORDERS가 유지된다. 자동매수·주문 endpoint는 없다. |
@@ -80,6 +80,13 @@
 - 병합 artifact `14663811751` ZIP SHA-256 `6cae8c089d39fdbfd9e57c0c8e8391243ba31bb15a4f23ecf306ecd1712a4adb`.
 - PR artifact 실측 후보 41개, 주문금지 위반 0건, 전향 원장 1,746건·신규 41건·`CHAIN_CONTINUED`.
 - 이번 실행은 `SEC_TICKER_MAP_HTTP_403`이라 41개 모두 `SEC_ISSUER_REGION_TEXT_UNAVAILABLE`, `issuer_region=UNVERIFIED`였고 `CHINA_1_0` 적중은 0건이었다. 기존 옛 관찰을 새 분류로 소급 수정하지 않아 성과표 독립집단은 `profile:legacy_context_missing`만 존재했다. **실제 PRC Operations 원문 적중 artifact 검증은 남아 있다.**
+
+## 2026-11-21 성능 검증 준비도 안전장치 (CI 대기)
+
+- 독립 신선 티커 30개와 5거래일 성숙 결과 30개는 `sample_size_gate_met`으로 분리한다.
+- 표본 수가 채워져도 Corporate Action(기업행사) 가격단위 미검증, IEX 단일 시세, 실제 체결·슬리피지 미측정이 남으면 `performance_validation_ready=false`를 강제한다.
+- `readiness_blockers`에 `CORPORATE_ACTION_BASIS_UNVERIFIED`, `IEX_SINGLE_FEED_REFERENCE_ONLY`, `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED`를 명시한다.
+- 30개 독립 티커·5거래일 30개를 만든 회귀 사례에서도 성능 검증 완료가 되지 않는 테스트를 추가했다. V10 전체 221개 통과, PR·Actions·artifact 검증이 남아 있다.
 
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 
