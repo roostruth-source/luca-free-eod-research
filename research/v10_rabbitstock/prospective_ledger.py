@@ -111,7 +111,7 @@ def _priority_context(row: dict) -> dict:
             or row.get("priority_is_buy_signal") is not False
             or row.get("buy_allowed") is not False
             or not isinstance(reasons, list) or len(reasons) > 12
-            or not isinstance(risks, list) or len(risks) > 12):
+            or not isinstance(risks, list) or len(risks) > 20):
         raise ValueError("invalid_research_priority")
     frozen_reasons = []
     for reason in reasons:
@@ -140,6 +140,63 @@ def _security_scope_context(row: dict) -> dict:
         "status", "security_name", "etf_flag", "test_issue", "exchange_code",
         "financial_status", "financial_status_label", "financial_status_risk",
         "financial_status_ko", "source_url")}
+
+
+def _listing_action_context(row: dict, observed_at: datetime) -> dict:
+    raw = row.get("listing_action_context", {
+        "schema_version": "LUCA_V10_LISTING_ACTION_CONTEXT_1",
+        "status": "SEC_LISTING_TEXT_UNAVAILABLE", "risk_detected": False,
+        "signals": [], "reviewed_documents": 0, "unavailable_documents": 0,
+        "unreviewed_filings": 0, "source": "SEC_FILING_TEXT",
+        "current_status_confirmed": False, "effective_date_confirmed": False,
+        "sec_clearance": False, "NO_ORDERS": True,
+    })
+    if (not isinstance(raw, dict)
+            or raw.get("schema_version") != "LUCA_V10_LISTING_ACTION_CONTEXT_1"
+            or raw.get("NO_ORDERS") is not True
+            or raw.get("sec_clearance") is not False
+            or raw.get("current_status_confirmed") is not False
+            or raw.get("effective_date_confirmed") is not False
+            or type(raw.get("risk_detected")) is not bool
+            or not isinstance(raw.get("status"), str)
+            or raw.get("source") != "SEC_FILING_TEXT"):
+        raise ValueError("invalid_or_unsafe_listing_action_context")
+    signals = raw.get("signals")
+    if not isinstance(signals, list) or len(signals) > 8:
+        raise ValueError("invalid_listing_action_signals")
+    frozen = []
+    for signal in signals:
+        if (not isinstance(signal, dict)
+                or signal.get("code") not in {"REVERSE_SPLIT", "MINIMUM_BID",
+                                               "LISTING_DEFICIENCY",
+                                               "DELISTING_OR_HEARING"}
+                or not isinstance(signal.get("ko"), str)
+                or not isinstance(signal.get("form"), str)
+                or not isinstance(signal.get("source_url"), str)
+                or not signal["source_url"].startswith(
+                    "https://www.sec.gov/Archives/edgar/data/")
+                or not isinstance(signal.get("context"), str)):
+            raise ValueError("invalid_listing_action_signal")
+        accepted = _time(signal.get("accepted_at_utc"))
+        if accepted > observed_at:
+            raise ValueError("future_listing_action_evidence_not_allowed")
+        frozen.append({key: signal[key] for key in (
+            "code", "ko", "form", "accepted_at_utc", "source_url", "context")})
+    if raw["risk_detected"] != bool(frozen):
+        raise ValueError("listing_action_risk_mismatch")
+    counts = {}
+    for key in ("reviewed_documents", "unavailable_documents", "unreviewed_filings"):
+        value = raw.get(key)
+        if type(value) is not int or value < 0:
+            raise ValueError("invalid_listing_action_coverage")
+        counts[key] = value
+    return {
+        "schema_version": raw["schema_version"], "status": raw["status"],
+        "risk_detected": raw["risk_detected"], "signals": frozen,
+        **counts, "source": raw["source"],
+        "current_status_confirmed": False, "effective_date_confirmed": False,
+        "sec_clearance": False, "NO_ORDERS": True,
+    }
 
 
 def _price_session_context(row: dict, observed_at: datetime) -> dict:
@@ -217,6 +274,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         volume_first = _volume_first_context(row, observed_at)
         priority = _priority_context(row)
         security_scope = _security_scope_context(row)
+        listing_action = _listing_action_context(row, observed_at)
         price_session = _price_session_context(row, observed_at)
         item = {
             "ticker": row["ticker"],
@@ -229,6 +287,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "volume_first_context": volume_first,
             "research_priority": priority,
             "security_scope": security_scope,
+            "listing_action_context": listing_action,
             "price_session_context": price_session,
             "observation_status": (
                 "FRESH_PREMARKET_WATCH_ONLY"

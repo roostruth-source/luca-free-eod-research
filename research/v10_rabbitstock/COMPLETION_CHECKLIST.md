@@ -7,7 +7,7 @@
 | 번호 | 완성 기준 | 상태 | 현재 근거와 남은 일 |
 |---:|---|---|---|
 | 1 | NASDAQ 7.0·중국계 1.0 독립 탐지와 통합 watchlist | PARTIAL | Alpaca screener 출처 순위와 관찰시각은 원장에 고정된다. 중국계 1.0을 별도 cohort(집단)로 표시하는 live 필드는 아직 필요하다. |
-| 2 | Volume-First·종목종류·역분할·상장위험 연결 | PARTIAL | Volume-First, 장전/정규장, ETF·Warrant·Unit 차단과 Nasdaq Financial Status 0점 보류는 실제 artifact로 확인됐다. Reverse Split과 개별 상장유지 통지의 live 연결은 남아 있다. |
+| 2 | Volume-First·종목종류·역분할·상장위험 연결 | PARTIAL | Volume-First, 장전/정규장, ETF·Warrant·Unit 차단과 Nasdaq Financial Status 0점 보류는 실제 artifact로 확인됐다. SEC 원문에서 역분할·최저주가·상장미달·상장폐지/청문 문구를 보수적으로 0점 보류하는 연결도 구현됐다. 최신 실제 artifact에서 해당 원문 신호가 있는 종목을 확인하기 전까지 PARTIAL을 유지한다. |
 | 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | 동결 연구 모듈은 존재하지만 현재 live watchlist와 완전히 연결되지 않았다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않고 미검증 상태를 유지한다. |
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
 | 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 독립 5거래일 표본 30개 전에는 성능 검증 완료가 아니다. |
@@ -27,10 +27,27 @@
 
 ## 다음 순서
 
-1. Reverse Split(역분할)과 상장유지 통지를 live 후보에 연결한다.
+1. 역분할·상장통지 0점 보류를 최신 CI와 실제 SEC 원문 artifact로 검증한다.
 2. SEC 공식 bundle이 있을 때만 OS·Float·희석 증거를 live 후보에 붙인다.
 3. 중국계 1.0 cohort를 별도 표시하고 성과표도 분리한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
+
+## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
+
+- SEC 공시 원문에서 `REVERSE_SPLIT`, `MINIMUM_BID`, `LISTING_DEFICIENCY`, `DELISTING_OR_HEARING`을 분리해 원문 URL·접수시각·문맥과 함께 고정한다.
+- 발견 종목은 거래량·가격이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점 보류한다.
+- 키워드 일치는 현재 상장미달 상태, 역분할 효력일, 상장폐지 확정의 증명이 아니다. `current_status_confirmed=false`, `effective_date_confirmed=false`, `sec_clearance=false`를 강제한다.
+- 원문 수집 실패·일부 문서 미검토는 안전 판정으로 바꾸지 않는다. 기존 `WATCH_ONLY / NOT_VALIDATED / SEC_UNVERIFIED / NO_ORDERS`를 유지한다.
+- 전향 원장과 성과표에 신호별 집단을 분리했다. 로컬 전체 테스트 통과 후 PR·Actions·실제 artifact 검증이 남아 있다.
+
+### PR #23 CI와 실제 artifact 확인
+
+- PR: https://github.com/roostruth-source/luca-free-eod-research/pull/23
+- Actions #44693489323 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44693489323
+- Artifact `14609123830` ZIP SHA-256 `0ce52fd594695b58d8e8441f340f91d84ad439cf81061b7797ad3af408dd6c8b` 일치 확인.
+- `live_watchlist.json` 50행: 가격 보류 28, 종목종류 보류 14, 거래소 상장상태 보류 8. 보류 50개 전부 0점, `NO_ORDERS=true`, `buy_allowed=false`, `NOT_VALIDATED` 위반 0건.
+- 전향 원장은 1,290건에서 1,340건으로 `CHAIN_CONTINUED`; 신규 50행의 `listing_action_context` 저장을 확인했다.
+- 이번 실행은 `SEC_TICKER_MAP_HTTP_403`으로 50행 모두 `SEC_LISTING_TEXT_UNAVAILABLE`; 실제 역분할·상장통지 원문 적중 사례는 관찰되지 않았다. 따라서 상태는 `CI_PASSED_LIVE_SEC_TEXT_UNOBSERVED`이며 완성 기준 2는 PARTIAL을 유지한다.
 
 ## 2026-11-20 장전 Volume-First 점수 분리 (검증 대기)
 

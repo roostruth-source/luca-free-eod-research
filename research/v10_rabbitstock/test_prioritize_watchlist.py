@@ -154,6 +154,23 @@ class PrioritizeWatchlistTests(unittest.TestCase):
                          "HOLD_FINANCIAL_OR_LISTING_STATUS")
         self.assertIn("NASDAQ_FINANCIAL_STATUS_D", result["risk_flags"])
 
+    def test_sec_reverse_split_or_listing_notice_is_zero_and_held(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["listing_action_context"] = {
+            "risk_detected": True,
+            "signals": [{"code": "REVERSE_SPLIT"},
+                        {"code": "LISTING_DEFICIENCY"}],
+        }
+        result = next(row for row in prioritize(item)["rows"]
+                      if row["ticker"] == "STRONG")
+        self.assertEqual(result["research_priority_score"], 0)
+        self.assertEqual(result["research_priority_label"],
+                         "HOLD_FINANCIAL_OR_LISTING_STATUS")
+        self.assertIn("SEC_FILING_REVERSE_SPLIT", result["risk_flags"])
+        self.assertIn("SEC_FILING_LISTING_DEFICIENCY", result["risk_flags"])
+        self.assertFalse(result["buy_allowed"])
+
 
 if __name__ == "__main__":
     unittest.main()

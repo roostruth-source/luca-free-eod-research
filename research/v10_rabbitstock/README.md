@@ -203,6 +203,8 @@ python run_live_research.py \
 
 Nasdaq 상장종목의 `Financial Status`도 같은 공식 디렉터리에서 고정한다. `N`은 Normal(정상)이며, `D`(계속상장 요건 미달), `E`(규제 공시기한 미준수), `Q`(파산)와 결합 상태 `G/H/J/K`, `S`(거래정지), `C`(ETP 설정·환매 정지)는 거래량·장전 가격이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점 보류로 남긴다. 이 표시는 Nasdaq의 현재 상태 경고이지 최저주가 유예기간·청문·상장폐지 효력일 전체를 대신하지 않으므로 별도 공시 검증은 계속 필요하다. 다른 거래소 종목은 이 필드가 공식 파일에 없으므로 정상으로 추정하지 않고 `NOT_AVAILABLE`로 보존한다.
 
+최근 SEC 공시 원문을 실제로 가져온 경우에는 `Reverse Split`(역분할), `Minimum Bid`(최저주가 요건), `Listing Deficiency`(상장요건 미달 통지), `Delisting/Hearing`(상장폐지·청문 절차) 문구를 별도 `listing_action_context`에 고정한다. 하나라도 발견되면 시장활동이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점으로 보류한다. 원문 URL·공시 접수시각·문맥을 전향 원장에 함께 저장하고, 성과표도 신호별로 분리한다. 키워드 일치는 현재 상태·효력일·완료 여부의 확정 판정이 아니며, 원문 수집 실패나 일부 문서만 확인한 경우에는 안전하다고 간주하지 않는다.
+
 `validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
 
 ```bash

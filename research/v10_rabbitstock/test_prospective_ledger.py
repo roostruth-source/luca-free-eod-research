@@ -151,6 +151,36 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "full_market_quote_claim_not_allowed"):
             append_observations(item, "2026-11-18T10:02:00Z")
 
+    def test_listing_action_evidence_is_frozen_and_future_is_rejected(self):
+        item = watchlist()
+        row = item["rows"][0]
+        row["listing_action_context"] = {
+            "schema_version": "LUCA_V10_LISTING_ACTION_CONTEXT_1",
+            "status": "SEC_TEXT_LISTING_OR_SPLIT_RISK_REVIEW_REQUIRED",
+            "risk_detected": True,
+            "signals": [{
+                "code": "MINIMUM_BID", "ko": "최저주가 요건 언급", "form": "8-K",
+                "accepted_at_utc": "2026-11-17T12:00:00Z",
+                "source_url": (
+                    "https://www.sec.gov/Archives/edgar/data/123/"
+                    "000000012326000001/filing.htm"),
+                "context": "minimum bid price requirement",
+            }],
+            "reviewed_documents": 1, "unavailable_documents": 0,
+            "unreviewed_filings": 0, "source": "SEC_FILING_TEXT",
+            "current_status_confirmed": False,
+            "effective_date_confirmed": False,
+            "sec_clearance": False, "NO_ORDERS": True,
+        }
+        result = append_observations(item, "2026-11-18T10:01:00Z")
+        frozen = result["events"][0]["listing_action_context"]
+        self.assertTrue(frozen["risk_detected"])
+        self.assertEqual(frozen["signals"][0]["code"], "MINIMUM_BID")
+        row["listing_action_context"]["signals"][0]["accepted_at_utc"] = (
+            "2026-11-19T00:00:00Z")
+        with self.assertRaisesRegex(ValueError, "future_listing_action_evidence"):
+            append_observations(item, "2026-11-19T00:01:00Z")
+
 
 if __name__ == "__main__":
     unittest.main()
