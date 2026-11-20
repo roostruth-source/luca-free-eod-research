@@ -47,3 +47,11 @@
 - 장전(PREMARKET) 관찰 후보가 없어 장전 점수 분리는 테스트만 통과. 다음 장전 실관찰에서 별도 확인 필요.
 - SEC ticker map은 `SEC_TICKER_MAP_HTTP_403`; 공식 원문 우회·추정값 사용 금지. `SEC_UNVERIFIED`/`FLOAT_UNVERIFIED` 위험을 행별 유지.
 - 예측 성능 `NOT_VALIDATED`: 독립 5일 표본 부족. 이번 문서 커밋 자체의 후속 CI는 별도 확인 필요.
+
+## 2026-11-20 장전 Screener Rank 세션 분리 (CI 및 live 검증 대기)
+
+- 코드 커밋: https://github.com/roostruth-source/luca-free-eod-research/commit/bf343436c0f441b1c85973ef03957daf9c2413c2
+- 회귀 테스트 커밋: https://github.com/roostruth-source/luca-free-eod-research/commit/86c0b2bad3097c2bc1685cd2369b35190d03547c
+- PREMARKET 후보는 세션 출처가 고정되지 않은 active_volume, active_trades, gainers의 Screener Rank 가산점을 받지 않는다. PREMARKET_SCREENER_RANK_SESSION_UNVERIFIED 위험을 남긴다. REGULAR 후보의 기존 순위 가산점은 보존한다.
+- 상태: PENDING_CI_AND_LIVE_ARTIFACT. 이번 변경의 전체 CI 실행 및 실제 장전 후보 관찰 결과는 아직 확인되지 않았다. 최신 성공 Actions #44626684567은 변경 전 HEAD 2e21b93 기준이므로 이 변경의 통과 근거로 쓰지 않는다.
+- 안전 원칙: WATCH_ONLY / NOT_VALIDATED / SEC_UNVERIFIED / NO_ORDERS; 주문·main 병합·배포 금지.
