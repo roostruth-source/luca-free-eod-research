@@ -95,3 +95,10 @@
 - 테스트 커밋 `df55445`: 위장 도메인, @userinfo, query, HTTP URL을 거부하는 회귀 사례 추가.
 - 최신 전체 CI 및 live artifact는 **아직 검증되지 않았다**. 이 변경을 완료 근거로 사용하지 않는다. SEC 403을 우회하지 않고 실제 원문이 없으면 SEC_UNVERIFIED/FLOAT_UNVERIFIED를 유지한다.
 - 다음 검증: 최신 HEAD의 전체 Actions 실행, artifact 내부 URL 검증 및 주문 금지 확인. 주문·main 병합·배포 금지.
+
+## 2026-11-20 20:16 KST 검증 근거 정리
+
+- GitHub Actions #44701607027의 artifact 메타데이터를 API에서 재확인: HEAD `8c78e3d7c4f433c6fa3540eb5e7dba960da1666f`, artifact ID `14612832950`, 이름 `luca-v10-executable-research-build`, GitHub 제공 digest `sha256:156046ec21689b34fe5c2140d4add5d7dffe3634648aeb0e5804a8508d3abfc5`, 만료 2026-12-04. https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44701607027
+- 직전 실행의 ZIP 내부 전수 검사 기록: 후보 50개 모두 `OVERNIGHT_OR_CLOSED`, 가격 보류 28·범위 보류 14·상장상태 보류 8, 모두 0점; 주문 금지 위반 0. 이 항목은 **직전 실행의 검사 기록**이며 이번 실행에서 ZIP을 재다운로드해 독립 재검증한 결과는 아니다.
+- 본 실행에서 `prioritize_watchlist.py`를 직접 읽어 PREMARKET 출처 불명 Screener Rank 및 정규장 Volume-First 가산점 차단, SEC listing-action 위험의 0점 보류 로직 존재를 확인했다. 이는 **코드 확인**이지 실제 PREMARKET/SEC 적중 후보의 live 검증이 아니다.
+- 완성 기준 2·3·4·5·6은 계속 PARTIAL. SEC 403 및 실제 장전/역분할 적중 사례 부족을 숨기지 않는다. 본 기록 커밋 후 CI/새 artifact 검증은 아직 이뤄지지 않았다. 주문·main 병합·배포 금지.
