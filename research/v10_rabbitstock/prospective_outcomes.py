@@ -239,6 +239,11 @@ def _segment_labels(record: dict) -> list[str]:
         session = "session:regular"
     else:
         session = "session:stale_or_missing_blocked"
+    if not record["issuer_region_context_recorded"]:
+        profile = "profile:legacy_context_missing"
+    else:
+        profile = "profile:" + str(record["issuer_region_context"].get(
+            "detector_profile", "unverified")).lower()
     if not record["listing_action_context_recorded"]:
         listing = ["listing_action:legacy_context_missing"]
     else:
@@ -268,7 +273,7 @@ def _segment_labels(record: dict) -> list[str]:
         else:
             supply = ["sec_supply:unavailable_or_partial"]
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            financial, session, os_segment, *listing, *supply]
+            financial, session, profile, os_segment, *listing, *supply]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -332,6 +337,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "listing_action_context": event.get("listing_action_context", {}),
             "sec_supply_context_recorded": "sec_supply_context" in event,
             "sec_supply_context": event.get("sec_supply_context", {}),
+            "issuer_region_context_recorded": "issuer_region_context" in event,
+            "issuer_region_context": event.get("issuer_region_context", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })

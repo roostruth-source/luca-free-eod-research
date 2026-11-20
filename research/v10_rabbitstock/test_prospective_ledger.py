@@ -252,6 +252,36 @@ class ProspectiveLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "future_verified_os_evidence"):
             append_observations(item, "2026-11-18T10:01:00Z")
 
+    def test_china_research_cohort_evidence_is_frozen_and_future_rejected(self):
+        item = watchlist()
+        row = item["rows"][0]
+        row["issuer_region_context"] = {
+            "schema_version": "LUCA_V10_ISSUER_REGION_CONTEXT_1",
+            "status": "SEC_TEXT_PRC_OPERATIONS_CANDIDATE",
+            "detector_profile": "CHINA_1_0", "issuer_region": "PRC_OPERATIONS",
+            "signals": [{
+                "code": "PRC_OPERATIONS",
+                "ko": "PRC Operations(중국 사업 운영) SEC 문구",
+                "form": "20-F", "accepted_at_utc": "2026-11-17T12:00:00Z",
+                "source_url": (
+                    "https://www.sec.gov/Archives/edgar/data/123/"
+                    "000000012326000001/filing.htm"),
+                "context": "substantially all operations in China",
+            }],
+            "reviewed_documents": 1, "unavailable_documents": 0,
+            "unreviewed_filings": 0, "official_sec_text_evidence": True,
+            "current_operating_region_confirmed": False,
+            "classification_is_buy_signal": False, "NO_ORDERS": True,
+        }
+        result = append_observations(item, "2026-11-18T10:01:00Z")
+        frozen = result["events"][0]["issuer_region_context"]
+        self.assertEqual(frozen["detector_profile"], "CHINA_1_0")
+        self.assertEqual(frozen["signals"][0]["code"], "PRC_OPERATIONS")
+        row["issuer_region_context"]["signals"][0]["accepted_at_utc"] = (
+            "2026-11-19T00:00:00Z")
+        with self.assertRaisesRegex(ValueError, "future_issuer_region_evidence"):
+            append_observations(item, "2026-11-18T10:01:00Z")
+
 
 if __name__ == "__main__":
     unittest.main()

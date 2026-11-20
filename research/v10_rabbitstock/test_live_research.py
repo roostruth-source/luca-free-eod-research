@@ -166,6 +166,24 @@ class LiveResearchTests(unittest.TestCase):
         self.assertFalse(supply["float_verified"])
         self.assertEqual(result["rows"][0]["state"], "WATCH_ONLY_BLOCKED")
 
+    def test_sec_prc_operations_text_routes_separate_live_research_cohort(self):
+        result = assemble(
+            triage(), ASOF,
+            fetcher=lambda url: (
+                "<p>Substantially all of our operations are conducted in the "
+                "People's Republic of China through our PRC subsidiaries.</p>"),
+            delay=0)
+        row = result["rows"][0]
+        self.assertEqual(row["detector_profile"], "CHINA_1_0")
+        self.assertEqual(row["issuer_region_context"]["issuer_region"],
+                         "PRC_OPERATIONS")
+        self.assertTrue(row["issuer_region_context"]["official_sec_text_evidence"])
+        self.assertFalse(row["issuer_region_context"][
+            "current_operating_region_confirmed"])
+        self.assertEqual(result["profile_counts"],
+                         {"NASDAQ_7_0": 0, "CHINA_1_0": 1})
+        self.assertIn("CHINA_1_0", render_html(result))
+
     def test_supply_risk_forces_zero_score_without_claiming_current_capacity(self):
         item = triage()
         item["rows"][0]["iex_status"] = "WATCH_ONLY_FRESH_IEX"

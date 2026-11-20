@@ -131,6 +131,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                 "os_verified": True,
                 "signals": [{"code": "ATM"}, {"code": "WARRANT"}],
             },
+            "issuer_region_context": {"detector_profile": "CHINA_1_0"},
         })
         second = event()
         second.update({
@@ -154,6 +155,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                 "status": "SEC_SUPPLY_TEXT_UNAVAILABLE",
                 "dilution_risk_detected": False, "signals": [],
             },
+            "issuer_region_context": {"detector_profile": "NASDAQ_7_0"},
         })
         result = build_outcomes(ledger_many(first, second), {
             **BARS,
@@ -183,6 +185,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("sec_supply:unavailable_or_partial", segments)
         self.assertIn("os:verified_point_in_time", segments)
         self.assertIn("os:unverified", segments)
+        self.assertIn("profile:china_1_0", segments)
+        self.assertIn("profile:nasdaq_7_0", segments)
         self.assertIn("session:regular", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 
