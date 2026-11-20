@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 
 ZERO = "0" * 64
@@ -39,6 +40,18 @@ def _official_sec_archive_url(raw: object) -> bool:
             and parsed.path.startswith("/Archives/edgar/data/")
             and not parsed.query and not parsed.fragment
             and parsed.username is None and parsed.password is None)
+
+
+def _official_sec_companyfacts_url(raw: object) -> bool:
+    if not isinstance(raw, str):
+        return False
+    parsed = urlsplit(raw)
+    return (parsed.scheme == "https" and parsed.netloc == "data.sec.gov"
+            and re.fullmatch(
+                r"/api/xbrl/companyfacts/CIK\d{10}\.json", parsed.path) is not None
+            and not parsed.query
+            and not parsed.fragment and parsed.username is None
+            and parsed.password is None)
 
 
 def _candidate_context(row: dict) -> tuple[dict, float | int | None]:
@@ -225,15 +238,52 @@ def _sec_supply_context(row: dict, observed_at: datetime) -> dict:
             or raw.get("NO_ORDERS") is not True
             or raw.get("sec_clearance") is not False
             or type(raw.get("dilution_risk_detected")) is not bool
-            or raw.get("os_verified") is not False
             or raw.get("float_verified") is not False
-            or raw.get("shares_outstanding") is not None
             or raw.get("float_shares") is not None
             or raw.get("registration_effectiveness_verified") is not False
             or raw.get("remaining_capacity_verified") is not False
-            or raw.get("source") != "SEC_FILING_TEXT"
+            or raw.get("source") not in {
+                "SEC_FILING_TEXT", "SEC_FILING_TEXT_PLUS_COMPANYFACTS"}
             or not isinstance(raw.get("status"), str)):
         raise ValueError("invalid_or_unsafe_sec_supply_context")
+    os_verified = raw.get("os_verified")
+    shares = raw.get("shares_outstanding")
+    if os_verified is False:
+        if shares is not None:
+            raise ValueError("unverified_os_value_not_allowed")
+        frozen_os = {key: None for key in (
+            "os_asof_date", "os_filed_date", "os_knowable_at_utc", "os_form",
+            "os_accession", "os_source_url", "os_retrieved_at_utc")}
+        frozen_os["os_basis"] = raw.get(
+            "os_basis", "SEC_COMPANYFACTS_POINT_IN_TIME")
+        frozen_os["os_status"] = raw.get(
+            "os_status", "SEC_COMPANYFACTS_OS_NOT_AVAILABLE")
+        frozen_os["os_rejection_reason"] = raw.get("os_rejection_reason")
+        if (not isinstance(frozen_os["os_status"], str)
+                or not frozen_os["os_status"]
+                or (frozen_os["os_rejection_reason"] is not None
+                    and not isinstance(frozen_os["os_rejection_reason"], str))):
+            raise ValueError("invalid_unverified_os_status")
+    elif os_verified is True:
+        if (type(shares) is not int or shares <= 0
+                or raw.get("os_basis") != "SEC_COMPANYFACTS_POINT_IN_TIME"
+                or raw.get("source") != "SEC_FILING_TEXT_PLUS_COMPANYFACTS"
+                or not _official_sec_companyfacts_url(raw.get("os_source_url"))):
+            raise ValueError("invalid_verified_os_evidence")
+        for key in ("os_asof_date", "os_filed_date", "os_form", "os_accession"):
+            if not isinstance(raw.get(key), str) or not raw[key]:
+                raise ValueError("verified_os_metadata_required")
+        if (_time(raw.get("os_knowable_at_utc")) > observed_at
+                or _time(raw.get("os_retrieved_at_utc")) > observed_at):
+            raise ValueError("future_verified_os_evidence_not_allowed")
+        frozen_os = {key: raw.get(key) for key in (
+            "os_asof_date", "os_filed_date", "os_knowable_at_utc", "os_form",
+            "os_accession", "os_source_url", "os_retrieved_at_utc", "os_basis")}
+        frozen_os["os_status"] = raw.get(
+            "os_status", "SEC_COMPANYFACTS_OS_VERIFIED_POINT_IN_TIME")
+        frozen_os["os_rejection_reason"] = None
+    else:
+        raise ValueError("invalid_os_verified_flag")
     signals = raw.get("signals")
     if not isinstance(signals, list) or len(signals) > 10:
         raise ValueError("invalid_sec_supply_signals")
@@ -261,8 +311,9 @@ def _sec_supply_context(row: dict, observed_at: datetime) -> dict:
     return {
         "schema_version": raw["schema_version"], "status": raw["status"],
         "dilution_risk_detected": raw["dilution_risk_detected"],
-        "signals": frozen, **counts, "shares_outstanding": None,
-        "os_verified": False, "float_shares": None, "float_verified": False,
+        "signals": frozen, **counts, "shares_outstanding": shares,
+        "os_verified": os_verified, **frozen_os,
+        "float_shares": None, "float_verified": False,
         "registration_effectiveness_verified": False,
         "remaining_capacity_verified": False, "source": raw["source"],
         "sec_clearance": False, "NO_ORDERS": True,

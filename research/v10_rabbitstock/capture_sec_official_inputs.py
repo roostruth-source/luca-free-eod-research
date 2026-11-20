@@ -17,8 +17,9 @@ import time
 import urllib.request
 
 from sec_access import MAX_JSON_BYTES, validate_user_agent
-from sec_official_bundle import (MAX_EXPECTED_SYMBOLS, SOURCE, SUBMISSIONS_URL,
-                                 SYMBOL, TICKERS_URL, canonical_sha256)
+from sec_official_bundle import (COMPANYFACTS_URL, MAX_EXPECTED_SYMBOLS, SOURCE,
+                                 SUBMISSIONS_URL, SYMBOL, TICKERS_URL,
+                                 canonical_sha256)
 
 V03_DIR = Path(__file__).resolve().parents[1] / "v03_stage24"
 sys.path.insert(0, str(V03_DIR))
@@ -49,7 +50,8 @@ def _symbols(value: list[str]) -> list[str]:
 
 
 def _fetch(url: str, user_agent: str, opener, clock) -> tuple[dict, dict]:
-    if url != TICKERS_URL and SUBMISSIONS_URL.fullmatch(url) is None:
+    if (url != TICKERS_URL and SUBMISSIONS_URL.fullmatch(url) is None
+            and COMPANYFACTS_URL.fullmatch(url) is None):
         raise ValueError("sec_capture_url_not_allowed")
     request = urllib.request.Request(url, headers={
         "User-Agent": validate_user_agent(user_agent),
@@ -93,6 +95,8 @@ def capture(symbols: list[str], user_agent: str, *, opener=None, clock=None,
     mapping = ticker_cik_map(ticker_payload)
     submissions = {}
     receipts = {}
+    companyfacts = {}
+    companyfacts_receipts = {}
     for symbol in symbols:
         cik = mapping.get(symbol)
         if cik is None:
@@ -104,6 +108,15 @@ def capture(symbols: list[str], user_agent: str, *, opener=None, clock=None,
             raise ValueError("sec_capture_submission_cik_mismatch")
         submissions[symbol] = payload
         receipts[symbol] = receipt
+        sleeper(REQUEST_DELAY_SECONDS)
+        companyfacts_url = (
+            f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json")
+        facts_payload, facts_receipt = _fetch(
+            companyfacts_url, user_agent, opener, clock)
+        if facts_payload.get("cik") != cik:
+            raise ValueError("sec_capture_companyfacts_cik_mismatch")
+        companyfacts[symbol] = facts_payload
+        companyfacts_receipts[symbol] = facts_receipt
     completed = _utc(clock(), "sec_capture_completed")
     if completed < started or completed - started > timedelta(minutes=20):
         raise ValueError("sec_capture_duration_invalid")
@@ -115,6 +128,7 @@ def capture(symbols: list[str], user_agent: str, *, opener=None, clock=None,
         "expected_symbols": symbols,
         "ticker_map": ticker_receipt,
         "submissions": receipts,
+        "companyfacts": companyfacts_receipts,
         "declared_user_agent_present": True,
         "request_delay_seconds": REQUEST_DELAY_SECONDS,
         "timestamp_basis": "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK",
@@ -122,7 +136,8 @@ def capture(symbols: list[str], user_agent: str, *, opener=None, clock=None,
         "NO_ORDERS": True,
     }
     return {"ticker_payload": ticker_payload,
-            "submission_payloads": submissions, "manifest": manifest}
+            "submission_payloads": submissions,
+            "companyfacts_payloads": companyfacts, "manifest": manifest}
 
 
 def main() -> int:
@@ -137,11 +152,16 @@ def main() -> int:
     result = capture(symbols, args.user_agent)
     submissions_dir = args.output_dir / "submissions"
     submissions_dir.mkdir(parents=True)
+    companyfacts_dir = args.output_dir / "companyfacts"
+    companyfacts_dir.mkdir(parents=True)
     (args.output_dir / "company_tickers.json").write_text(
         json.dumps(result["ticker_payload"], ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
     for symbol, payload in result["submission_payloads"].items():
         (submissions_dir / f"{symbol}.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    for symbol, payload in result["companyfacts_payloads"].items():
+        (companyfacts_dir / f"{symbol}.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (args.output_dir / "capture_manifest.json").write_text(
         json.dumps(result["manifest"], ensure_ascii=False, indent=2) + "\n",
@@ -149,6 +169,7 @@ def main() -> int:
     print(json.dumps({"status": "SEC_DIRECT_CAPTURE_NOT_CLEARED",
                       "expected": len(symbols),
                       "submissions": len(result["submission_payloads"]),
+                      "companyfacts": len(result["companyfacts_payloads"]),
                       "NO_ORDERS": True}))
     return 0
 

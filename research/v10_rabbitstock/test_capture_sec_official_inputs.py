@@ -25,6 +25,9 @@ class Response:
 def opener(request, timeout):
     if "company_tickers" in request.full_url:
         return Response({"0": {"ticker": "ABC", "cik_str": 123, "title": "ABC"}})
+    if "/companyfacts/" in request.full_url:
+        return Response({"cik": 123, "facts": {"us-gaap": {
+            "LargeUnrelatedConcept": {"units": {"USD": [{"val": 1}]}}}}})
     return Response({"cik": 123, "filings": {"recent": {}}})
 
 
@@ -37,6 +40,7 @@ class CaptureSecOfficialInputsTests(unittest.TestCase):
                          "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK")
         self.assertEqual(manifest["ticker_map"]["http_date_utc"], NOW.isoformat())
         self.assertEqual(set(manifest["submissions"]), {"ABC"})
+        self.assertEqual(set(manifest["companyfacts"]), {"ABC"})
         self.assertNotIn("contact@example.com", json.dumps(manifest))
         self.assertTrue(manifest["NO_ORDERS"])
         self.assertFalse(manifest["independent_timestamp_fully_verified"])
@@ -68,25 +72,33 @@ class CaptureSecOfficialInputsTests(unittest.TestCase):
         self.assertEqual(seen[0], "https://www.sec.gov/files/company_tickers.json")
         self.assertEqual(seen[1],
                          "https://data.sec.gov/submissions/CIK0000000123.json")
+        self.assertEqual(seen[2],
+                         "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000123.json")
         self.assertTrue(all("orders" not in url for url in seen))
 
     def test_capture_manifest_builds_bundle_with_revalidated_time_provenance(self):
         result = capture(["ABC"], "LUCA-Research contact@example.com",
                          opener=opener, clock=lambda: NOW, sleeper=lambda _: None)
         bundle = build(result["ticker_payload"], result["submission_payloads"],
-                       ["ABC"], NOW, capture_manifest=result["manifest"])
+                       ["ABC"], NOW, capture_manifest=result["manifest"],
+                       companyfacts_payloads=result["companyfacts_payloads"])
         validated = validate_official_bundle(bundle, NOW, ["ABC"])
         provenance = validated["provenance"]
         self.assertEqual(provenance["retrieval_time_provenance"],
                          "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK")
         self.assertTrue(provenance["capture_manifest_revalidated"])
+        self.assertEqual(provenance["companyfacts_available"], 1)
+        self.assertNotIn("us-gaap", bundle["companyfacts"]["ABC"]["payload"]["facts"])
+        self.assertNotEqual(bundle["companyfacts"]["ABC"]["sha256"],
+                            bundle["companyfacts"]["ABC"]["source_sha256"])
         self.assertFalse(provenance["independent_timestamp_fully_verified"])
 
     def test_validator_rejects_receipt_outside_capture_window(self):
         result = capture(["ABC"], "LUCA-Research contact@example.com",
                          opener=opener, clock=lambda: NOW, sleeper=lambda _: None)
         bundle = build(result["ticker_payload"], result["submission_payloads"],
-                       ["ABC"], NOW, capture_manifest=result["manifest"])
+                       ["ABC"], NOW, capture_manifest=result["manifest"],
+                       companyfacts_payloads=result["companyfacts_payloads"])
         # A consistent hash and HTTP Date cannot justify a receipt timestamp
         # outside the capture's own started/completed window.
         earlier = "2026-11-19T08:00:00+00:00"
@@ -104,7 +116,8 @@ class CaptureSecOfficialInputsTests(unittest.TestCase):
             "2026-11-19T07:00:00+00:00")
         with self.assertRaisesRegex(ValueError, "receipt_time_invalid"):
             build(result["ticker_payload"], result["submission_payloads"],
-                  ["ABC"], NOW, capture_manifest=result["manifest"])
+                  ["ABC"], NOW, capture_manifest=result["manifest"],
+                  companyfacts_payloads=result["companyfacts_payloads"])
 
 
 if __name__ == "__main__":

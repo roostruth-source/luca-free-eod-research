@@ -8,10 +8,10 @@
 |---:|---|---|---|
 | 1 | NASDAQ 7.0·중국계 1.0 독립 탐지와 통합 watchlist | PARTIAL | Alpaca screener 출처 순위와 관찰시각은 원장에 고정된다. 중국계 1.0을 별도 cohort(집단)로 표시하는 live 필드는 아직 필요하다. |
 | 2 | Volume-First·종목종류·역분할·상장위험 연결 | PARTIAL | Volume-First, 장전/정규장, ETF·Warrant·Unit 차단과 Nasdaq Financial Status 0점 보류는 실제 artifact로 확인됐다. SEC 원문에서 역분할·최저주가·상장미달·상장폐지/청문 문구를 보수적으로 0점 보류하는 연결도 구현됐다. 최신 실제 artifact에서 해당 원문 신호가 있는 종목을 확인하기 전까지 PARTIAL을 유지한다. |
-| 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | ATM·ELOC·CB·Warrant·Shelf 원문 문구를 live 후보의 희석위험 0점 보류·전향 원장·성과집단에 연결했다. 문구만으로 잔여한도나 등록효력을 확정하지 않는다. 공식 OS·Float 숫자와 CB Reset 계약식의 live 연결은 남아 있다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않는다. |
+| 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | ATM·ELOC·CB·Warrant·Shelf 문구와 SEC Company Facts의 공시 기준일 OS를 live 후보·전향 원장·성과집단에 연결했다. Float 주식 수·잔여한도·등록효력·CB Reset 계약식은 아직 미검증이다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않는다. |
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
 | 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 독립 5거래일 표본 30개 전에는 성능 검증 완료가 아니다. |
-| 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류·상장상태·SEC 희석위험을 쉬운 한국어로 표시한다. 공식 OS·Float와 계약별 잔여한도 설명은 아직 필요하다. |
+| 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류·상장상태·SEC 희석위험과 검증된 공시 기준일 OS를 쉬운 한국어로 표시한다. Float와 계약별 잔여한도 설명은 아직 필요하다. |
 | 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #21 run 44531212641과 PR #22 run 44542213435 성공. 최신 후보 50개에서 Nasdaq `D` 4개가 모두 거래소 상태 위험으로 0점 보류됐고 위험 종목의 비정상 점수는 0건이었다. |
 | 8 | 주문 금지 안전 상태 | COMPLETE | 실제 artifact와 테스트에서 WATCH_ONLY·NOT_VALIDATED·NO_ORDERS가 유지된다. 자동매수·주문 endpoint는 없다. |
 | 9 | 체크리스트와 근거 지속 갱신 | ACTIVE | 이 파일을 매 작업 후 커밋·Actions·artifact 근거와 함께 갱신한다. |
@@ -28,7 +28,7 @@
 ## 다음 순서
 
 1. 역분할·상장통지 0점 보류를 최신 CI와 실제 SEC 원문 artifact로 검증한다.
-2. SEC 공식 bundle에 Company Facts/공식 공시 근거를 추가해 OS를 붙이고, Float는 공식 주식 수 근거가 있을 때만 붙인다.
+2. 최신 watchlist용 SEC Company Facts bundle을 실제 수집해 OS가 표시되는 artifact를 검증한다. Float는 공식 주식 수 근거가 있을 때만 붙인다.
 3. 중국계 1.0 cohort를 별도 표시하고 성과표도 분리한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
 
@@ -49,6 +49,15 @@
 - 40행 모두 `SEC_SUPPLY_TEXT_UNAVAILABLE`; `shares_outstanding`·`float_shares` 임의 입력 0건, `os_verified`·`float_verified` 오표시 0건.
 - 전향 원장은 1,585건에서 1,625건으로 `CHAIN_CONTINUED`; 신규 40행의 `sec_supply_context` 저장을 확인했다.
 - 이번 실행은 `SEC_TICKER_MAP_HTTP_403`으로 실제 ATM·ELOC·CB·Warrant·Shelf 원문 적중 사례가 없었다. 상태는 `CI_PASSED_LIVE_SEC_SUPPLY_TEXT_UNOBSERVED`이며 완성 기준 3은 PARTIAL을 유지한다.
+
+## 2026-11-21 SEC Company Facts OS 연결 (CI 및 live 검증 대기)
+
+- 공식 SEC Company Facts의 `EntityCommonStockSharesOutstanding`만 OS(발행주식 수) 후보로 허용한다.
+- 제출일 당일의 장중 선후를 추정하지 않고 제출일 다음 UTC 날짜부터만 사용한다. URL·해시·HTTP Date·수집시각·CIK·기준일·제출일·Form·Accession을 함께 검증한다.
+- 같은 공시 정체성에 서로 다른 주식 수가 들어오거나 미래 수집시각·비공식 URL·해시/CIK 불일치가 있으면 실패 처리한다.
+- SEC `EntityPublicFloat`는 달러 시장가치이므로 Float 주식 수로 환산하지 않는다. `float_shares=null`, `float_verified=false`를 유지한다.
+- 검증된 OS는 아이폰 HTML과 해시 전향 원장에 고정하고 성과표를 `os:verified_point_in_time`과 `os:unverified`로 분리한다.
+- 로컬 관련 테스트 65개와 V10 전체 회귀검사 214개, 기존 IEX 연결검사 14개 통과. PR Actions와 실제 Company Facts 포함 artifact 검증이 남아 있다.
 
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 

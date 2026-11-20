@@ -48,6 +48,29 @@ class SecSupplyContextTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "official_sec_supply_source"):
             build([spoofed], 0, ASOF)
 
+    def test_verified_companyfacts_os_is_carried_without_inventing_float(self):
+        os_context = {
+            "schema_version": "LUCA_V10_SEC_OS_CONTEXT_1",
+            "status": "SEC_COMPANYFACTS_OS_VERIFIED_POINT_IN_TIME",
+            "shares_outstanding": 1_250_000, "os_verified": True,
+            "os_asof_date": "2026-11-15", "os_filed_date": "2026-11-17",
+            "os_knowable_at_utc": "2026-11-18T00:00:00Z", "os_form": "8-K",
+            "os_accession": "0000000123-26-000020",
+            "os_source_url": (
+                "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000123.json"),
+            "os_retrieved_at_utc": "2026-11-18T14:00:00Z",
+            "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+            "float_shares": None, "float_verified": False,
+            "float_basis": "NOT_DERIVED_ENTITY_PUBLIC_FLOAT_IS_USD_VALUE",
+            "NO_ORDERS": True,
+        }
+        result = build([], 0, ASOF, os_context)
+        self.assertEqual(result["shares_outstanding"], 1_250_000)
+        self.assertTrue(result["os_verified"])
+        self.assertFalse(result["float_verified"])
+        self.assertEqual(result["source"],
+                         "SEC_FILING_TEXT_PLUS_COMPANYFACTS")
+
 
 if __name__ == "__main__":
     unittest.main()

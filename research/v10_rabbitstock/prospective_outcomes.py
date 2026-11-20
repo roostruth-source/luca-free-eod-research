@@ -253,8 +253,12 @@ def _segment_labels(record: dict) -> list[str]:
             listing = ["listing_action:unavailable_or_partial"]
     if not record["sec_supply_context_recorded"]:
         supply = ["sec_supply:legacy_context_missing"]
+        os_segment = "os:legacy_context_missing"
     else:
         supply_context = record["sec_supply_context"]
+        os_segment = ("os:verified_point_in_time"
+                      if supply_context.get("os_verified") is True
+                      else "os:unverified")
         signals = supply_context.get("signals", [])
         if supply_context.get("dilution_risk_detected") is True and signals:
             supply = ["sec_supply:" + str(signal.get("code", "invalid")).lower()
@@ -264,7 +268,7 @@ def _segment_labels(record: dict) -> list[str]:
         else:
             supply = ["sec_supply:unavailable_or_partial"]
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            financial, session, *listing, *supply]
+            financial, session, os_segment, *listing, *supply]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:

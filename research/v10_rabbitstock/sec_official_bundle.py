@@ -20,12 +20,15 @@ SCHEMA = "LUCA_V10_SEC_OFFICIAL_BUNDLE_1"
 SOURCE = "SEC_OFFICIAL"
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SUBMISSIONS_URL = re.compile(r"https://data\.sec\.gov/submissions/CIK(\d{10})\.json")
+COMPANYFACTS_URL = re.compile(
+    r"https://data\.sec\.gov/api/xbrl/companyfacts/CIK(\d{10})\.json")
 SYMBOL = re.compile(r"[A-Z][A-Z0-9.\-]{0,12}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 MAX_FILE_BYTES = 4_000_000
 MAX_EXPECTED_SYMBOLS = 50
 MAX_TICKER_ENTRIES = 5_000
 MAX_SUBMISSIONS = 100
+MAX_COMPANYFACTS = 100
 MAX_AGE = timedelta(hours=72)
 CAPTURE_SCHEMA = "LUCA_V10_SEC_DIRECT_CAPTURE_1"
 MAX_CAPTURE_CLOCK_SKEW = timedelta(minutes=15)
@@ -143,6 +146,47 @@ def validate_official_bundle(bundle: dict, asof: datetime,
             "sha256": digest,
         }
 
+    companyfacts = bundle.get("companyfacts", {})
+    if not isinstance(companyfacts, dict) or len(companyfacts) > MAX_COMPANYFACTS:
+        raise ValueError("sec_bundle_companyfacts_invalid")
+    if set(companyfacts) - expected:
+        raise ValueError("sec_bundle_unexpected_companyfacts_symbol")
+    selected_companyfacts = {}
+    selected_companyfact_sources = {}
+    for symbol in sorted(expected):
+        if symbol not in companyfacts:
+            continue
+        entry = companyfacts[symbol]
+        if not isinstance(entry, dict) or symbol not in selected_map:
+            raise ValueError("sec_bundle_companyfacts_without_mapping")
+        url = entry.get("source_url")
+        match = COMPANYFACTS_URL.fullmatch(url or "")
+        if match is None or int(match.group(1)) != selected_map[symbol]:
+            raise ValueError("sec_bundle_companyfacts_source_not_official")
+        retrieved = _timestamp(entry.get("retrieved_at_utc"),
+                               "sec_bundle_companyfacts_retrieved")
+        if retrieved > collected or retrieved > asof_utc:
+            raise ValueError("sec_bundle_future_companyfacts_retrieval_not_allowed")
+        if asof_utc - retrieved > MAX_AGE:
+            raise ValueError("sec_bundle_companyfacts_stale")
+        payload = entry.get("payload")
+        if not isinstance(payload, dict) or payload.get("cik") != selected_map[symbol]:
+            raise ValueError("sec_bundle_companyfacts_payload_invalid")
+        digest = entry.get("sha256")
+        if (not isinstance(digest, str) or not SHA256.fullmatch(digest)
+                or digest != canonical_sha256(payload)):
+            raise ValueError("sec_bundle_companyfacts_hash_mismatch")
+        source_digest = entry.get("source_sha256", digest)
+        if not isinstance(source_digest, str) or not SHA256.fullmatch(source_digest):
+            raise ValueError("sec_bundle_companyfacts_source_hash_invalid")
+        selected_companyfacts[symbol] = payload
+        selected_companyfact_sources[symbol] = {
+            "source_url": url,
+            "retrieved_at_utc": retrieved.isoformat(),
+            "sha256": digest,
+            "source_sha256": source_digest,
+        }
+
     capture_manifest = bundle.get("capture_manifest")
     if capture_manifest is None:
         raise ValueError("sec_bundle_capture_manifest_required")
@@ -198,6 +242,26 @@ def validate_official_bundle(bundle: dict, asof: datetime,
                 raise ValueError("sec_bundle_capture_submission_outside_window")
             if abs(retrieved - server) > MAX_CAPTURE_CLOCK_SKEW:
                 raise ValueError("sec_bundle_capture_clock_skew_excessive")
+        companyfacts_receipts = capture_manifest.get("companyfacts", {})
+        if (not isinstance(companyfacts_receipts, dict)
+                or set(companyfacts_receipts) != set(companyfacts)):
+            raise ValueError("sec_bundle_capture_companyfacts_receipts_mismatch")
+        for symbol, source in selected_companyfact_sources.items():
+            receipt = companyfacts_receipts.get(symbol)
+            if (not isinstance(receipt, dict)
+                    or receipt.get("source_url") != source["source_url"]
+                    or receipt.get("retrieved_at_utc") != source["retrieved_at_utc"]
+                    or receipt.get("canonical_sha256")
+                    != source["source_sha256"]):
+                raise ValueError("sec_bundle_capture_companyfacts_receipt_invalid")
+            server = _timestamp(receipt.get("http_date_utc"),
+                                "sec_bundle_capture_companyfacts_http_date")
+            retrieved = _timestamp(receipt.get("retrieved_at_utc"),
+                                   "sec_bundle_capture_companyfacts_retrieved")
+            if not started <= retrieved <= completed:
+                raise ValueError("sec_bundle_capture_companyfacts_outside_window")
+            if abs(retrieved - server) > MAX_CAPTURE_CLOCK_SKEW:
+                raise ValueError("sec_bundle_capture_companyfacts_clock_skew_excessive")
         timestamp_provenance = "SEC_HTTP_DATE_PLUS_LOCAL_UTC_CLOCK"
         capture_revalidated = True
 
@@ -206,6 +270,8 @@ def validate_official_bundle(bundle: dict, asof: datetime,
     return {
         "ticker_map": selected_map,
         "submissions": selected_submissions,
+        "companyfacts": selected_companyfacts,
+        "companyfact_sources": selected_companyfact_sources,
         "provenance": {
             "status": ("FULL_CURRENT_WATCHLIST_INPUT_NOT_CLEARED"
                        if mapped == len(expected) and available == mapped
@@ -217,7 +283,9 @@ def validate_official_bundle(bundle: dict, asof: datetime,
             "expected_symbols": len(expected),
             "mapped_symbols": mapped,
             "submissions_available": available,
+            "companyfacts_available": len(selected_companyfacts),
             "submission_sources": selected_sources,
+            "companyfact_sources": selected_companyfact_sources,
             "retrieval_time_provenance": timestamp_provenance,
             "capture_manifest_revalidated": capture_revalidated,
             "independent_timestamp_fully_verified": False,

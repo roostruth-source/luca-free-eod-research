@@ -175,6 +175,7 @@ python capture_sec_official_inputs.py \
 python build_sec_official_bundle.py \
   --ticker-map raw/sec_capture/company_tickers.json \
   --submissions-dir raw/sec_capture/submissions \
+  --companyfacts-dir raw/sec_capture/companyfacts \
   --symbols raw/symbols.json \
   --capture-manifest raw/sec_capture/capture_manifest.json \
   --output build_inputs/sec_official_bundle.json
@@ -205,7 +206,9 @@ Nasdaq 상장종목의 `Financial Status`도 같은 공식 디렉터리에서 �
 
 최근 SEC 공시 원문을 실제로 가져온 경우에는 `Reverse Split`(역분할), `Minimum Bid`(최저주가 요건), `Listing Deficiency`(상장요건 미달 통지), `Delisting/Hearing`(상장폐지·청문 절차) 문구를 별도 `listing_action_context`에 고정한다. 하나라도 발견되면 시장활동이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점으로 보류한다. 원문 URL·공시 접수시각·문맥을 전향 원장에 함께 저장하고, 성과표도 신호별로 분리한다. 키워드 일치는 현재 상태·효력일·완료 여부의 확정 판정이 아니며, 원문 수집 실패나 일부 문서만 확인한 경우에는 안전하다고 간주하지 않는다.
 
-같은 SEC 원문 검토에서 `ATM`(시장가 수시매각), `ELOC`(주식매입 약정), `CB`(전환사채), `Warrant`(신주인수권), `Shelf`(선반등록) 문구는 `sec_supply_context`에 별도로 고정한다. 하나라도 발견되면 `HOLD_SEC_SUPPLY_RISK`(SEC 희석 위험 보류) 0점으로 분리한다. 단어가 있다는 사실만으로 현재 잔여한도·전환 가능 수량·등록효력·실제 희석 완료를 확정하지 않는다. SEC 원문 URL과 접수시각을 저장하더라도 공식 OS(발행주식 수)와 Float(유통주식 수) 수치가 별도로 검증되지 않으면 두 값은 `null`, 검증 상태는 `false`로 유지한다.
+같은 SEC 원문 검토에서 `ATM`(시장가 수시매각), `ELOC`(주식매입 약정), `CB`(전환사채), `Warrant`(신주인수권), `Shelf`(선반등록) 문구는 `sec_supply_context`에 별도로 고정한다. 하나라도 발견되면 `HOLD_SEC_SUPPLY_RISK`(SEC 희석 위험 보류) 0점으로 분리한다. 단어가 있다는 사실만으로 현재 잔여한도·전환 가능 수량·등록효력·실제 희석 완료를 확정하지 않는다.
+
+공식 bundle에 SEC Company Facts의 `EntityCommonStockSharesOutstanding`가 있으면 OS(발행주식 수)를 **공시 기준일의 점 수치**로 저장한다. 제출일 당일의 장중 선후를 알 수 없으므로 제출일 다음 UTC 날짜 00:00부터만 사용하고, 원문 URL·수집시각·공시 기준일·제출일·Form·Accession을 전향 원장에 함께 고정한다. 이는 실시간 현재 OS가 아니다. SEC의 `EntityPublicFloat`는 주식 수가 아니라 달러 가치이므로 Float(유통주식 수)로 변환하지 않는다. 공식 주식 수 근거가 없으면 `float_shares=null`, `float_verified=false`를 유지한다.
 
 `validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
 
