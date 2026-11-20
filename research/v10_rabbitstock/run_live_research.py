@@ -17,6 +17,7 @@ import urllib.error
 from sec_document_review import fetch_filing, review_text
 from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
+from listing_action_context import build as build_listing_action_context
 from prioritize_watchlist import prioritize
 from nasdaq_symbol_scope import collect as collect_symbol_scope
 from price_session_context import classify as classify_price_session
@@ -153,9 +154,14 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
                 result = {"source_url": url, "status": f"HTTP_{exc.code}_NOT_CLEARED"}
             except (OSError, ValueError, UnicodeError) as exc:
                 result = {"source_url": url, "status": type(exc).__name__ + "_NOT_CLEARED"}
+            result["accepted_at_utc"] = accepted.astimezone(timezone.utc).isoformat()
+            result["form"] = filing["form"]
             filing_reviews.append(result)
             if delay:
                 time.sleep(delay)
+        unreviewed = max(0, len(row.get("review_filings", [])) - len(filing_reviews))
+        listing_context = build_listing_action_context(
+            filing_reviews, unreviewed, asof)
         rows.append({
             "ticker": row["symbol"],
             "iex_price": row.get("iex_price"),
@@ -167,7 +173,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "security_scope": copy.deepcopy(row.get("security_scope", {})),
             "price_session_context": copy.deepcopy(row.get("price_session_context", {})),
             "review_filings": filing_reviews,
-            "unreviewed_filings": max(0, len(row.get("review_filings", [])) - len(filing_reviews)),
+            "unreviewed_filings": unreviewed,
+            "listing_action_context": listing_context,
             "float_verified": False,
             "supply_clearance": False,
             "state": "WATCH_ONLY_BLOCKED",
@@ -355,6 +362,12 @@ def render_html(report: dict) -> str:
                      + "<br>SEC: " + escape(row["sec_status"])
                      + "<br>공시 키워드: "
                      + escape(", ".join(terms) or "확인 없음/미확인")
+                     + "<br>역분할·상장통지: "
+                     + escape(row["listing_action_context"].get("status", "미확인"))
+                     + (" · " + escape(", ".join(
+                         signal["ko"] for signal in
+                         row["listing_action_context"].get("signals", [])))
+                        if row["listing_action_context"].get("signals") else "")
                      + "</p><p class='risk'>주의: " + escape(risks)
                      + "</p><small>이 점수는 관찰 순서이며 매수 점수가 아닙니다.</small></article>")
     lines.append("<p>스크리너 일부 후보만 다룹니다. 공시 키워드는 계약 조건·현재 잔여 수량의 확정 근거가 아닙니다.</p></main></html>")

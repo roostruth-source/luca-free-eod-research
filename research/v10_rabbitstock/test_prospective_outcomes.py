@@ -120,6 +120,11 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                   "priority_is_buy_signal": False},
             "security_scope": {"status": "COMMON_EQUITY_CANDIDATE_SCOPE",
                                "financial_status": "N"},
+            "listing_action_context": {
+                "status": "SEC_TEXT_LISTING_OR_SPLIT_RISK_REVIEW_REQUIRED",
+                "risk_detected": True,
+                "signals": [{"code": "REVERSE_SPLIT"}],
+            },
         })
         second = event()
         second.update({
@@ -135,6 +140,10 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                   "priority_is_buy_signal": False},
             "security_scope": {"status": "EXCLUDED_ETF_OR_ETP",
                                "financial_status": "D"},
+            "listing_action_context": {
+                "status": "SEC_LISTING_TEXT_UNAVAILABLE",
+                "risk_detected": False, "signals": [],
+            },
         })
         result = build_outcomes(ledger_many(first, second), {
             **BARS,
@@ -157,6 +166,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("security_scope:excluded_etf_or_etp", segments)
         self.assertIn("financial_status:n", segments)
         self.assertIn("financial_status:d", segments)
+        self.assertIn("listing_action:reverse_split", segments)
+        self.assertIn("listing_action:unavailable_or_partial", segments)
         self.assertIn("session:regular", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
 

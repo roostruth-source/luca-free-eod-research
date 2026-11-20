@@ -18,6 +18,12 @@ TERMS = {
     "CB": re.compile(r"convertible (?:note|debenture|bond)", re.I),
     "WARRANT": re.compile(r"\bwarrants?\b", re.I),
     "REVERSE_SPLIT": re.compile(r"reverse (?:stock )?split|share consolidation", re.I),
+    "MINIMUM_BID": re.compile(
+        r"minimum (?:closing )?bid price(?: requirement)?|bid price deficiency", re.I),
+    "LISTING_DEFICIENCY": re.compile(
+        r"deficiency notice|not in compliance|noncompliance|continued listing requirements", re.I),
+    "DELISTING_OR_HEARING": re.compile(
+        r"delist(?:ing|ed)?|hearings? panel|panel hearing", re.I),
     "SHELF": re.compile(r"shelf registration|shelf offering", re.I),
     "LOCKUP": re.compile(r"lock[- ]up agreement", re.I),
 }

@@ -43,6 +43,13 @@ def prioritize(report: dict) -> dict:
         common_scope = scope_status == "COMMON_EQUITY_CANDIDATE_SCOPE"
         financial_status = security_scope.get("financial_status")
         financial_risk = security_scope.get("financial_status_risk") is True
+        listing_context = row.get("listing_action_context", {})
+        if not isinstance(listing_context, dict):
+            raise ValueError("invalid_listing_action_context")
+        listing_action_risk = listing_context.get("risk_detected") is True
+        listing_signals = listing_context.get("signals", [])
+        if not isinstance(listing_signals, list):
+            raise ValueError("invalid_listing_action_signals")
         price_context = row.get("price_session_context", {})
         premarket_declared = row.get("iex_status") == "WATCH_ONLY_FRESH_IEX_PREMARKET"
         premarket = (premarket_declared and isinstance(price_context, dict)
@@ -113,13 +120,25 @@ def prioritize(report: dict) -> dict:
                 risks.append("WIDE_IEX_SPREAD")
         else:
             risks.append("IEX_SPREAD_UNKNOWN")
-        score = max(0, min(100, score)) if fresh and common_scope and not financial_risk else 0
+        score = (max(0, min(100, score))
+                 if fresh and common_scope and not financial_risk
+                 and not listing_action_risk else 0)
         if not common_scope:
             label = "HOLD_OUT_OF_SCOPE_OR_UNVERIFIED"
             risks.append(scope_status or "SYMBOL_SCOPE_UNVERIFIED")
-        elif financial_risk:
+        elif financial_risk or listing_action_risk:
             label = "HOLD_FINANCIAL_OR_LISTING_STATUS"
-            risks.append("NASDAQ_FINANCIAL_STATUS_" + str(financial_status or "UNKNOWN"))
+            if financial_risk:
+                risks.append("NASDAQ_FINANCIAL_STATUS_" + str(financial_status or "UNKNOWN"))
+            if listing_action_risk:
+                codes = []
+                for signal in listing_signals:
+                    if not isinstance(signal, dict) or signal.get("code") not in {
+                            "REVERSE_SPLIT", "MINIMUM_BID", "LISTING_DEFICIENCY",
+                            "DELISTING_OR_HEARING"}:
+                        raise ValueError("invalid_listing_action_signal")
+                    codes.append(signal["code"])
+                risks.extend("SEC_FILING_" + code for code in dict.fromkeys(codes))
         elif not fresh:
             label = "HOLD_STALE_OR_MISSING_PRICE"
             risks.append("PRICE_STALE_OR_MISSING")

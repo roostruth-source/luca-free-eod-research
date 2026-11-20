@@ -139,6 +139,32 @@ class LiveResearchTests(unittest.TestCase):
         self.assertFalse(review["supply_clearance"])
         self.assertEqual(result["rows"][0]["state"], "WATCH_ONLY_BLOCKED")
 
+    def test_reverse_split_and_listing_notice_terms_force_zero_score_hold(self):
+        item = triage()
+        item["rows"][0]["security_scope"] = {
+            "status": "COMMON_EQUITY_CANDIDATE_SCOPE",
+            "financial_status": "N", "financial_status_risk": False,
+        }
+        result = assemble(
+            item, ASOF,
+            fetcher=lambda url: """
+                <p>Nasdaq notified the company that it was not in compliance
+                with the minimum bid price requirement. The company may seek
+                a hearings panel review and consider a reverse stock split.</p>
+            """, delay=0)
+        row = result["rows"][0]
+        self.assertTrue(row["listing_action_context"]["risk_detected"])
+        self.assertEqual(
+            {signal["code"] for signal in row["listing_action_context"]["signals"]},
+            {"REVERSE_SPLIT", "MINIMUM_BID", "LISTING_DEFICIENCY",
+             "DELISTING_OR_HEARING"})
+        self.assertEqual(row["research_priority_score"], 0)
+        self.assertEqual(row["research_priority_label"],
+                         "HOLD_FINANCIAL_OR_LISTING_STATUS")
+        self.assertIn("SEC_FILING_REVERSE_SPLIT", row["risk_flags"])
+        self.assertFalse(row["listing_action_context"]["current_status_confirmed"])
+        self.assertFalse(row["buy_allowed"])
+
     def test_future_sec_filing_is_not_backfilled(self):
         item = triage()
         item["rows"][0]["review_filings"][0]["accepted_at_utc"] = "2026-11-19T00:00:00Z"
@@ -150,6 +176,8 @@ class LiveResearchTests(unittest.TestCase):
             raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
         result = assemble(triage(), ASOF, fetcher=blocked, delay=0)
         self.assertEqual(result["rows"][0]["review_filings"][0]["status"], "HTTP_403_NOT_CLEARED")
+        self.assertEqual(result["rows"][0]["listing_action_context"]["status"],
+                         "SEC_LISTING_TEXT_UNAVAILABLE")
         self.assertFalse(result["sec_clearance"])
 
     def test_missing_credentials_still_creates_honest_report(self):

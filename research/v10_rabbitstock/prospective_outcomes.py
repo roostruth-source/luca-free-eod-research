@@ -239,8 +239,20 @@ def _segment_labels(record: dict) -> list[str]:
         session = "session:regular"
     else:
         session = "session:stale_or_missing_blocked"
+    if not record["listing_action_context_recorded"]:
+        listing = ["listing_action:legacy_context_missing"]
+    else:
+        listing_context = record["listing_action_context"]
+        signals = listing_context.get("signals", [])
+        if listing_context.get("risk_detected") is True and signals:
+            listing = ["listing_action:" + str(signal.get("code", "invalid")).lower()
+                       for signal in signals]
+        elif listing_context.get("status") == "REVIEWED_TEXT_NO_LISTING_TERM_NOT_CLEARED":
+            listing = ["listing_action:no_term_found_not_cleared"]
+        else:
+            listing = ["listing_action:unavailable_or_partial"]
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            financial, session]
+            financial, session, *listing]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -300,6 +312,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "security_scope": event.get("security_scope", {}),
             "price_session_context_recorded": "price_session_context" in event,
             "price_session_context": event.get("price_session_context", {}),
+            "listing_action_context_recorded": "listing_action_context" in event,
+            "listing_action_context": event.get("listing_action_context", {}),
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })
