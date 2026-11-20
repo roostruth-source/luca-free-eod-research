@@ -38,6 +38,19 @@ class ListingActionContextTests(unittest.TestCase):
                          "PARTIAL_TEXT_REVIEW_NO_LISTING_TERM_NOT_CLEARED")
         self.assertFalse(partial["sec_clearance"])
 
+    def test_spoofed_sec_origin_is_rejected(self):
+        for url in (
+            "https://www.sec.gov.evil.example/Archives/edgar/data/123/x",
+            "https://www.sec.gov@evil.example/Archives/edgar/data/123/x",
+            "https://www.sec.gov/Archives/edgar/data/123/x?untrusted=1",
+            "http://www.sec.gov/Archives/edgar/data/123/x",
+        ):
+            with self.subTest(url=url):
+                item = review("REVERSE_SPLIT")
+                item["source_url"] = url
+                with self.assertRaisesRegex(ValueError, "official_sec_listing_source"):
+                    build([item], 0, ASOF)
+
     def test_future_or_non_sec_evidence_is_rejected(self):
         future = review("LISTING_DEFICIENCY")
         future["accepted_at_utc"] = "2026-11-19T00:00:00Z"
