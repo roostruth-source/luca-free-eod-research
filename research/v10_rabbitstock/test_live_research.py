@@ -249,7 +249,8 @@ class LiveResearchTests(unittest.TestCase):
         first = result["rows"][0]
         self.assertEqual(first["iex_status"], "WATCH_ONLY_FRESH_IEX_PREMARKET")
         self.assertEqual(first["price_session_context"]["market_session"], "PREMARKET")
-        self.assertEqual(first["research_priority_label"], "PRIORITY_2_WATCH")
+        self.assertEqual(first["research_priority_label"], "PRIORITY_3_LOW_EVIDENCE")
+        self.assertIn("PREMARKET_SCREENER_RANK_SESSION_UNVERIFIED", first["risk_flags"])
         self.assertIn("PREMARKET_SINGLE_EXCHANGE_CONTEXT", first["risk_flags"])
         self.assertFalse(first["priority_is_buy_signal"])
         self.assertTrue(first["NO_ORDERS"])
