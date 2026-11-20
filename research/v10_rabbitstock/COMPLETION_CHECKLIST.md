@@ -55,3 +55,12 @@
 - PREMARKET 후보는 세션 출처가 고정되지 않은 active_volume, active_trades, gainers의 Screener Rank 가산점을 받지 않는다. PREMARKET_SCREENER_RANK_SESSION_UNVERIFIED 위험을 남긴다. REGULAR 후보의 기존 순위 가산점은 보존한다.
 - 상태: PENDING_CI_AND_LIVE_ARTIFACT. 이번 변경의 전체 CI 실행 및 실제 장전 후보 관찰 결과는 아직 확인되지 않았다. 최신 성공 Actions #44626684567은 변경 전 HEAD 2e21b93 기준이므로 이 변경의 통과 근거로 쓰지 않는다.
 - 안전 원칙: WATCH_ONLY / NOT_VALIDATED / SEC_UNVERIFIED / NO_ORDERS; 주문·main 병합·배포 금지.
+
+## 2026-11-20 11:19 KST 최신 HEAD CI 재검증
+
+- 원격 HEAD `0d2bd0a8e63279a8df7a8419b3e82a03c7caeedc`에서 Actions #44652204318 (`2026-11-20T01:15:05Z`, push) **success**: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44652204318
+- Job `test-and-build` #136009586575: 전체 연구 안전 테스트 **191개 OK**, 별도 테스트 **14개 OK** (총 **205개**). 보고서 생성·watchlist 수집·전향 원장 기록·주문 안전 검사·artifact 업로드 단계 모두 성공.
+- Artifact `14591443219` (`luca-v10-executable-research-build`, 7개 파일, 262695 bytes, ZIP SHA-256 `ca4f9661af9c1480f9979dd3e8fc956b5d47070ab1dc4dbe2322fea6c77d3dc1`, 만료 2026-12-04) 생성 확인: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44652204318/artifacts/14591443219
+- 로그의 최신 수집: `SEC_TICKER_MAP_HTTP_403`, 가격대 후보 51개 중 50개 제한(1개 제외). 1/3/5/10일 전향 평가 `mature_fresh={1:134,3:0,5:0,10:0}` 및 `ready=false`이므로 정확도 검증 불가.
+- **주의**: 이번 점검은 Actions 로그와 artifact 메타데이터 검증이다. ZIP 내부의 실제 PREMARKET 후보, 종목별 0점, SEC/FLOAT 위험 필드까지 재검사하지 못했다. 장전 Screener Rank 분리는 `CI_PASSED_LIVE_PREMARKET_UNOBSERVED`로 유지하고 COMPLETE로 올리지 않는다.
+- 다음 작업: 해당 artifact 내부 `live_watchlist.json`을 검사해 장전 순위 가산점 0점·세션 위험 표기·보류 0점·NO_ORDERS를 행별 검증한다. 주문·main 병합·배포 금지.
