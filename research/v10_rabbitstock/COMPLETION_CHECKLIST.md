@@ -176,3 +176,13 @@
 - 50행 모두 `WATCH_ONLY=true`, `NO_ORDERS=true`, `buy_allowed=false`, `validation_status=NOT_VALIDATED`; 위반 0건. `SEC_UNVERIFIED`·`FLOAT_UNVERIFIED` 각 50행, SEC ticker map HTTP 403으로 공식 검증 불가.
 - `prospective_outcomes.json`: 전향 원장 1,540건, 독립 1일 성과 61개, 독립 3/5/10일 성과 각 0개. 예측 정확도 검증 금지. **장전 신선 자료 점수 분리는 실제 artifact로 관찰됐으나 완성 기준 2 전체는 SEC 원문 역분할 적중 검증 부족으로 PARTIAL 유지.**
 - 이 문서 변경 커밋 이후 CI/새 artifact는 별도 확인 전까지 완료 근거로 쓰지 않는다. 주문·main 병합·배포 금지.
+
+## 2026-11-21 성능 검증 준비도 PR #29 연구 브랜치 통합 및 실제 검증
+
+- PR #29 `d72b195`를 **main이 아닌** `research/v10-rabbitstock-eval`에 squash 병합했다. 병합 HEAD `d239f7490d9541ebabdde9f59ce63899350410c5`.
+- 병합 HEAD Actions #44828165414 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44828165414 ; 모든 job 단계 성공, 실제 live artifact `14674812609` 생성.
+- Artifact ZIP SHA-256 `c9605dedda825d29c2427630d3272b5a7a5ec5535bfb3dd66d05a697652abce9`가 GitHub digest와 일치. ZIP 내부 `live_watchlist.json`, `prospective_outcomes.json`, `validation_readiness.json` 직접 확인.
+- 실측 후보 45개: 가격 보류 20, 범위 보류 19, 상장위험 보류 6. 보류 45개 모두 점수 0, `WATCH_ONLY=true`, `NO_ORDERS=true`, `buy_allowed=false`; `validation_status=NOT_VALIDATED` 유지.
+- 전향 원장 1,835건, 독립 신선 티커 84개, 독립 5거래일 성숙 표본 0개. `sample_size_gate_met=false`, `performance_validation_ready=false`, `prediction_accuracy_verified=false` 확인. 기업행사 가격단위·IEX 단일 시세·실제 체결/슬리피지 미검증 사유가 명시됐다.
+- SEC ticker map HTTP 403으로 45개 모두 공식 SEC 텍스트 확인 불가; 중국계 1.0 실측 적중 0개. 이를 정상 공시 검증이나 비중국 기업 확정으로 해석하지 않는다. 완성 기준 1~6은 여전히 PARTIAL이며 연구판 전체는 NOT_VALIDATED다.
+- 이 근거를 추가한 문서 커밋 자체의 CI는 별도 확인이 필요하다. 다음 작업은 새 HEAD CI 및 artifact 확인 후 공식 SEC 원문 입력이 확보되는 경우만 역분할·희석 위험 live 적중을 검증하는 것이다.
