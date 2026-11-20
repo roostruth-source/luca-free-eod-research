@@ -79,21 +79,26 @@ def prioritize(report: dict) -> dict:
             risks.append("PREMARKET_VOLUME_FIRST_UNVERIFIED")
         else:
             risks.append("VOLUME_FIRST_NOT_CONFIRMED")
-        volume_rank = groups.get("active_volume")
-        volume_points = _rank_points(volume_rank, 20)
-        if volume_points:
-            score += volume_points
-            reasons.append({"code": "ACTIVE_VOLUME_RANK",
-                            "ko": f"거래량 상위 {volume_rank}위"})
-        trades_rank = groups.get("active_trades")
-        trades_points = _rank_points(trades_rank, 10)
-        if trades_points:
-            score += trades_points
-            reasons.append({"code": "ACTIVE_TRADES_RANK",
-                            "ko": f"거래 횟수 상위 {trades_rank}위"})
-        if "gainers" in groups:
-            score += 5
-            reasons.append({"code": "MOVER_GAINER", "ko": "상승 종목 목록 포함"})
+        # Screener ranks have no frozen market-session provenance. Do not
+        # treat a regular-session rank as a premarket observation.
+        if premarket_declared:
+            risks.append("PREMARKET_SCREENER_RANK_SESSION_UNVERIFIED")
+        else:
+            volume_rank = groups.get("active_volume")
+            volume_points = _rank_points(volume_rank, 20)
+            if volume_points:
+                score += volume_points
+                reasons.append({"code": "ACTIVE_VOLUME_RANK",
+                                "ko": f"거래량 상위 {volume_rank}위"})
+            trades_rank = groups.get("active_trades")
+            trades_points = _rank_points(trades_rank, 10)
+            if trades_points:
+                score += trades_points
+                reasons.append({"code": "ACTIVE_TRADES_RANK",
+                                "ko": f"거래 횟수 상위 {trades_rank}위"})
+            if "gainers" in groups:
+                score += 5
+                reasons.append({"code": "MOVER_GAINER", "ko": "상승 종목 목록 포함"})
         if spread is not None:
             if type(spread) not in (int, float) or not math.isfinite(spread) or spread < 0:
                 raise ValueError("invalid_priority_spread")
