@@ -8,6 +8,7 @@ or a completed reverse split.  Missing and partial reviews remain unverified.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 
 RISK_TERMS = {
@@ -54,8 +55,13 @@ def build(review_filings: list[dict], unreviewed_filings: int,
             raise ValueError("future_listing_evidence_not_allowed")
         source_url = review.get("source_url")
         form = review.get("form")
-        if not isinstance(source_url, str) or not source_url.startswith(
-                "https://www.sec.gov/Archives/edgar/data/"):
+        if not isinstance(source_url, str):
+            raise ValueError("official_sec_listing_source_required")
+        parsed = urlsplit(source_url)
+        if (parsed.scheme != "https" or parsed.netloc != "www.sec.gov"
+                or not parsed.path.startswith("/Archives/edgar/data/")
+                or parsed.query or parsed.fragment or parsed.username
+                or parsed.password):
             raise ValueError("official_sec_listing_source_required")
         if not isinstance(form, str) or not form:
             raise ValueError("listing_evidence_form_required")
