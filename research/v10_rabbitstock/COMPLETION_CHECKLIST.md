@@ -66,14 +66,20 @@
 - 전향 원장 1,666건, 신규 40건, `CHAIN_CONTINUED`. 성과표 신선 관찰 223건, 독립 신선 티커 82개.
 - 이번 실행도 `SEC_TICKER_MAP_HTTP_403`이라 실제 Company Facts 포함 bundle이 없었다. 따라서 OS·Float 입력은 모두 0건이며, 코드·회귀·안전 artifact는 통과했지만 **실제 OS 숫자가 표시된 live artifact 검증은 남아 있다.**
 
-## 2026-11-21 중국계 1.0 live 집단 분리 (CI 및 live 검증 대기)
+## 2026-11-21 중국계 1.0 live 집단 분리 (CI 및 403 artifact 검증 완료)
 
 - SEC 원문에서 “대부분의 사업을 중국에서 운영” 또는 “PRC 자회사/VIE를 통해 사업 운영”처럼 좁은 문구만 `PRC_OPERATIONS` 근거로 인정한다.
 - 단순 China 언급·중국산 물품 일부 구매 문장은 중국계 분류에서 제외한다.
 - 근거가 있으면 `CHINA_1_0`, 없거나 원문이 차단되면 기본 연구 경로 `NASDAQ_7_0`에 두되 `issuer_region=UNVERIFIED`로 남겨 비중국 기업이라고 확정하지 않는다.
 - 원문 URL·공시 접수시각·Form·문맥을 전향 원장에 고정하고, 성과표를 `profile:china_1_0`·`profile:nasdaq_7_0`으로 분리한다.
 - 분류는 매수 신호가 아니며 `current_operating_region_confirmed=false`, `classification_is_buy_signal=false`, `NO_ORDERS=true`를 강제한다.
-- V10 전체 회귀검사 220개와 기존 IEX 연결검사 14개 통과. PR·Actions·실제 artifact 검증이 남아 있다.
+- V10 전체 회귀검사 220개와 기존 IEX 연결검사 14개 통과.
+- PR #27: https://github.com/roostruth-source/luca-free-eod-research/pull/27
+- PR Actions #44806173121 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44806173121
+- 병합 HEAD `701ceb4` Actions #44806328010 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44806328010
+- 병합 artifact `14663811751` ZIP SHA-256 `6cae8c089d39fdbfd9e57c0c8e8391243ba31bb15a4f23ecf306ecd1712a4adb`.
+- PR artifact 실측 후보 41개, 주문금지 위반 0건, 전향 원장 1,746건·신규 41건·`CHAIN_CONTINUED`.
+- 이번 실행은 `SEC_TICKER_MAP_HTTP_403`이라 41개 모두 `SEC_ISSUER_REGION_TEXT_UNAVAILABLE`, `issuer_region=UNVERIFIED`였고 `CHINA_1_0` 적중은 0건이었다. 기존 옛 관찰을 새 분류로 소급 수정하지 않아 성과표 독립집단은 `profile:legacy_context_missing`만 존재했다. **실제 PRC Operations 원문 적중 artifact 검증은 남아 있다.**
 
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 
