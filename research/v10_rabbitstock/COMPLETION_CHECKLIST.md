@@ -40,6 +40,15 @@
 - 원문 수집 실패·일부 문서 미검토는 안전 판정으로 바꾸지 않는다. 기존 `WATCH_ONLY / NOT_VALIDATED / SEC_UNVERIFIED / NO_ORDERS`를 유지한다.
 - 전향 원장과 성과표에 신호별 집단을 분리했다. 로컬 전체 테스트 통과 후 PR·Actions·실제 artifact 검증이 남아 있다.
 
+### PR #23 CI와 실제 artifact 확인
+
+- PR: https://github.com/roostruth-source/luca-free-eod-research/pull/23
+- Actions #44693489323 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44693489323
+- Artifact `14609123830` ZIP SHA-256 `0ce52fd594695b58d8e8441f340f91d84ad439cf81061b7797ad3af408dd6c8b` 일치 확인.
+- `live_watchlist.json` 50행: 가격 보류 28, 종목종류 보류 14, 거래소 상장상태 보류 8. 보류 50개 전부 0점, `NO_ORDERS=true`, `buy_allowed=false`, `NOT_VALIDATED` 위반 0건.
+- 전향 원장은 1,290건에서 1,340건으로 `CHAIN_CONTINUED`; 신규 50행의 `listing_action_context` 저장을 확인했다.
+- 이번 실행은 `SEC_TICKER_MAP_HTTP_403`으로 50행 모두 `SEC_LISTING_TEXT_UNAVAILABLE`; 실제 역분할·상장통지 원문 적중 사례는 관찰되지 않았다. 따라서 상태는 `CI_PASSED_LIVE_SEC_TEXT_UNOBSERVED`이며 완성 기준 2는 PARTIAL을 유지한다.
+
 ## 2026-11-20 장전 Volume-First 점수 분리 (검증 대기)
 
 - 코드: https://github.com/roostruth-source/luca-free-eod-research/commit/cabd64ddeb4f7f4ede43e02c1becf746f68c2ce9
