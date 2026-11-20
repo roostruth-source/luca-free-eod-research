@@ -12,7 +12,7 @@
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
 | 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 독립 5거래일 표본 30개 전에는 성능 검증 완료가 아니다. |
 | 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류·상장상태·SEC 희석위험과 검증된 공시 기준일 OS를 쉬운 한국어로 표시한다. Float와 계약별 잔여한도 설명은 아직 필요하다. |
-| 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #21 run 44531212641과 PR #22 run 44542213435 성공. 최신 후보 50개에서 Nasdaq `D` 4개가 모두 거래소 상태 위험으로 0점 보류됐고 위험 종목의 비정상 점수는 0건이었다. |
+| 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #25와 병합 HEAD의 전체 CI가 성공했다. 최신 후보 40개에서 주문금지 위반·보류종목 양수 점수는 모두 0건이었다. SEC 403 때문에 실제 OS 관측은 없었으며 이를 검증 완료로 과장하지 않는다. |
 | 8 | 주문 금지 안전 상태 | COMPLETE | 실제 artifact와 테스트에서 WATCH_ONLY·NOT_VALIDATED·NO_ORDERS가 유지된다. 자동매수·주문 endpoint는 없다. |
 | 9 | 체크리스트와 근거 지속 갱신 | ACTIVE | 이 파일을 매 작업 후 커밋·Actions·artifact 근거와 함께 갱신한다. |
 | 10 | 최종 회귀검사·완성 보고·자동화 정지 | PENDING | 1~9의 필수 항목과 외부차단 설명이 끝난 뒤 수행한다. main 병합과 배포는 별도 승인 대상이다. |
@@ -50,14 +50,21 @@
 - 전향 원장은 1,585건에서 1,625건으로 `CHAIN_CONTINUED`; 신규 40행의 `sec_supply_context` 저장을 확인했다.
 - 이번 실행은 `SEC_TICKER_MAP_HTTP_403`으로 실제 ATM·ELOC·CB·Warrant·Shelf 원문 적중 사례가 없었다. 상태는 `CI_PASSED_LIVE_SEC_SUPPLY_TEXT_UNOBSERVED`이며 완성 기준 3은 PARTIAL을 유지한다.
 
-## 2026-11-21 SEC Company Facts OS 연결 (CI 및 live 검증 대기)
+## 2026-11-21 SEC Company Facts OS 연결 (CI 및 403 artifact 검증 완료)
 
 - 공식 SEC Company Facts의 `EntityCommonStockSharesOutstanding`만 OS(발행주식 수) 후보로 허용한다.
 - 제출일 당일의 장중 선후를 추정하지 않고 제출일 다음 UTC 날짜부터만 사용한다. URL·해시·HTTP Date·수집시각·CIK·기준일·제출일·Form·Accession을 함께 검증한다.
 - 같은 공시 정체성에 서로 다른 주식 수가 들어오거나 미래 수집시각·비공식 URL·해시/CIK 불일치가 있으면 실패 처리한다.
 - SEC `EntityPublicFloat`는 달러 시장가치이므로 Float 주식 수로 환산하지 않는다. `float_shares=null`, `float_verified=false`를 유지한다.
 - 검증된 OS는 아이폰 HTML과 해시 전향 원장에 고정하고 성과표를 `os:verified_point_in_time`과 `os:unverified`로 분리한다.
-- 로컬 관련 테스트 65개와 V10 전체 회귀검사 214개, 기존 IEX 연결검사 14개 통과. PR Actions와 실제 Company Facts 포함 artifact 검증이 남아 있다.
+- 로컬 관련 테스트 65개와 V10 전체 회귀검사 214개, 기존 IEX 연결검사 14개 통과.
+- PR #25: https://github.com/roostruth-source/luca-free-eod-research/pull/25
+- PR Actions #44804901206 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44804901206
+- 병합 HEAD `8192fe6` Actions #44805074385 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44805074385
+- 병합 artifact `14663950048` ZIP SHA-256 `5c265578e4f2c2e8df938d0fa1bf83664493aae3ad84e35417473e9e0ac0ced1` 일치 확인.
+- 실제 후보 40개: 근거 부족 14, 범위 보류 16, 상장상태 보류 6, 가격 보류 4. 주문금지 위반 0건, 보류종목 양수 점수 0건.
+- 전향 원장 1,666건, 신규 40건, `CHAIN_CONTINUED`. 성과표 신선 관찰 223건, 독립 신선 티커 82개.
+- 이번 실행도 `SEC_TICKER_MAP_HTTP_403`이라 실제 Company Facts 포함 bundle이 없었다. 따라서 OS·Float 입력은 모두 0건이며, 코드·회귀·안전 artifact는 통과했지만 **실제 OS 숫자가 표시된 live artifact 검증은 남아 있다.**
 
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 
