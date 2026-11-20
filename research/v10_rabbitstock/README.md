@@ -206,6 +206,8 @@ Nasdaq 상장종목의 `Financial Status`도 같은 공식 디렉터리에서 �
 
 최근 SEC 공시 원문을 실제로 가져온 경우에는 `Reverse Split`(역분할), `Minimum Bid`(최저주가 요건), `Listing Deficiency`(상장요건 미달 통지), `Delisting/Hearing`(상장폐지·청문 절차) 문구를 별도 `listing_action_context`에 고정한다. 하나라도 발견되면 시장활동이 강해도 `HOLD_FINANCIAL_OR_LISTING_STATUS` 0점으로 보류한다. 원문 URL·공시 접수시각·문맥을 전향 원장에 함께 저장하고, 성과표도 신호별로 분리한다. 키워드 일치는 현재 상태·효력일·완료 여부의 확정 판정이 아니며, 원문 수집 실패나 일부 문서만 확인한 경우에는 안전하다고 간주하지 않는다.
 
+`issuer_region_context.py`는 SEC 원문에서 “대부분의 사업을 중국에서 운영한다”처럼 좁게 정의한 `PRC Operations`(중국 사업 운영) 문구가 확인된 후보만 `CHINA_1_0` 연구 집단으로 분리한다. 단순히 China가 한 번 언급되거나 중국에서 물건을 일부 구매한다는 문장은 분류 근거가 아니다. 원문 URL·접수시각·문맥을 전향 원장에 고정하고 성과표를 `profile:china_1_0`과 `profile:nasdaq_7_0`으로 나눈다. 이는 공식 SEC 문구의 존재를 확인한 것이지 현재 사업지역의 확정 판정이나 매수 신호가 아니다. 원문을 못 읽은 후보는 중국계가 아니라고 단정하지 않고 `issuer_region=UNVERIFIED`로 남긴다.
+
 같은 SEC 원문 검토에서 `ATM`(시장가 수시매각), `ELOC`(주식매입 약정), `CB`(전환사채), `Warrant`(신주인수권), `Shelf`(선반등록) 문구는 `sec_supply_context`에 별도로 고정한다. 하나라도 발견되면 `HOLD_SEC_SUPPLY_RISK`(SEC 희석 위험 보류) 0점으로 분리한다. 단어가 있다는 사실만으로 현재 잔여한도·전환 가능 수량·등록효력·실제 희석 완료를 확정하지 않는다.
 
 공식 bundle에 SEC Company Facts의 `EntityCommonStockSharesOutstanding`가 있으면 OS(발행주식 수)를 **공시 기준일의 점 수치**로 저장한다. 제출일 당일의 장중 선후를 알 수 없으므로 제출일 다음 UTC 날짜 00:00부터만 사용하고, 원문 URL·수집시각·공시 기준일·제출일·Form·Accession을 전향 원장에 함께 고정한다. 이는 실시간 현재 OS가 아니다. SEC의 `EntityPublicFloat`는 주식 수가 아니라 달러 가치이므로 Float(유통주식 수)로 변환하지 않는다. 공식 주식 수 근거가 없으면 `float_shares=null`, `float_verified=false`를 유지한다.

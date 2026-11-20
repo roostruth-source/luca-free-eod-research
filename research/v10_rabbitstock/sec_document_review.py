@@ -26,6 +26,15 @@ TERMS = {
         r"delist(?:ing|ed)?|hearings? panel|panel hearing", re.I),
     "SHELF": re.compile(r"shelf registration|shelf offering", re.I),
     "LOCKUP": re.compile(r"lock[- ]up agreement", re.I),
+    "PRC_OPERATIONS": re.compile(
+        r"(?:substantially all|a majority) of (?:our|the company(?:'s)?) operations "
+        r"(?:are |is )?(?:conducted|located|based) in (?:the )?"
+        r"(?:People['’]s Republic of China|PRC|China)|"
+        r"(?:our|the company(?:'s)?) (?:principal )?operations in "
+        r"(?:the )?(?:People['’]s Republic of China|PRC|China)|"
+        r"operations (?:are )?conducted (?:through|by) (?:our )?PRC "
+        r"(?:subsidiar(?:y|ies)|VIEs?)",
+        re.I),
 }
 
 

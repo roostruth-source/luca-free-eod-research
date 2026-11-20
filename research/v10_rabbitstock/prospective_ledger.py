@@ -354,6 +354,62 @@ def _price_session_context(row: dict, observed_at: datetime) -> dict:
     return frozen
 
 
+def _issuer_region_context(row: dict, observed_at: datetime) -> dict:
+    raw = row.get("issuer_region_context", {
+        "schema_version": "LUCA_V10_ISSUER_REGION_CONTEXT_1",
+        "status": "SEC_ISSUER_REGION_TEXT_UNAVAILABLE",
+        "detector_profile": "NASDAQ_7_0", "issuer_region": "UNVERIFIED",
+        "signals": [], "reviewed_documents": 0, "unavailable_documents": 0,
+        "unreviewed_filings": 0, "official_sec_text_evidence": False,
+        "current_operating_region_confirmed": False,
+        "classification_is_buy_signal": False, "NO_ORDERS": True,
+    })
+    if (not isinstance(raw, dict)
+            or raw.get("schema_version") != "LUCA_V10_ISSUER_REGION_CONTEXT_1"
+            or raw.get("NO_ORDERS") is not True
+            or raw.get("classification_is_buy_signal") is not False
+            or raw.get("current_operating_region_confirmed") is not False
+            or raw.get("detector_profile") not in {"NASDAQ_7_0", "CHINA_1_0"}
+            or raw.get("issuer_region") not in {"UNVERIFIED", "PRC_OPERATIONS"}
+            or type(raw.get("official_sec_text_evidence")) is not bool
+            or not isinstance(raw.get("status"), str)):
+        raise ValueError("invalid_or_unsafe_issuer_region_context")
+    signals = raw.get("signals")
+    if not isinstance(signals, list) or len(signals) > 2:
+        raise ValueError("invalid_issuer_region_signals")
+    frozen = []
+    for signal in signals:
+        if (not isinstance(signal, dict) or signal.get("code") != "PRC_OPERATIONS"
+                or not isinstance(signal.get("ko"), str)
+                or not isinstance(signal.get("form"), str)
+                or not _official_sec_archive_url(signal.get("source_url"))
+                or not isinstance(signal.get("context"), str)):
+            raise ValueError("invalid_issuer_region_signal")
+        if _time(signal.get("accepted_at_utc")) > observed_at:
+            raise ValueError("future_issuer_region_evidence_not_allowed")
+        frozen.append({key: signal[key] for key in (
+            "code", "ko", "form", "accepted_at_utc", "source_url", "context")})
+    evidence = bool(frozen)
+    if (raw["official_sec_text_evidence"] != evidence
+            or (raw["detector_profile"] == "CHINA_1_0") != evidence
+            or (raw["issuer_region"] == "PRC_OPERATIONS") != evidence):
+        raise ValueError("issuer_region_classification_mismatch")
+    counts = {}
+    for key in ("reviewed_documents", "unavailable_documents", "unreviewed_filings"):
+        value = raw.get(key)
+        if type(value) is not int or value < 0:
+            raise ValueError("invalid_issuer_region_coverage")
+        counts[key] = value
+    return {
+        "schema_version": raw["schema_version"], "status": raw["status"],
+        "detector_profile": raw["detector_profile"],
+        "issuer_region": raw["issuer_region"], "signals": frozen, **counts,
+        "official_sec_text_evidence": evidence,
+        "current_operating_region_confirmed": False,
+        "classification_is_buy_signal": False, "NO_ORDERS": True,
+    }
+
+
 def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
     now = _time(built_at)
     observed_at = _time(report["collected_at"])
@@ -397,6 +453,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         security_scope = _security_scope_context(row)
         listing_action = _listing_action_context(row, observed_at)
         sec_supply = _sec_supply_context(row, observed_at)
+        issuer_region = _issuer_region_context(row, observed_at)
         price_session = _price_session_context(row, observed_at)
         item = {
             "ticker": row["ticker"],
@@ -411,6 +468,7 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
             "security_scope": security_scope,
             "listing_action_context": listing_action,
             "sec_supply_context": sec_supply,
+            "issuer_region_context": issuer_region,
             "price_session_context": price_session,
             "observation_status": (
                 "FRESH_PREMARKET_WATCH_ONLY"

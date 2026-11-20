@@ -19,6 +19,7 @@ from sec_access import fetch_sec_json, validate_user_agent
 from sec_official_bundle import load_bundle_file, validate_official_bundle
 from sec_companyfacts_os import extract as extract_companyfacts_os
 from listing_action_context import build as build_listing_action_context
+from issuer_region_context import build as build_issuer_region_context
 from sec_supply_context import build as build_sec_supply_context
 from prioritize_watchlist import prioritize
 from nasdaq_symbol_scope import collect as collect_symbol_scope
@@ -199,6 +200,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         unreviewed = max(0, len(row.get("review_filings", [])) - len(filing_reviews))
         listing_context = build_listing_action_context(
             filing_reviews, unreviewed, asof)
+        issuer_region_context = build_issuer_region_context(
+            filing_reviews, unreviewed, asof)
         supply_context = build_sec_supply_context(
             filing_reviews, unreviewed, asof,
             row.get("official_os_context"))
@@ -215,6 +218,8 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
             "review_filings": filing_reviews,
             "unreviewed_filings": unreviewed,
             "listing_action_context": listing_context,
+            "issuer_region_context": issuer_region_context,
+            "detector_profile": issuer_region_context["detector_profile"],
             "sec_supply_context": supply_context,
             "float_verified": False,
             "supply_clearance": False,
@@ -235,6 +240,10 @@ def assemble(triage: dict, asof: datetime, fetcher=fetch_filing, delay=0.22) -> 
         "data_quality_status": "SEC_AND_FLOAT_UNVERIFIED",
         "rows": rows,
         **SAFETY,
+    }
+    report["profile_counts"] = {
+        profile: sum(row["detector_profile"] == profile for row in rows)
+        for profile in ("NASDAQ_7_0", "CHINA_1_0")
     }
     for key in ("sec_live_fetch_status", "sec_bundle_provenance", "market_session",
                 "volume_first_collection_status", "security_scope_collection_status",
@@ -402,6 +411,9 @@ def render_html(report: dict) -> str:
                          "financial_status_label", "UNVERIFIED")) + ")"
                      + "<br>Volume-First: "
                      + escape(row["volume_first_context"].get("status", "미확인"))
+                     + "<br>연구 경로: " + escape(row.get("detector_profile", "NASDAQ_7_0"))
+                     + " · " + escape(row["issuer_region_context"].get(
+                         "status", "미확인"))
                      + "<br>SEC: " + escape(row["sec_status"])
                      + "<br>공시 키워드: "
                      + escape(", ".join(terms) or "확인 없음/미확인")

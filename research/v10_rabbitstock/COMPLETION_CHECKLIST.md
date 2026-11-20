@@ -6,7 +6,7 @@
 
 | 번호 | 완성 기준 | 상태 | 현재 근거와 남은 일 |
 |---:|---|---|---|
-| 1 | NASDAQ 7.0·중국계 1.0 독립 탐지와 통합 watchlist | PARTIAL | Alpaca screener 출처 순위와 관찰시각은 원장에 고정된다. 중국계 1.0을 별도 cohort(집단)로 표시하는 live 필드는 아직 필요하다. |
+| 1 | NASDAQ 7.0·중국계 1.0 독립 탐지와 통합 watchlist | PARTIAL | Alpaca screener 출처 순위와 관찰시각은 원장에 고정된다. 좁은 SEC PRC Operations 문구를 근거로 중국계 1.0 live 집단·원장·성과표를 분리했다. 실제 SEC 원문 적중 artifact 확인 전까지 PARTIAL을 유지한다. |
 | 2 | Volume-First·종목종류·역분할·상장위험 연결 | PARTIAL | Volume-First, 장전/정규장, ETF·Warrant·Unit 차단과 Nasdaq Financial Status 0점 보류는 실제 artifact로 확인됐다. SEC 원문에서 역분할·최저주가·상장미달·상장폐지/청문 문구를 보수적으로 0점 보류하는 연결도 구현됐다. 최신 실제 artifact에서 해당 원문 신호가 있는 종목을 확인하기 전까지 PARTIAL을 유지한다. |
 | 3 | SEC 원문 기반 OS·Float·ATM·CB·Warrant·ELOC·등록효력·CB Reset | PARTIAL | ATM·ELOC·CB·Warrant·Shelf 문구와 SEC Company Facts의 공시 기준일 OS를 live 후보·전향 원장·성과집단에 연결했다. Float 주식 수·잔여한도·등록효력·CB Reset 계약식은 아직 미검증이다. GitHub Actions의 SEC HTTP 403에서는 추정하지 않는다. |
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
@@ -29,7 +29,7 @@
 
 1. 역분할·상장통지 0점 보류를 최신 CI와 실제 SEC 원문 artifact로 검증한다.
 2. 최신 watchlist용 SEC Company Facts bundle을 실제 수집해 OS가 표시되는 artifact를 검증한다. Float는 공식 주식 수 근거가 있을 때만 붙인다.
-3. 중국계 1.0 cohort를 별도 표시하고 성과표도 분리한다.
+3. 중국계 1.0 SEC 원문 적중 후보가 실제 artifact에 나타나는지 확인한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
 
 ## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
@@ -65,6 +65,15 @@
 - 실제 후보 40개: 근거 부족 14, 범위 보류 16, 상장상태 보류 6, 가격 보류 4. 주문금지 위반 0건, 보류종목 양수 점수 0건.
 - 전향 원장 1,666건, 신규 40건, `CHAIN_CONTINUED`. 성과표 신선 관찰 223건, 독립 신선 티커 82개.
 - 이번 실행도 `SEC_TICKER_MAP_HTTP_403`이라 실제 Company Facts 포함 bundle이 없었다. 따라서 OS·Float 입력은 모두 0건이며, 코드·회귀·안전 artifact는 통과했지만 **실제 OS 숫자가 표시된 live artifact 검증은 남아 있다.**
+
+## 2026-11-21 중국계 1.0 live 집단 분리 (CI 및 live 검증 대기)
+
+- SEC 원문에서 “대부분의 사업을 중국에서 운영” 또는 “PRC 자회사/VIE를 통해 사업 운영”처럼 좁은 문구만 `PRC_OPERATIONS` 근거로 인정한다.
+- 단순 China 언급·중국산 물품 일부 구매 문장은 중국계 분류에서 제외한다.
+- 근거가 있으면 `CHINA_1_0`, 없거나 원문이 차단되면 기본 연구 경로 `NASDAQ_7_0`에 두되 `issuer_region=UNVERIFIED`로 남겨 비중국 기업이라고 확정하지 않는다.
+- 원문 URL·공시 접수시각·Form·문맥을 전향 원장에 고정하고, 성과표를 `profile:china_1_0`·`profile:nasdaq_7_0`으로 분리한다.
+- 분류는 매수 신호가 아니며 `current_operating_region_confirmed=false`, `classification_is_buy_signal=false`, `NO_ORDERS=true`를 강제한다.
+- V10 전체 회귀검사 220개와 기존 IEX 연결검사 14개 통과. PR·Actions·실제 artifact 검증이 남아 있다.
 
 ## 2026-11-20 SEC 역분할·상장통지 연결 (CI 및 live 검증 대기)
 
