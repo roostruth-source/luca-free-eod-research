@@ -193,3 +193,13 @@
 - 회귀 테스트 커밋 `0659f78`: 정상 응답의 최종 URL을 모의 응답에 명시하고 비공식 호스트 및 다른 SEC 경로로 이동한 두 사례를 거절한다.
 - 두 커밋은 연구 브랜치 전용이다. 최신 HEAD의 전체 CI·실제 live artifact가 아직 검증되지 않았으므로 **완료로 표시하지 않는다**. 이전 성공 Actions #44828311987은 변경 전 HEAD의 근거다.
 - SEC HTTP 403 우회 금지. 공식 원문이 없으면 `SEC_UNVERIFIED`/`FLOAT_UNVERIFIED` 유지. `WATCH_ONLY`/`NOT_VALIDATED`/`NO_ORDERS` 유지, main 병합·주문·배포 금지.
+
+## 2026-11-21 14:16 KST SEC 최종 URL 수정 이후 실제 결과물 재검증
+
+- 검증 기준 HEAD: `a0cc74350401a4b11f9b1c1f4f3261d8ea793a4b` (원격 연구 브랜치와 동일, ahead/behind 0).
+- 성공한 Actions: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44860326637 ; `test-and-build`의 연구 안전 테스트·보고서·관찰·전향 원장·주문 안전·업로드 단계 모두 success.
+- Artifact ID `14689721990` 직접 다운로드, ZIP SHA-256 `96eaeba19a21443870eaeffeccc891ad457666469ec53218f2c4365cf1e85e39` GitHub digest와 일치. 파일 7개 포함.
+- `live_watchlist.json` 45행 직접 확인: `OVERNIGHT_OR_CLOSED` 45행; 가격 오래됨/없음 보류 20, 종목 범위 제외/미검증 19, 상장상태 위험 6. 보류 45개 모두 `research_priority_score=0`; `WATCH_ONLY=true`, `NO_ORDERS=true`, `buy_allowed=false`, `validation_status=NOT_VALIDATED` 위반 0건.
+- `SEC_UNVERIFIED` 및 `FLOAT_UNVERIFIED` 위험 각 45행. `source_status=SEC_TICKER_MAP_HTTP_403`; 실제 SEC 공식 문서 검증 성공으로 간주하지 않음. 장전 PREMARKET 실제 신선 시세 관찰도 0행.
+- 이번 증거는 **기존 HEAD에 대한 CI·live 안전성 확인**이며 SEC 실제 적중·5거래일 독립 성과·예측 정확도 완료 근거가 아님. 이 문서 변경 커밋 자체의 후속 CI는 별도 검증 전까지 미확인으로 둔다.
+- 다음 작업: 공식 SEC 입력 bundle을 확보할 수 있을 때 실제 URL·CIK·HTTP Date·UTC·SHA-256 영수증을 검증해 원문 적중 live artifact를 확인한다. 외부 차단이 지속되면 성숙 5거래일 원장과 신선한 PREMARKET 관찰을 우선 점검한다.
