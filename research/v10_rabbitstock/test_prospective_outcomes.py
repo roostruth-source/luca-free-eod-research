@@ -106,6 +106,28 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertAlmostEqual(first["outcomes"]["1"]["close_return_pct"], 10.0)
         self.assertEqual(first["outcomes"]["3"]["completed_sessions"], 2)
 
+    def test_overnight_clock_time_is_not_automatically_premarket(self):
+        overnight = event("2026-11-18T06:00:00Z",
+                          status="FRESH_PREMARKET_WATCH_ONLY")  # 01:00 ET
+        result = build_outcomes(ledger(overnight), BARS, "2026-11-19T22:00:00Z")
+        record = result["records"][0]
+        self.assertEqual(record["outcome_session_anchor"],
+                         "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
+        self.assertEqual(record["outcomes"]["1"]["exit_session"], "2026-11-19")
+
+    def test_regular_status_before_open_does_not_get_premarket_window(self):
+        mismatched = event("2026-11-18T12:00:00Z", status="FRESH_WATCH_ONLY")
+        result = build_outcomes(ledger(mismatched), BARS, "2026-11-19T22:00:00Z")
+        self.assertEqual(result["records"][0]["outcomes"]["1"]["exit_session"],
+                         "2026-11-19")
+
+    def test_weekend_premarket_label_does_not_unlock_same_day(self):
+        weekend = event("2026-11-21T12:00:00Z",
+                        status="FRESH_PREMARKET_WATCH_ONLY")
+        result = build_outcomes(ledger(weekend), BARS, "2026-11-23T22:00:00Z")
+        self.assertEqual(result["records"][0]["outcome_session_anchor"],
+                         "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
+
     def test_raw_split_parity_keeps_descriptive_record_but_is_not_official_verification(self):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", BARS)
         record = result["records"][0]
