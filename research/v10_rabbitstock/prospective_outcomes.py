@@ -396,6 +396,83 @@ def _segment_scorecards(independent: list[dict], require_model_eligibility: bool
     return output
 
 
+def _stressed_return(reference_return_pct: float, spread_pct: float,
+                     entry_spread_fraction: float) -> float:
+    """Apply a frozen-spread entry haircut as a scenario, never as a claimed fill."""
+    return ((1.0 + reference_return_pct / 100.0)
+            / (1.0 + spread_pct * entry_spread_fraction / 100.0) - 1.0) * 100.0
+
+
+def _nearest_rank(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(percentile * len(ordered)) - 1)]
+
+
+def _spread_friction_stress(independent: list[dict]) -> dict:
+    """Describe frozen IEX spread haircuts without converting them into real fills."""
+    with_spread = [record for record in independent
+                   if type(record.get("iex_quote_spread_pct")) in (int, float)
+                   and math.isfinite(record["iex_quote_spread_pct"])
+                   and record["iex_quote_spread_pct"] >= 0]
+    spreads = [float(record["iex_quote_spread_pct"]) for record in with_spread]
+    scenarios = {}
+    for code, fraction in (("HALF_SPREAD_ENTRY", 0.5), ("FULL_SPREAD_ENTRY", 1.0)):
+        horizons = {}
+        for horizon in HORIZONS:
+            mature = [record for record in with_spread
+                      if record["outcomes"][str(horizon)]["status"] ==
+                      "COMPLETE_IEX_REFERENCE_ONLY"]
+            if not mature:
+                horizons[str(horizon)] = {
+                    "status": "NO_MATURE_SPREAD_RECORDED_OBSERVATIONS",
+                    "sample_size": 0,
+                    "average_close_return_pct": None,
+                    "median_close_return_pct": None,
+                    "positive_close_rate_pct": None,
+                    "average_mfe_pct": None,
+                }
+                continue
+            close_returns = [_stressed_return(
+                record["outcomes"][str(horizon)]["close_return_pct"],
+                float(record["iex_quote_spread_pct"]), fraction) for record in mature]
+            mfe = [_stressed_return(
+                record["outcomes"][str(horizon)]["mfe_pct"],
+                float(record["iex_quote_spread_pct"]), fraction) for record in mature]
+            horizons[str(horizon)] = {
+                "status": "DESCRIPTIVE_SPREAD_STRESS_ONLY_NOT_REAL_FILL",
+                "sample_size": len(mature),
+                "average_close_return_pct": statistics.fmean(close_returns),
+                "median_close_return_pct": statistics.median(close_returns),
+                "positive_close_rate_pct": (
+                    100.0 * sum(value > 0 for value in close_returns) / len(mature)),
+                "average_mfe_pct": statistics.fmean(mfe),
+            }
+        scenarios[code] = {
+            "entry_spread_fraction": fraction,
+            "horizons": horizons,
+        }
+    return {
+        "status": "DESCRIPTIVE_FROZEN_SPREAD_STRESS_NOT_REAL_FILL",
+        "method": "REFERENCE_RETURN_REBASED_TO_ENTRY_PLUS_FROZEN_IEX_SPREAD_FRACTION",
+        "independent_ticker_count": len(independent),
+        "spread_recorded_ticker_count": len(with_spread),
+        "spread_missing_ticker_count": len(independent) - len(with_spread),
+        "spread_recorded_rate_pct": (
+            100.0 * len(with_spread) / len(independent) if independent else 0.0),
+        "spread_distribution_pct": {
+            "median": statistics.median(spreads) if spreads else None,
+            "p90_nearest_rank": _nearest_rank(spreads, 0.9),
+            "over_5_pct_count": sum(value > 5.0 for value in spreads),
+        },
+        "scenarios": scenarios,
+        "real_fill_measured": False,
+        "commission_measured": False,
+        "market_impact_measured": False,
+    }
+
+
 def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
                    split_bars: dict[str, list[dict]] | None = None) -> dict:
     now = _time(evaluated_at)
@@ -495,6 +572,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         len(observation_date_counts) >= MIN_INDEPENDENT_OBSERVATION_DATES)
     scorecard = _descriptive_scorecard(independent)
     segment_scorecards = _segment_scorecards(independent)
+    spread_friction_stress = _spread_friction_stress(independent)
     scope_audit_segment_scorecards = _segment_scorecards(
         scope_audit_independent, require_model_eligibility=False)
     sample_size_gate_met = len(independent) >= 30 and independent_mature["5"] >= 30
@@ -536,6 +614,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "independent_cohort_rule": "FIRST_FRESH_OBSERVATION_PER_TICKER",
         "descriptive_candidate_scorecard": scorecard,
         "descriptive_segment_scorecards": segment_scorecards,
+        "spread_friction_stress": spread_friction_stress,
         "descriptive_scope_audit_segment_scorecards": scope_audit_segment_scorecards,
         "scope_audit_rule": (
             "FIRST_FRESH_SPLIT_PARITY_SAFE_OBSERVATION_PER_TICKER_NOT_MODEL_COHORT"),
@@ -603,6 +682,19 @@ def render_html(report: dict) -> str:
         for h in HORIZONS)
     ready = report.get("performance_validation_ready") is True
     status_ko = "성능 검증 준비 완료" if ready else "아직 성능 검증 전"
+    friction = report.get("spread_friction_stress", {})
+    spread_distribution = friction.get("spread_distribution_pct", {})
+    scenarios = friction.get("scenarios", {})
+
+    def pct(value) -> str:
+        return "—" if type(value) not in (int, float) else f"{value:.2f}%"
+
+    friction_rows = "".join(
+        "<tr>"
+        f"<td>{h}일</td>"
+        f"<td>{esc(pct(scenarios.get('HALF_SPREAD_ENTRY', {}).get('horizons', {}).get(str(h), {}).get('average_close_return_pct')))}</td>"
+        f"<td>{esc(pct(scenarios.get('FULL_SPREAD_ENTRY', {}).get('horizons', {}).get(str(h), {}).get('average_close_return_pct')))}</td>"
+        "</tr>" for h in HORIZONS)
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LUCA V10 성과 준비도</title><style>
@@ -621,6 +713,13 @@ main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;bo
 <div class="metric"><b>범위 차단</b><span>{esc(report.get('candidate_scope_blocked_fresh_observation_count', 0))}</span></div></div></section>
 <section class="card"><h2>독립 표본 성숙도</h2><div class="grid">{maturity}</div>
 <small>MFE/MAE는 신호 전 가격 누출을 차단한 뒤 계산합니다. 5거래일 표본 30개가 최소 문턱입니다.</small></section>
+<section class="card"><h2>Spread stress (호가 차이 부담 가정)</h2><div class="grid">
+<div class="metric"><b>호가 기록</b><span>{esc(friction.get('spread_recorded_ticker_count', 0))}/{esc(friction.get('independent_ticker_count', 0))}</span></div>
+<div class="metric"><b>중앙 Spread</b><span>{esc(pct(spread_distribution.get('median')))}</span></div>
+<div class="metric"><b>Spread 90%값</b><span>{esc(pct(spread_distribution.get('p90_nearest_rank')))}</span></div>
+<div class="metric"><b>5% 초과</b><span>{esc(spread_distribution.get('over_5_pct_count', 0))}개</span></div></div>
+<table><thead><tr><th>기간</th><th>절반 부담</th><th>전부 부담</th></tr></thead><tbody>{friction_rows}</tbody></table>
+<small>Half/Full spread stress는 저장 당시 호가 차이의 절반 또는 전부만큼 비싸게 진입했다고 가정한 보수적 시나리오입니다. 실제 Fill(체결), Slippage(주문 미끄러짐), 수수료, 시장충격을 측정한 값은 아닙니다.</small></section>
 <section class="card"><h2>아직 완료가 아닌 이유</h2><ul>{blocker_items}</ul></section>
 <section class="card"><h2>날짜별 최초 독립 티커</h2><table><thead><tr><th>미국 동부시간 날짜</th><th>티커 수</th></tr></thead><tbody>{date_rows}</tbody></table>
 <small>최소 5개 날짜가 필요합니다. 이 기준은 성급한 완료 선언을 막기 위한 연구 운영값입니다.</small></section>

@@ -38,6 +38,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("LUCA V10 성과 준비도", page)
         self.assertIn("아직 성능 검증 전", page)
         self.assertIn("Slippage(주문 미끄러짐)", page)
+        self.assertIn("Spread stress (호가 차이 부담 가정)", page)
+        self.assertIn("실제 Fill(체결)", page)
         self.assertIn("NO_ORDERS", page)
         self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
         self.assertNotIn("<script>x</script>", page)
@@ -385,6 +387,41 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
         self.assertNotIn("security_scope:excluded_etf_or_etp",
                          result["descriptive_segment_scorecards"])
+
+    def test_spread_friction_stress_is_scenario_only_and_never_real_fill(self):
+        first = event()
+        first["iex_quote_spread_pct"] = 2.0
+        second = event()
+        second.update({"ticker": "DEF", "chain_hash": "b" * 64,
+                       "iex_quote_spread_pct": 10.0})
+        result = build_outcomes(ledger_many(first, second), {
+            **BARS, "DEF": BARS["ABC"],
+        }, "2026-11-19T22:00:00Z")
+        stress = result["spread_friction_stress"]
+        self.assertEqual(stress["spread_recorded_ticker_count"], 2)
+        self.assertEqual(stress["spread_missing_ticker_count"], 0)
+        self.assertAlmostEqual(stress["spread_distribution_pct"]["median"], 6.0)
+        self.assertAlmostEqual(stress["spread_distribution_pct"]["p90_nearest_rank"], 10.0)
+        self.assertEqual(stress["spread_distribution_pct"]["over_5_pct_count"], 1)
+        half = stress["scenarios"]["HALF_SPREAD_ENTRY"]["horizons"]["1"]
+        full = stress["scenarios"]["FULL_SPREAD_ENTRY"]["horizons"]["1"]
+        self.assertEqual(half["sample_size"], 2)
+        self.assertAlmostEqual(half["average_close_return_pct"], 26.2611975483)
+        self.assertAlmostEqual(full["average_close_return_pct"], 22.8163992870)
+        self.assertFalse(stress["real_fill_measured"])
+        self.assertFalse(stress["commission_measured"])
+        self.assertFalse(stress["market_impact_measured"])
+        self.assertIn("REAL_FILL_AND_SLIPPAGE_NOT_MEASURED",
+                      result["readiness_blockers"])
+
+    def test_missing_spread_is_not_imputed_into_friction_stress(self):
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
+        stress = result["spread_friction_stress"]
+        self.assertEqual(stress["spread_recorded_ticker_count"], 0)
+        self.assertEqual(stress["spread_missing_ticker_count"], 1)
+        self.assertIsNone(stress["spread_distribution_pct"]["median"])
+        self.assertEqual(
+            stress["scenarios"]["HALF_SPREAD_ENTRY"]["horizons"]["1"]["sample_size"], 0)
 
 
 if __name__ == "__main__":
