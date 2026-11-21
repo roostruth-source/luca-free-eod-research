@@ -186,3 +186,10 @@
 - 전향 원장 1,835건, 독립 신선 티커 84개, 독립 5거래일 성숙 표본 0개. `sample_size_gate_met=false`, `performance_validation_ready=false`, `prediction_accuracy_verified=false` 확인. 기업행사 가격단위·IEX 단일 시세·실제 체결/슬리피지 미검증 사유가 명시됐다.
 - SEC ticker map HTTP 403으로 45개 모두 공식 SEC 텍스트 확인 불가; 중국계 1.0 실측 적중 0개. 이를 정상 공시 검증이나 비중국 기업 확정으로 해석하지 않는다. 완성 기준 1~6은 여전히 PARTIAL이며 연구판 전체는 NOT_VALIDATED다.
 - 이 근거를 추가한 문서 커밋 자체의 CI는 별도 확인이 필요하다. 다음 작업은 새 HEAD CI 및 artifact 확인 후 공식 SEC 원문 입력이 확보되는 경우만 역분할·희석 위험 live 적중을 검증하는 것이다.
+
+## 2026-11-21 SEC 최종 응답 URL 검증 강화 (CI·live 확인 대기)
+
+- 코드 커밋 `6da88b2`: `capture_sec_official_inputs.py`에서 HTTP 리다이렉트 후 `response.geturl()`을 요청한 공식 SEC URL과 정확히 비교한다. 다른 호스트 또는 다른 SEC 경로로 이동하면 `sec_capture_redirect_or_final_url_mismatch`로 실패한다.
+- 회귀 테스트 커밋 `0659f78`: 정상 응답의 최종 URL을 모의 응답에 명시하고 비공식 호스트 및 다른 SEC 경로로 이동한 두 사례를 거절한다.
+- 두 커밋은 연구 브랜치 전용이다. 최신 HEAD의 전체 CI·실제 live artifact가 아직 검증되지 않았으므로 **완료로 표시하지 않는다**. 이전 성공 Actions #44828311987은 변경 전 HEAD의 근거다.
+- SEC HTTP 403 우회 금지. 공식 원문이 없으면 `SEC_UNVERIFIED`/`FLOAT_UNVERIFIED` 유지. `WATCH_ONLY`/`NOT_VALIDATED`/`NO_ORDERS` 유지, main 병합·주문·배포 금지.
