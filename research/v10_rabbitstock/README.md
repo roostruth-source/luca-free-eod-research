@@ -233,6 +233,8 @@ python validate_frozen_signals.py validation_manifest.json --output build_output
 
 GitHub Actions는 위 두 결과와 기존 동결 보고서를 함께 아카이브한다. Alpaca 권한 또는 SEC 접근이 없으면 `UNAVAILABLE` 상태를 남긴다. 전체 시장 탐색, SEC 계약 조건·잔여 희석의 확정 자동 추출, 예측 성능 검증 및 체결·슬리피지 모델은 아직 미완성이다.
 
+`prospective_outcomes.py --html-output`은 아이폰에서 바로 읽을 수 있는 성과 준비도 HTML을 만든다. 정상 신선 관찰·독립 티커·1/3/5/10거래일 성숙 수·관찰 날짜 분산·종목범위 차단 수를 큰 글씨로 보여주고, 영문 `readiness_blockers` 옆에 쉬운 한국어 뜻을 함께 표시한다. 화면에는 매수 추천·주문 버튼이 없으며 `WATCH_ONLY · NOT_VALIDATED · NO_ORDERS`를 상단에 고정한다.
+
 ## 후속 수익률 평가
 
 `evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.

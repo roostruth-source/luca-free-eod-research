@@ -72,6 +72,13 @@
 - 날짜별 최초 독립 티커 수를 `independent_observation_date_counts`에 공개한다. 5일 미만이면 `INDEPENDENT_OBSERVATION_DATES_BELOW_5`를 준비도 차단 사유로 남긴다.
 - 단일 날짜 30티커가 표본 수 문턱을 통과해도 날짜 분산 문턱은 통과하지 못하는 회귀검사를 추가했다. 전체 CI와 실제 artifact 날짜 분포 확인 전까지 완료로 표시하지 않는다.
 
+## 2026-11-21 아이폰용 성과 준비도 HTML (CI 및 artifact 검증 대기)
+
+- `prospective_outcomes.html`에 정상 연구 표본·독립 티커·1/3/5/10거래일 성숙 수·날짜별 분산·범위 차단 수를 큰 글씨로 표시한다.
+- 영문 준비도 차단코드와 쉬운 한국어 뜻을 함께 보여준다. `Slippage`는 “주문 미끄러짐”으로 설명하되 실제 측정값처럼 표현하지 않는다.
+- `WATCH_ONLY · NOT_VALIDATED · NO_ORDERS`를 화면 위에 고정하고 매수·주문 기능은 넣지 않는다.
+- HTML 삽입 문자열을 이스케이프하는 회귀검사를 추가했다. 전체 CI와 업로드 artifact에 HTML이 실제 포함되는지 확인 전까지 완료로 표시하지 않는다.
+
 ## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
 
 - SEC 원문에서 `ATM`, `ELOC`, `CB`, `WARRANT`, `SHELF`를 분리해 원문 URL·접수시각·문맥과 함께 `sec_supply_context`에 고정한다.

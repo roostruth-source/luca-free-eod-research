@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import date, datetime, time, timedelta, timezone
+import html
 import json
 import math
 import os
@@ -21,6 +22,15 @@ MAX_SYMBOLS = 50
 MAX_BYTES = 5_000_000
 MAX_PAGES = 10
 MIN_INDEPENDENT_OBSERVATION_DATES = 5
+BLOCKER_KO = {
+    "INDEPENDENT_FRESH_TICKERS_BELOW_30": "정상 범위의 독립 티커가 30개보다 적음",
+    "INDEPENDENT_MATURE_5_SESSION_OUTCOMES_BELOW_30": "5거래일이 지난 독립 표본이 30개보다 적음",
+    "INDEPENDENT_OBSERVATION_DATES_BELOW_5": "독립 표본의 관찰 날짜가 5일보다 적음",
+    "CORPORATE_ACTION_BASIS_UNVERIFIED": "역분할 등 기업행사 이후 가격 단위를 공식 자료로 확정하지 못함",
+    "IEX_SINGLE_FEED_REFERENCE_ONLY": "IEX 한 거래소 자료뿐이며 미국 전체 통합시세가 아님",
+    "REAL_FILL_AND_SLIPPAGE_NOT_MEASURED": "실제 체결가격과 Slippage(주문 미끄러짐)를 측정하지 않음",
+    "OUTCOME_SOURCE_UNAVAILABLE": "후속 일봉 자료를 가져오지 못함",
+}
 
 
 def _time(raw: str) -> datetime:
@@ -576,10 +586,54 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
     }
 
 
+def render_html(report: dict) -> str:
+    """Render a small mobile-first Korean readiness report without trading controls."""
+    esc = lambda value: html.escape(str(value), quote=True)
+    horizons = report.get("independent_mature_fresh_horizons", {})
+    dates = report.get("independent_observation_date_counts", {})
+    blockers = report.get("readiness_blockers", [])
+    blocker_items = "".join(
+        f"<li><code>{esc(code)}</code><br>{esc(BLOCKER_KO.get(code, '추가 확인이 필요한 제한'))}</li>"
+        for code in blockers) or "<li>표시된 차단 사유 없음 — 그래도 NOT_VALIDATED 상태를 확인하세요.</li>"
+    date_rows = "".join(
+        f"<tr><td>{esc(day)}</td><td>{esc(count)}</td></tr>"
+        for day, count in sorted(dates.items())) or "<tr><td colspan='2'>아직 날짜 표본 없음</td></tr>"
+    maturity = "".join(
+        f"<div class='metric'><b>{h}일</b><span>{esc(horizons.get(str(h), 0))}개</span></div>"
+        for h in HORIZONS)
+    ready = report.get("performance_validation_ready") is True
+    status_ko = "성능 검증 준비 완료" if ready else "아직 성능 검증 전"
+    return f"""<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LUCA V10 성과 준비도</title><style>
+body{{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;margin:0;background:#f4f6f8;color:#15202b}}
+main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 10px #0001}}
+.hero{{border-left:7px solid {'#18864b' if ready else '#d97706'}}}.badge{{display:inline-block;background:#fff3cd;padding:5px 9px;border-radius:999px;font-weight:700}}
+.grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}}.metric{{background:#eef3f7;border-radius:12px;padding:12px;display:flex;justify-content:space-between}}
+.metric span{{font-weight:800}}code{{font-size:12px;word-break:break-all}}li{{margin:12px 0;line-height:1.45}}table{{width:100%;border-collapse:collapse}}td,th{{padding:9px;border-bottom:1px solid #ddd;text-align:left}}
+.warn{{color:#a33;font-weight:700}}small{{color:#566;line-height:1.5;display:block}}</style></head><body><main>
+<section class="hero"><span class="badge">{esc(status_ko)}</span><h1>LUCA V10 성과 준비도</h1>
+<p class="warn">WATCH_ONLY · NOT_VALIDATED · NO_ORDERS</p><p>매수 추천이나 자동주문 결과가 아니라 연구 표본의 준비 상태입니다.</p></section>
+<section class="card"><h2>정상 연구 표본</h2><div class="grid">
+<div class="metric"><b>신선 관찰</b><span>{esc(report.get('fresh_observation_count', 0))}</span></div>
+<div class="metric"><b>독립 티커</b><span>{esc(report.get('independent_fresh_ticker_count', 0))}</span></div>
+<div class="metric"><b>관찰 날짜</b><span>{esc(report.get('independent_observation_date_count', 0))}일</span></div>
+<div class="metric"><b>범위 차단</b><span>{esc(report.get('candidate_scope_blocked_fresh_observation_count', 0))}</span></div></div></section>
+<section class="card"><h2>독립 표본 성숙도</h2><div class="grid">{maturity}</div>
+<small>MFE/MAE는 신호 전 가격 누출을 차단한 뒤 계산합니다. 5거래일 표본 30개가 최소 문턱입니다.</small></section>
+<section class="card"><h2>아직 완료가 아닌 이유</h2><ul>{blocker_items}</ul></section>
+<section class="card"><h2>날짜별 최초 독립 티커</h2><table><thead><tr><th>미국 동부시간 날짜</th><th>티커 수</th></tr></thead><tbody>{date_rows}</tbody></table>
+<small>최소 5개 날짜가 필요합니다. 이 기준은 성급한 완료 선언을 막기 위한 연구 운영값입니다.</small></section>
+<section class="card"><h2>자료 한계</h2><small>{esc(report.get('measurement', '후속 성과 자료 없음'))}<br>
+실제 체결가·수수료·전체시장 호가를 반영한 수익률이 아닙니다.</small></section>
+</main></body></html>"""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("ledger", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--html-output", type=Path)
     parser.add_argument("--evaluated-at", required=True)
     args = parser.parse_args()
     ledger = json.loads(args.ledger.read_text(encoding="utf-8"))
@@ -601,6 +655,9 @@ def main() -> int:
             report = unavailable(ledger, args.evaluated_at, type(exc).__name__)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if args.html_output:
+        args.html_output.parent.mkdir(parents=True, exist_ok=True)
+        args.html_output.write_text(render_html(report), encoding="utf-8")
     print(json.dumps({"source": report.get("source_status"),
                       "events": report["ledger_event_count"],
                       "fresh": report.get("fresh_observation_count", 0),
