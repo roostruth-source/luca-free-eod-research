@@ -58,6 +58,10 @@ def _fetch(url: str, user_agent: str, opener, clock) -> tuple[dict, dict]:
         "Accept": "application/json", "Accept-Encoding": "identity",
     }, method="GET")
     with opener(request, timeout=20) as response:
+        # urllib may follow redirects; verify the actual final SEC endpoint.
+        final_url = response.geturl()
+        if final_url != url:
+            raise ValueError("sec_capture_redirect_or_final_url_mismatch")
         raw = response.read(MAX_JSON_BYTES + 1)
         date_header = response.headers.get("Date")
     retrieved = _utc(clock(), "sec_capture_clock")
