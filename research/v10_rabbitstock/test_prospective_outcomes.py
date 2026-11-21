@@ -60,12 +60,14 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             fetch_daily_bars(["ABC"], date(2026, 11, 18), date(2026, 11, 18),
                              "key", "secret", opener, adjustment="all")
 
-    def test_regular_session_observation_uses_same_day_close(self):
+    def test_regular_session_observation_starts_next_day_to_avoid_pre_signal_ohlc(self):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
         first = result["records"][0]["outcomes"]
-        self.assertAlmostEqual(first["1"]["close_return_pct"], 10.0)
-        self.assertEqual(first["3"]["completed_sessions"], 2)
+        self.assertAlmostEqual(first["1"]["close_return_pct"], 30.0)
+        self.assertEqual(first["3"]["completed_sessions"], 1)
         self.assertEqual(result["mature_fresh_horizons"]["1"], 1)
+        self.assertEqual(result["records"][0]["outcome_session_anchor"],
+                         "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         self.assertFalse(result["prediction_accuracy_verified"])
 
     def test_after_close_observation_starts_next_session(self):
@@ -77,7 +79,16 @@ class ProspectiveOutcomesTests(unittest.TestCase):
 
     def test_current_incomplete_session_is_excluded(self):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T19:00:00Z")
-        self.assertEqual(result["records"][0]["outcomes"]["3"]["completed_sessions"], 1)
+        self.assertEqual(result["records"][0]["outcomes"]["3"]["completed_sessions"], 0)
+
+    def test_premarket_can_use_same_day_because_full_regular_bar_is_forward(self):
+        premarket = event("2026-11-18T12:00:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
+        result = build_outcomes(ledger(premarket), BARS, "2026-11-19T22:00:00Z")
+        first = result["records"][0]
+        self.assertEqual(first["outcome_session_anchor"],
+                         "SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION")
+        self.assertAlmostEqual(first["outcomes"]["1"]["close_return_pct"], 10.0)
+        self.assertEqual(first["outcomes"]["3"]["completed_sessions"], 2)
 
     def test_raw_split_parity_keeps_descriptive_record_but_is_not_official_verification(self):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", BARS)
@@ -190,7 +201,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         one_day = result["descriptive_candidate_scorecard"]["1"]
         self.assertEqual(one_day["sample_size"], 2)
         self.assertAlmostEqual(one_day["positive_close_rate_pct"], 50.0)
-        self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["5"], 100.0)
+        self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["5"], 50.0)
         self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["10"], 50.0)
         self.assertAlmostEqual(one_day["mfe_hit_rates_pct"]["20"], 50.0)
         self.assertAlmostEqual(one_day["mae_minus_10_or_worse_rate_pct"], 50.0)
@@ -223,7 +234,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         bars = {}
         for index in range(30):
             ticker = f"T{index:02d}"
-            item = event("2026-11-16T15:00:00Z")
+            item = event("2026-11-16T12:00:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
             item["ticker"] = ticker
             events.append(item)
             bars[ticker] = [
