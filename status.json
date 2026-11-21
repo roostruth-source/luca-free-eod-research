@@ -1,10 +1,13 @@
 {
   "version": 1,
-  "status": "SUCCESS_RESEARCH_OBSERVATION",
-  "outcome": "OBSERVATIONS_FOUND",
-  "checked_at_utc": "2026-11-20T14:00:49+00:00",
-  "started_at_utc": "2026-11-20T14:00:23+00:00",
-  "success_this_run": true,
+  "status": "FAILED_LAST_SUCCESS_RETAINED",
+  "outcome": "CANNOT_DETERMINE_ZERO",
+  "checked_at_utc": "2026-11-21T13:28:46+00:00",
+  "started_at_utc": "2026-11-21T13:28:26+00:00",
+  "success_this_run": false,
+  "real_trades_allowed": false,
+  "validation_status": "NOT_VALIDATED",
+  "reason": "RuntimeError: 수집 종료 코드 1 · 감독/자료/시간 검증 로그 확인 필요",
   "last_success": {
     "collected_at_utc": "2026-11-20T14:00:49+00:00",
     "session": "2026-11-19",
@@ -17,8 +20,10 @@
     "source_type": "COMPLETED_DAILY_BARS",
     "url": "./latest.html"
   },
-  "real_trades_allowed": false,
-  "validation_status": "NOT_VALIDATED",
+  "research_only": true,
   "realtime": false,
-  "research_only": true
+  "diagnostic": {
+    "supervisor_status": "FINISHED_FAILED",
+    "supervisor_outcome": "CANNOT_DETERMINE_ZERO"
+  }
 }
