@@ -127,6 +127,22 @@ def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) ->
     return output
 
 
+def _basis_check_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
+    """Keep the observation date for split-basis checks even when outcomes start later."""
+    observed_date = _time(event["observed_at"]).astimezone(ET).date()
+    evaluated_et = evaluated_at.astimezone(ET)
+    completed_today = evaluated_et.time() >= time(16, 15)
+    output = []
+    for bar in bars:
+        session = date.fromisoformat(bar["session_date"])
+        if session < observed_date:
+            continue
+        if session > evaluated_et.date() or (session == evaluated_et.date() and not completed_today):
+            continue
+        output.append(bar)
+    return output
+
+
 def _split_basis_guard(raw_sessions: list[dict], split_sessions: list[dict] | None) -> dict:
     """Detect provider-applied split differences without claiming official verification."""
     if split_sessions is None:
@@ -379,9 +395,10 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         symbol = event["ticker"]
         entry = event.get("iex_reference_price")
         sessions = _eligible_sessions(event, bars.get(symbol, []), now)
-        adjusted_sessions = None if split_bars is None else _eligible_sessions(
+        basis_sessions = _basis_check_sessions(event, bars.get(symbol, []), now)
+        adjusted_basis_sessions = None if split_bars is None else _basis_check_sessions(
             event, split_bars.get(symbol, []), now)
-        basis_guard = _split_basis_guard(sessions, adjusted_sessions)
+        basis_guard = _split_basis_guard(basis_sessions, adjusted_basis_sessions)
         scope_guard = _candidate_scope_guard(event)
         observed_et = _time(event["observed_at"]).astimezone(ET)
         outcome_session_anchor = (

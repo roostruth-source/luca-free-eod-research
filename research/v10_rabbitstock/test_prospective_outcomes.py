@@ -120,6 +120,22 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertEqual(result["corporate_action_basis_guard"]
                          ["split_adjustment_blocked_record_count"], 1)
 
+    def test_regular_outcome_skips_observation_day_but_split_guard_keeps_it(self):
+        split = {"ABC": [
+            {"session_date": "2026-11-18", "o": .1, "h": .12, "l": .09, "c": .11},
+            BARS["ABC"][1],
+        ]}
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", split)
+        record = result["records"][0]
+        self.assertEqual(record["outcome_session_anchor"],
+                         "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
+        self.assertEqual(record["corporate_action_basis_guard"]["status"],
+                         "PROVIDER_SPLIT_ADJUSTMENT_DETECTED")
+        self.assertEqual(record["corporate_action_basis_guard"]["changed_session_dates"],
+                         ["2026-11-18"])
+        self.assertEqual(record["outcomes"]["1"]["status"],
+                         "CORPORATE_ACTION_BASIS_BLOCKED")
+
     def test_raw_split_session_mismatch_is_quarantined(self):
         split = {"ABC": BARS["ABC"][:1]}
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", split)
