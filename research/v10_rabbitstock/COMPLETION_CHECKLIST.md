@@ -32,21 +32,30 @@
 3. 중국계 1.0 SEC 원문 적중 후보가 실제 artifact에 나타나는지 확인한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
 
-## 2026-11-21 역분할 가격단위 착시 차단 (CI 및 live 검증 대기)
+## 2026-11-21 역분할 가격단위 착시 차단 (CI 및 live artifact 검증 완료)
 
 - 성과 일봉을 Alpaca IEX `raw`와 `split-adjusted` 두 방식으로 별도 수집한다.
 - 같은 관찰 구간의 거래일 또는 OHLC가 다르면 `CORPORATE_ACTION_BASIS_BLOCKED`로 격리해 MFE·MAE·종가수익 통계에서 제외한다.
 - 신선한 가격 관찰 수와 가격단위 차단 수를 따로 기록해 표본이 사라진 이유를 숨기지 않는다.
 - 두 자료가 같아도 같은 제공자의 내부 비교일 뿐 공식 기업행사 검증이 아니다. `corporate_action_basis_verified=false`, `CORPORATE_ACTION_BASIS_UNVERIFIED`, `NOT_VALIDATED`를 유지한다.
-- 관련 회귀검사에는 동일 자료 통과, 가격 차이 격리, 거래일 불일치 격리를 포함한다. 전체 CI와 실제 artifact에서 차단 수·주문 금지·표본 집계를 확인하기 전까지 완료로 표시하지 않는다.
+- 관련 회귀검사에는 동일 자료 통과, 가격 차이 격리, 거래일 불일치 격리를 포함한다.
+- PR #32와 Actions #44871343821 성공: https://github.com/roostruth-source/luca-free-eod-research/pull/32
+- PR artifact `14694101929` ZIP SHA-256 `cee66834d0e4d473ea3c2b26f1a6128c5da0f982087d9eef4504d2fdedb59155`를 직접 확인했다. `raw`·`split-adjusted` 수집 성공, 2,105개 원장 기록 중 가격단위 차이 10건을 격리했다.
+- 신선 표본에서는 BITO 1건이 제외돼 독립 티커 84→83개, 독립 3거래일 성숙 30→29개로 정정됐다. RWM·BITO의 2026-11-18 일봉 차이를 확인했다.
+- 병합 HEAD `f4cad52507b92e67afebf056a525c44f1d623f67` Actions #44871436535 성공, artifact `14693104173` 생성. 공식 기업행사 검증은 아니므로 `CORPORATE_ACTION_BASIS_UNVERIFIED`를 유지한다.
 
-## 2026-11-21 성과 표본 종목범위 분리 (CI 및 live 검증 대기)
+## 2026-11-21 성과 표본 종목범위 분리 (CI 및 live artifact 검증 완료)
 
 - 기존 성과표가 신선 가격만으로 ETF·ETP와 Nasdaq 상장위험 상태까지 모델 검토 표본에 포함할 수 있던 문제를 수정한다.
 - 모델 표본은 공식 디렉터리의 보통주 후보이며 Financial Status가 `N` 또는 다른 거래소의 `NOT_AVAILABLE`인 행으로 제한한다.
 - ETF·비보통주·Nasdaq `D/E/Q/G/H/J/K/S/C`·미확인·옛 범위 누락 행은 모델 표본에서 제외한다.
 - 제외 자료는 삭제하지 않고 별도 `descriptive_scope_audit_segment_scorecards`에 남겨 비교한다. 이 별도 표는 모델 성능 표본이 아니다.
-- 신선 가격 수, 역분할 단위 차단 수, 종목범위 차단 수를 각각 기록한다. 전체 CI와 실제 artifact에서 정정된 독립 표본 수를 확인하기 전까지 완료로 표시하지 않는다.
+- 신선 가격 수, 역분할 단위 차단 수, 종목범위 차단 수를 각각 기록한다.
+- PR #33과 Actions #44871711933 성공: https://github.com/roostruth-source/luca-free-eod-research/pull/33
+- PR artifact `14693259210` ZIP SHA-256 `437b18a9b7524037f43ea4b5706b2f8ae3708db7fa59f854ba28edab92674f19`를 직접 확인했다.
+- 신선 가격 303건 중 역분할 단위 1건, 종목범위 163건을 분리했다. 범위 차단은 ETF·비보통주 68건, Nasdaq `D/E/UNKNOWN` 41건, 옛 범위 누락 54건이다.
+- 모델 검토 표본은 139건·독립 티커 41개로 정정됐다. Financial Status는 `N` 111건과 다른 거래소 `NOT_AVAILABLE` 28건만 포함한다. 정상 범위 독립 3·5·10거래일 성숙 표본은 모두 0건이다.
+- 병합 HEAD `3cd65cb1217d7cac91a7c05445327ac245517288` Actions #44871836869 성공, artifact `14694252086`, GitHub SHA-256 `0aa196786beed3c91304d7dd5be1d0ecc007c76463c2530c14ece8053b461f1d` 생성. 주문금지·매수신호 오인 위반은 0건이다.
 
 ## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
 
