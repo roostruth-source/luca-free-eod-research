@@ -301,3 +301,10 @@
 - 제외된 종목과 최대값을 숨기지 않으며, 표본이 1개뿐이면 제외 평균을 만들지 않는다. 아이폰용 한국어 HTML에는 1일 평균·중앙값·최고 1개 제외 평균·최고 티커를 표시한다.
 - 이 검사는 단일 급등 사례가 평균을 부풀리는 정도를 보는 서술형 민감도 분석이다. 예측 정확도·매수 신호·자동주문 근거가 아니다.
 - 로컬 CI 확인 후 원격 Actions와 실제 누적 원장 artifact를 별도로 확인하기 전까지 완료 근거로 쓰지 않는다.
+
+## 2026-11-21 23:40 KST 한국어 준비도·Spread stress·Outlier 실제 결과물 검증
+
+- 아이폰용 한국어 성과 준비도 PR #37 병합 HEAD `a091ae0fcdc7f5e1428e7466a68f3ea9f7f7166a`. PR Actions #44913940507 성공, artifact `14711096635`의 GitHub digest `sha256:1702a9fbeabb1f5f590ca52bf3ed81fc34f0e1d9ffceea713e118ec40d1bd472`. ZIP 8개 파일에 `prospective_outcomes.html` 포함 확인. HTML은 신선 관찰 139·독립 티커 41·관찰일 2·독립 1/3/5/10일 성숙 26/0/0/0을 표시하고 WATCH_ONLY·NOT_VALIDATED·NO_ORDERS를 유지했다. form/button/order 실행 요소 없음. 병합 후 Actions #44914074453도 성공.
+- Frozen Spread stress PR #38 병합 HEAD `f6395edbe11a5bfe148a24d8788a30288e9f3f1e`. PR Actions #44914456036 성공, artifact `14710858708` ZIP SHA-256 `6bfb2b611b022d63eb987dbeb261afbb0611a17c8a3e139552df44081981d1fa`가 GitHub digest와 일치. 독립 티커 41개 모두 Spread 기록, 중앙 4.695%, 90% nearest-rank 30.078%, 5% 초과 20개. 독립 1일 26표본의 평균 종가수익은 기준 -7.8235%, 절반 Spread 진입부담 -12.2508%, 전부 Spread 진입부담 -15.8272%. 실제 Fill·Slippage·수수료·시장충격 측정값이 아니며 5일 성숙은 0개. `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED` 유지. 병합 후 Actions #44914590130 성공.
+- Outlier robustness PR #39 병합 HEAD `89fe6de893674c3b7afb76ebbe1887ee1f63ed1c`. PR Actions #44914880111 성공, artifact `14710894269` ZIP SHA-256 `74c9db84f8e0345e43c986cd1e38891d55bbd45fc63841e6c43028806e972543`가 GitHub digest와 일치. 독립 1일 26표본 평균 -7.8235%, 중앙 -10.3453%. 최고 종가수익 티커 LVWR +109.6823%를 제외하면 평균 -12.5237%로 4.7002%p 하락. 최고 MFE도 LVWR +129.7123%이며 제외 시 평균 MFE +3.5647%에서 -1.4812%로 5.0459%p 하락. 3/5/10일 성숙 표본 0개. 병합 후 Actions #44914975150 성공.
+- 결론: 세 기능은 실제 누적 원장과 자동 artifact에서 작동함을 확인했다. 그러나 결과는 오히려 넓은 Spread와 LVWR 단일 급등 의존도를 드러낸다. 공식 기업행사 가격단위, IEX 외 독립시세, 실제 체결, 5거래일 독립 30표본이 없으므로 `performance_validation_ready=false`, 최종 상태 NOT_VALIDATED를 유지한다. 주문·main 병합·배포 금지.
