@@ -40,6 +40,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("Slippage(주문 미끄러짐)", page)
         self.assertIn("Spread stress (호가 차이 부담 가정)", page)
         self.assertIn("실제 Fill(체결)", page)
+        self.assertIn("Outlier check (한 종목 대박 의존도)", page)
         self.assertIn("NO_ORDERS", page)
         self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
         self.assertNotIn("<script>x</script>", page)
@@ -422,6 +423,39 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIsNone(stress["spread_distribution_pct"]["median"])
         self.assertEqual(
             stress["scenarios"]["HALF_SPREAD_ENTRY"]["horizons"]["1"]["sample_size"], 0)
+
+    def test_outlier_robustness_removes_the_best_ticker_without_hiding_it(self):
+        second = event()
+        second.update({"ticker": "DEF", "chain_hash": "b" * 64})
+        bars = {
+            **BARS,
+            "DEF": [BARS["ABC"][0],
+                    {"session_date": "2026-11-19", "o": 1.0, "h": 1.0,
+                     "l": .8, "c": .95}],
+        }
+        result = build_outcomes(ledger_many(event(), second), bars,
+                                "2026-11-19T22:00:00Z")
+        robust = result["outlier_robustness"]["horizons"]["1"]
+        self.assertEqual(robust["sample_size"], 2)
+        self.assertAlmostEqual(robust["average_close_return_pct"], 12.5)
+        self.assertAlmostEqual(robust["median_close_return_pct"], 12.5)
+        self.assertEqual(robust["largest_close_return_ticker"], "ABC")
+        self.assertAlmostEqual(robust["largest_close_return_pct"], 30.0)
+        self.assertAlmostEqual(
+            robust["average_close_excluding_largest_ticker_pct"], -5.0)
+        self.assertAlmostEqual(
+            robust["close_average_change_after_exclusion_pct_points"], -17.5)
+        self.assertEqual(robust["largest_mfe_ticker"], "ABC")
+        self.assertAlmostEqual(robust["average_mfe_excluding_largest_ticker_pct"], 0.0)
+        self.assertTrue(robust["single_ticker_exclusion_available"])
+
+    def test_one_mature_ticker_never_invents_an_exclusion_average(self):
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
+        robust = result["outlier_robustness"]["horizons"]["1"]
+        self.assertEqual(robust["sample_size"], 1)
+        self.assertFalse(robust["single_ticker_exclusion_available"])
+        self.assertIsNone(robust["average_close_excluding_largest_ticker_pct"])
+        self.assertIsNone(robust["close_average_change_after_exclusion_pct_points"])
 
 
 if __name__ == "__main__":
