@@ -40,6 +40,14 @@
 - 두 자료가 같아도 같은 제공자의 내부 비교일 뿐 공식 기업행사 검증이 아니다. `corporate_action_basis_verified=false`, `CORPORATE_ACTION_BASIS_UNVERIFIED`, `NOT_VALIDATED`를 유지한다.
 - 관련 회귀검사에는 동일 자료 통과, 가격 차이 격리, 거래일 불일치 격리를 포함한다. 전체 CI와 실제 artifact에서 차단 수·주문 금지·표본 집계를 확인하기 전까지 완료로 표시하지 않는다.
 
+## 2026-11-21 성과 표본 종목범위 분리 (CI 및 live 검증 대기)
+
+- 기존 성과표가 신선 가격만으로 ETF·ETP와 Nasdaq 상장위험 상태까지 모델 검토 표본에 포함할 수 있던 문제를 수정한다.
+- 모델 표본은 공식 디렉터리의 보통주 후보이며 Financial Status가 `N` 또는 다른 거래소의 `NOT_AVAILABLE`인 행으로 제한한다.
+- ETF·비보통주·Nasdaq `D/E/Q/G/H/J/K/S/C`·미확인·옛 범위 누락 행은 모델 표본에서 제외한다.
+- 제외 자료는 삭제하지 않고 별도 `descriptive_scope_audit_segment_scorecards`에 남겨 비교한다. 이 별도 표는 모델 성능 표본이 아니다.
+- 신선 가격 수, 역분할 단위 차단 수, 종목범위 차단 수를 각각 기록한다. 전체 CI와 실제 artifact에서 정정된 독립 표본 수를 확인하기 전까지 완료로 표시하지 않는다.
+
 ## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
 
 - SEC 원문에서 `ATM`, `ELOC`, `CB`, `WARRANT`, `SHELF`를 분리해 원문 URL·접수시각·문맥과 함께 `sec_supply_context`에 고정한다.
