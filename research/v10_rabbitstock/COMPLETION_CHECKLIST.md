@@ -287,3 +287,10 @@
 - `outcome_window_policy`와 원장 `outcome_session_anchor` 실제 저장 확인: 장전 당일 허용 1,505행, 정규장/이후 다음 거래일 요구 825행. 이는 필드·정책 적용 흔적의 확인이며, 개별 시세 원본과 대조한 전수 검증은 아니다.
 - 기업행사 가격단위 차단 1행, 종목범위 차단 163행. `CORPORATE_ACTION_BASIS_UNVERIFIED`, `IEX_SINGLE_FEED_REFERENCE_ONLY`, `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED` 차단 사유 유지.
 - 결론: 기존 '정규장 신호 전 일봉 고저 누출 차단' 및 '독립 표본 날짜 분산 안전장치' 섹션의 **실제 artifact 관측 증거를 확보**했으나 공식 시세/기업행사 및 5일 표본 미충족으로 기준 5는 PARTIAL 유지. 이 문서 커밋의 후속 CI는 별도 확인해야 한다.
+
+## 2026-11-21 Spread friction stress 구현 (CI·실제 결과물 확인 대기)
+
+- 저장 당시 IEX `Spread`의 절반 또는 전부만큼 진입가격이 불리해지는 두 개의 보수적 시나리오를 독립 최초 티커 성과에 추가했다.
+- Spread 기록 비율, 중앙값, 90% nearest-rank, 5% 초과 건수와 1/3/5/10거래일 시나리오 평균을 JSON 및 아이폰용 한국어 HTML에 표시한다.
+- Spread가 없는 과거 표본은 추정하거나 0으로 채우지 않는다. 실제 `Fill`·`Slippage`·수수료·시장충격 측정값이 아니므로 `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED` 차단 사유를 유지한다.
+- 로컬 전체 연구 안전 테스트 236개와 별도 IEX 회귀 테스트 14개 통과. 원격 CI와 실제 artifact의 Spread 분포·시나리오 수치는 아직 확인 전이므로 완료 근거로 쓰지 않는다.
