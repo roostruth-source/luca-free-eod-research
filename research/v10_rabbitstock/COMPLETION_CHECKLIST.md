@@ -269,3 +269,14 @@
 - `outcome_window_policy`는 장전 당일 허용·정규장 이후 다음 거래일 시작 정책을 기록한다. 실제 가격 원장으로 완전한 누출 부재를 입증한 것은 아니며, 표본이 쌓일 때 재검증한다.
 - 실제 live watchlist 45행: `WATCH_ONLY=true`, `NO_ORDERS=true`, `validation_status=NOT_VALIDATED`, `buy_allowed=false` 위반 0건; 양수 `research_priority_score` 0건. `SEC_TICKER_MAP_HTTP_403` 때문에 SEC 원문 확인 없이 `SEC_UNVERIFIED/FLOAT_UNVERIFIED` 상태 유지.
 - 이번 결과로 날짜 분산 필드가 실제 artifact에 기록됨을 확인했으나, 독립 5거래일 성숙 30개와 공식 SEC 자료가 없어 완성 기준 5는 PARTIAL, 최종 완료는 PENDING 유지.
+
+
+## 2026-11-21 23:18 KST 최신 HEAD 실제 ZIP 재검증
+
+- 원격 HEAD `20f057bb7da6a5b77276dd344fd498e90e48ce5e`; Actions #44893914612 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44893914612
+- Artifact `14702983370` ZIP 직접 다운로드 및 SHA-256 `e0bbb8d167f466cbf1d45630446949967408cadecd9002aefeb33f4a9998d414` 일치 확인. 7개 파일 중 `live_watchlist.json` 및 `prospective_outcomes.json` 내부 재검사.
+- 실제 watchlist 45행: 가격 오래됨/없음 20, 범위 밖/미확인 19, 상장위험 6. **보류 45행 전부 0점**, 행별 WATCH_ONLY·NO_ORDERS·NOT_VALIDATED 위반 0건. SEC 접근 `SEC_TICKER_MAP_HTTP_403`, 공시 미확인 45행·Float 미검증 45행.
+- 성과 원장 2,330행, 모델 대상 신선 관찰 139행·독립 티커 41개. 날짜별 최초 독립 티커 `2026-11-19:26`, `2026-11-20:15`로 서로 다른 날 2일; `temporal_diversity_gate_met=false`. 독립 성숙 1/3/5/10거래일은 26/0/0/0개. `sample_size_gate_met=false`, `performance_validation_ready=false`, `prediction_accuracy_verified=false` 확인.
+- `outcome_window_policy`와 원장 `outcome_session_anchor` 실제 저장 확인: 장전 당일 허용 1,505행, 정규장/이후 다음 거래일 요구 825행. 이는 필드·정책 적용 흔적의 확인이며, 개별 시세 원본과 대조한 전수 검증은 아니다.
+- 기업행사 가격단위 차단 1행, 종목범위 차단 163행. `CORPORATE_ACTION_BASIS_UNVERIFIED`, `IEX_SINGLE_FEED_REFERENCE_ONLY`, `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED` 차단 사유 유지.
+- 결론: 기존 '정규장 신호 전 일봉 고저 누출 차단' 및 '독립 표본 날짜 분산 안전장치' 섹션의 **실제 artifact 관측 증거를 확보**했으나 공식 시세/기업행사 및 5일 표본 미충족으로 기준 5는 PARTIAL 유지. 이 문서 커밋의 후속 CI는 별도 확인해야 한다.
