@@ -14,8 +14,11 @@ ASOF = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
 def captured_bundle(ticker_payload, submissions, symbols):
     class Response:
         headers = {"Date": format_datetime(ASOF, usegmt=True)}
-        def __init__(self, payload):
+        def __init__(self, payload, url):
+            self.url = url
             self.raw = json.dumps(payload).encode("utf-8")
+        def geturl(self):
+            return self.url
         def __enter__(self):
             return self
         def __exit__(self, *args):
@@ -24,14 +27,14 @@ def captured_bundle(ticker_payload, submissions, symbols):
             return self.raw[:size]
     def opener(request, timeout):
         if "company_tickers" in request.full_url:
-            return Response(ticker_payload)
+            return Response(ticker_payload, request.full_url)
         if "/companyfacts/" in request.full_url:
             cik = int(request.full_url.rsplit("CIK", 1)[1].split(".json")[0])
-            return Response({"cik": cik, "facts": {}})
+            return Response({"cik": cik, "facts": {}}, request.full_url)
         cik = int(request.full_url.rsplit("CIK", 1)[1].split(".json")[0])
         for payload in submissions.values():
             if payload.get("cik") == cik:
-                return Response(payload)
+                return Response(payload, request.full_url)
         raise ValueError("fixture_missing_submission")
     requested_empty = not submissions
     if requested_empty:
