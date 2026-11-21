@@ -473,6 +473,65 @@ def _spread_friction_stress(independent: list[dict]) -> dict:
     }
 
 
+def _outlier_robustness(independent: list[dict]) -> dict:
+    """Show whether one best ticker materially lifts descriptive averages."""
+    horizons = {}
+    for horizon in HORIZONS:
+        mature = [record for record in independent
+                  if record["outcomes"][str(horizon)]["status"] ==
+                  "COMPLETE_IEX_REFERENCE_ONLY"]
+        if not mature:
+            horizons[str(horizon)] = {
+                "status": "NO_MATURE_INDEPENDENT_OBSERVATIONS",
+                "sample_size": 0,
+                "single_ticker_exclusion_available": False,
+            }
+            continue
+        close_values = [record["outcomes"][str(horizon)]["close_return_pct"]
+                        for record in mature]
+        mfe_values = [record["outcomes"][str(horizon)]["mfe_pct"] for record in mature]
+        best_close = max(mature, key=lambda record: (
+            record["outcomes"][str(horizon)]["close_return_pct"], record["ticker"]))
+        best_mfe = max(mature, key=lambda record: (
+            record["outcomes"][str(horizon)]["mfe_pct"], record["ticker"]))
+        full_close_average = statistics.fmean(close_values)
+        full_mfe_average = statistics.fmean(mfe_values)
+        close_without_best = [record["outcomes"][str(horizon)]["close_return_pct"]
+                              for record in mature if record is not best_close]
+        mfe_without_best = [record["outcomes"][str(horizon)]["mfe_pct"]
+                            for record in mature if record is not best_mfe]
+        close_exclusion_average = (statistics.fmean(close_without_best)
+                                   if close_without_best else None)
+        mfe_exclusion_average = (statistics.fmean(mfe_without_best)
+                                 if mfe_without_best else None)
+        horizons[str(horizon)] = {
+            "status": "DESCRIPTIVE_LEAVE_BEST_ONE_OUT_NOT_PREDICTION_ACCURACY",
+            "sample_size": len(mature),
+            "average_close_return_pct": full_close_average,
+            "median_close_return_pct": statistics.median(close_values),
+            "largest_close_return_ticker": best_close["ticker"],
+            "largest_close_return_pct": best_close["outcomes"][str(horizon)]
+            ["close_return_pct"],
+            "average_close_excluding_largest_ticker_pct": close_exclusion_average,
+            "close_average_change_after_exclusion_pct_points": (
+                None if close_exclusion_average is None else
+                close_exclusion_average - full_close_average),
+            "average_mfe_pct": full_mfe_average,
+            "largest_mfe_ticker": best_mfe["ticker"],
+            "largest_mfe_pct": best_mfe["outcomes"][str(horizon)]["mfe_pct"],
+            "average_mfe_excluding_largest_ticker_pct": mfe_exclusion_average,
+            "mfe_average_change_after_exclusion_pct_points": (
+                None if mfe_exclusion_average is None else
+                mfe_exclusion_average - full_mfe_average),
+            "single_ticker_exclusion_available": len(mature) >= 2,
+        }
+    return {
+        "status": "DESCRIPTIVE_OUTLIER_SENSITIVITY_NOT_PREDICTION_ACCURACY",
+        "method": "LEAVE_SINGLE_LARGEST_CLOSE_OR_MFE_TICKER_OUT",
+        "horizons": horizons,
+    }
+
+
 def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
                    split_bars: dict[str, list[dict]] | None = None) -> dict:
     now = _time(evaluated_at)
@@ -573,6 +632,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
     scorecard = _descriptive_scorecard(independent)
     segment_scorecards = _segment_scorecards(independent)
     spread_friction_stress = _spread_friction_stress(independent)
+    outlier_robustness = _outlier_robustness(independent)
     scope_audit_segment_scorecards = _segment_scorecards(
         scope_audit_independent, require_model_eligibility=False)
     sample_size_gate_met = len(independent) >= 30 and independent_mature["5"] >= 30
@@ -615,6 +675,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "descriptive_candidate_scorecard": scorecard,
         "descriptive_segment_scorecards": segment_scorecards,
         "spread_friction_stress": spread_friction_stress,
+        "outlier_robustness": outlier_robustness,
         "descriptive_scope_audit_segment_scorecards": scope_audit_segment_scorecards,
         "scope_audit_rule": (
             "FIRST_FRESH_SPLIT_PARITY_SAFE_OBSERVATION_PER_TICKER_NOT_MODEL_COHORT"),
@@ -695,6 +756,7 @@ def render_html(report: dict) -> str:
         f"<td>{esc(pct(scenarios.get('HALF_SPREAD_ENTRY', {}).get('horizons', {}).get(str(h), {}).get('average_close_return_pct')))}</td>"
         f"<td>{esc(pct(scenarios.get('FULL_SPREAD_ENTRY', {}).get('horizons', {}).get(str(h), {}).get('average_close_return_pct')))}</td>"
         "</tr>" for h in HORIZONS)
+    robust_one = report.get("outlier_robustness", {}).get("horizons", {}).get("1", {})
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LUCA V10 성과 준비도</title><style>
@@ -720,6 +782,12 @@ main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;bo
 <div class="metric"><b>5% 초과</b><span>{esc(spread_distribution.get('over_5_pct_count', 0))}개</span></div></div>
 <table><thead><tr><th>기간</th><th>절반 부담</th><th>전부 부담</th></tr></thead><tbody>{friction_rows}</tbody></table>
 <small>Half/Full spread stress는 저장 당시 호가 차이의 절반 또는 전부만큼 비싸게 진입했다고 가정한 보수적 시나리오입니다. 실제 Fill(체결), Slippage(주문 미끄러짐), 수수료, 시장충격을 측정한 값은 아닙니다.</small></section>
+<section class="card"><h2>Outlier check (한 종목 대박 의존도)</h2><div class="grid">
+<div class="metric"><b>1일 평균</b><span>{esc(pct(robust_one.get('average_close_return_pct')))}</span></div>
+<div class="metric"><b>1일 중앙값</b><span>{esc(pct(robust_one.get('median_close_return_pct')))}</span></div>
+<div class="metric"><b>최고 1개 제외</b><span>{esc(pct(robust_one.get('average_close_excluding_largest_ticker_pct')))}</span></div>
+<div class="metric"><b>최고 종목</b><span>{esc(robust_one.get('largest_close_return_ticker', '—'))}</span></div></div>
+<small>가장 수익률이 높은 티커 하나를 뺀 평균도 함께 봅니다. 한 종목의 우연한 급등이 전체 평균을 좋게 보이게 하는지 확인하는 민감도 검사이며 예측 정확도는 아닙니다.</small></section>
 <section class="card"><h2>아직 완료가 아닌 이유</h2><ul>{blocker_items}</ul></section>
 <section class="card"><h2>날짜별 최초 독립 티커</h2><table><thead><tr><th>미국 동부시간 날짜</th><th>티커 수</th></tr></thead><tbody>{date_rows}</tbody></table>
 <small>최소 5개 날짜가 필요합니다. 이 기준은 성급한 완료 선언을 막기 위한 연구 운영값입니다.</small></section>
