@@ -12,7 +12,7 @@
 | 4 | SEC 직접 수집 영수증과 50종목·72시간 제한 | PARTIAL | capture/build/validate 코드와 회귀 테스트가 있다. 최신 실제 watchlist용 공식 bundle이 Actions artifact에 들어간 실행 근거는 아직 없다. |
 | 5 | 전향 원장과 1·3·5·10거래일 성과 | PARTIAL | 해시 원장, MFE/MAE/종가 성과, 중복 티커 제거, 장전·정규장 분리는 구현됐다. 표본 30개 문턱과 실제 성능 검증을 분리했으며, 기업행사 보정·독립 시세·실제 체결 검증 전에는 완료로 바뀌지 않는다. |
 | 6 | 아이폰용 쉬운 한국어 HTML/JSON | PARTIAL | 우선순위·이유·위험·종목 종류·상장상태·SEC 희석위험과 검증된 공시 기준일 OS를 쉬운 한국어로 표시한다. Float와 계약별 잔여한도 설명은 아직 필요하다. |
-| 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #25와 병합 HEAD의 전체 CI가 성공했다. 최신 후보 40개에서 주문금지 위반·보류종목 양수 점수는 모두 0건이었다. SEC 403 때문에 실제 OS 관측은 없었으며 이를 검증 완료로 과장하지 않는다. |
+| 7 | 전체 CI와 실제 live artifact 안전 검증 | COMPLETE | PR #30과 병합 HEAD의 전체 CI가 성공했다. 최신 전향 원장 2,015건에서 주문금지·매수신호 오인 위반은 모두 0건이었다. SEC 403 때문에 실제 OS 관측은 없었으며 이를 검증 완료로 과장하지 않는다. |
 | 8 | 주문 금지 안전 상태 | COMPLETE | 실제 artifact와 테스트에서 WATCH_ONLY·NOT_VALIDATED·NO_ORDERS가 유지된다. 자동매수·주문 endpoint는 없다. |
 | 9 | 체크리스트와 근거 지속 갱신 | ACTIVE | 이 파일을 매 작업 후 커밋·Actions·artifact 근거와 함께 갱신한다. |
 | 10 | 최종 회귀검사·완성 보고·자동화 정지 | PENDING | 1~9의 필수 항목과 외부차단 설명이 끝난 뒤 수행한다. main 병합과 배포는 별도 승인 대상이다. |
@@ -66,14 +66,21 @@
 - 전향 원장 1,666건, 신규 40건, `CHAIN_CONTINUED`. 성과표 신선 관찰 223건, 독립 신선 티커 82개.
 - 이번 실행도 `SEC_TICKER_MAP_HTTP_403`이라 실제 Company Facts 포함 bundle이 없었다. 따라서 OS·Float 입력은 모두 0건이며, 코드·회귀·안전 artifact는 통과했지만 **실제 OS 숫자가 표시된 live artifact 검증은 남아 있다.**
 
-### OS 기준일 신선도 차단 (CI 대기)
+### OS 기준일 신선도 차단 (CI 및 403 artifact 검증 완료)
 
 - SEC 공식 OS의 기준일에서 관찰일까지 `os_age_days`를 계산한다.
 - 180일 초과 공식값은 삭제하지 않고 `os_stale=true`로 보존하되 현재 희석비율 계산에는 사용하지 않는다.
 - 180일 이내도 실시간 현재값으로 부르지 않으며, Float·잔여 발행한도·등록효력은 계속 별도 미검증이다.
 - 아이폰 HTML에는 기준일·경과일과 “오래된 과거값(현재 비율 계산 금지)”를 쉬운 말로 표시한다.
 - 전향 원장은 경과일·오래됨 여부를 재계산해 위조된 신선도 표시를 거부한다. 성과표는 180일 이내와 오래된 OS 집단을 분리한다.
-- V10 전체 회귀검사 224개 통과. PR·Actions·실제 Company Facts 포함 artifact 검증이 남아 있다.
+- V10 전체 회귀검사 224개와 기존 IEX 연결검사 14개 통과.
+- PR #30: https://github.com/roostruth-source/luca-free-eod-research/pull/30
+- PR Actions #44870593320 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44870593320
+- 병합 HEAD `1328d212a696833d0d7a1e113c88011b0123b58b` Actions #44870814211 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44870814211
+- 병합 artifact `14693538709`, GitHub SHA-256 `38833867bb200219b03fea01ceff0b41a98819631f81a2942c6c407fd5650d47`.
+- PR artifact를 직접 검사한 결과 전향 원장 2,015건·신규 45건·`CHAIN_CONTINUED`, 주문금지 위반 0건, `priority_is_buy_signal=true` 오인 0건이었다.
+- 성과표는 신선 관찰 303건, 독립 신선 티커 84개, 독립 3거래일 성숙 30개, 독립 5거래일 성숙 0개다. `sample_size_gate_met=false`, `performance_validation_ready=false`, `prediction_accuracy_verified=false`를 유지한다.
+- 이번 실행도 SEC 원문 접근이 막혀 `os_verified=true` 실관측은 0건이었다. 새 필드는 430개 원장 행에 안전하게 고정됐고, 확인되지 않은 OS는 `os_current_enough_for_ratio=false`로 남았다. **코드·CI·안전 artifact는 검증됐지만 실제 오래된 Company Facts OS 적중 사례는 아직 없다.**
 
 ## 2026-11-21 중국계 1.0 live 집단 분리 (CI 및 403 artifact 검증 완료)
 
