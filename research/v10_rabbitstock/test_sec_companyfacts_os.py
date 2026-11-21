@@ -35,6 +35,9 @@ class SecCompanyFactsOsTests(unittest.TestCase):
                          "2026-11-18T00:00:00+00:00")
         self.assertFalse(result["float_verified"])
         self.assertIsNone(result["float_shares"])
+        self.assertEqual(result["os_age_days"], 3)
+        self.assertFalse(result["os_stale"])
+        self.assertTrue(result["os_current_enough_for_ratio"])
 
     def test_same_day_filing_is_not_used_before_next_utc_day(self):
         result = extract(payload(), URL, "2026-11-17T14:00:00Z",
@@ -64,6 +67,17 @@ class SecCompanyFactsOsTests(unittest.TestCase):
     def test_future_retrieval_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "future_companyfacts_retrieval"):
             extract(payload(), URL, "2026-11-19T14:00:00Z", ASOF)
+
+    def test_old_official_os_is_kept_but_blocked_for_current_ratio(self):
+        old = payload()
+        latest = old["facts"]["dei"]["EntityCommonStockSharesOutstanding"][
+            "units"]["shares"][-1]
+        latest["end"] = "2026-01-01"
+        result = extract(old, URL, "2026-11-18T14:00:00Z", ASOF)
+        self.assertTrue(result["os_verified"])
+        self.assertTrue(result["os_stale"])
+        self.assertFalse(result["os_current_enough_for_ratio"])
+        self.assertGreater(result["os_age_days"], 180)
 
     def test_fact_period_cannot_end_after_its_filing_date(self):
         future_end = payload()

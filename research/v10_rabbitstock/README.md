@@ -214,6 +214,8 @@ Nasdaq 상장종목의 `Financial Status`도 같은 공식 디렉터리에서 �
 
 공식 bundle에 SEC Company Facts의 `EntityCommonStockSharesOutstanding`가 있으면 OS(발행주식 수)를 **공시 기준일의 점 수치**로 저장한다. 제출일 당일의 장중 선후를 알 수 없으므로 제출일 다음 UTC 날짜 00:00부터만 사용하고, 원문 URL·수집시각·공시 기준일·제출일·Form·Accession을 전향 원장에 함께 고정한다. 이는 실시간 현재 OS가 아니다. SEC의 `EntityPublicFloat`는 주식 수가 아니라 달러 가치이므로 Float(유통주식 수)로 변환하지 않는다. 공식 주식 수 근거가 없으면 `float_shares=null`, `float_verified=false`를 유지한다.
 
+공식 OS도 기준일에서 관찰일까지 며칠 지났는지 `os_age_days`로 계산한다. 180일을 넘으면 `os_stale=true`, `os_current_enough_for_ratio=false`로 표시해 현재 희석비율·완전희석주식 수 계산에 쓰지 않는다. 180일 이내라도 실시간 OS를 뜻하지 않으며 다른 공식 공급 수치가 없으면 현재 희석비율을 확정하지 않는다. 180일은 성능이 검증된 매매 기준이 아니라 오래된 수치를 현재값처럼 사용하는 오류를 막기 위한 보수적 연구 정책이다.
+
 `validate_frozen_signals.py`는 스냅숏의 시각·진입 참고가·엔진·희석 표시와 후속 결과를 대조하고, 각 일봉을 독립된 시세 출처 두 곳으로 재확인한다. 검증된 표본 수와 1·3·5·10거래일 결과의 성숙도를 보고한다. 현재 INLF 사례 **1건**만 연결되어 5거래일 이상 성과가 없고 `INSUFFICIENT_VERIFIED_SAMPLE`이다. 미리 정한 30개 독립 사례 기준은 통계 검토를 시작하기 위한 최소 자료량이지 적중률이나 매매 수익 증명이 아니다.
 
 ```bash

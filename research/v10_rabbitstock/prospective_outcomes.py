@@ -261,9 +261,12 @@ def _segment_labels(record: dict) -> list[str]:
         os_segment = "os:legacy_context_missing"
     else:
         supply_context = record["sec_supply_context"]
-        os_segment = ("os:verified_point_in_time"
-                      if supply_context.get("os_verified") is True
-                      else "os:unverified")
+        if supply_context.get("os_verified") is True:
+            os_segment = ("os:verified_point_in_time_stale"
+                          if supply_context.get("os_stale") is True else
+                          "os:verified_point_in_time_180d_or_less")
+        else:
+            os_segment = "os:unverified"
         signals = supply_context.get("signals", [])
         if supply_context.get("dilution_risk_detected") is True and signals:
             supply = ["sec_supply:" + str(signal.get("code", "invalid")).lower()

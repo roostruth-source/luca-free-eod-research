@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 SCHEMA = "LUCA_V10_SEC_OS_CONTEXT_1"
 CONCEPT = "EntityCommonStockSharesOutstanding"
 MAX_FACTS = 5000
+MAX_CURRENT_RATIO_AGE_DAYS = 180
 
 
 def _utc(raw: object, label: str) -> datetime:
@@ -65,6 +66,9 @@ def _base(status: str, source_url: str, retrieved_at: str) -> dict:
         "os_source_url": source_url,
         "os_retrieved_at_utc": retrieved_at,
         "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+        "os_age_days": None,
+        "os_stale": None,
+        "os_current_enough_for_ratio": False,
         "float_shares": None,
         "float_verified": False,
         "float_basis": "NOT_DERIVED_ENTITY_PUBLIC_FLOAT_IS_USD_VALUE",
@@ -136,6 +140,8 @@ def extract(payload: dict, source_url: str, retrieved_at_utc: str,
         return _base("SEC_COMPANYFACTS_OS_UNAVAILABLE_ASOF",
                      source_url, retrieved.isoformat())
     knowable, end, accession, value, filed, form = max(usable)
+    age_days = (asof_utc.date() - end).days
+    stale = age_days > MAX_CURRENT_RATIO_AGE_DAYS
     result = _base("SEC_COMPANYFACTS_OS_VERIFIED_POINT_IN_TIME",
                    source_url, retrieved.isoformat())
     result.update({
@@ -146,5 +152,8 @@ def extract(payload: dict, source_url: str, retrieved_at_utc: str,
         "os_knowable_at_utc": knowable.isoformat(),
         "os_form": form,
         "os_accession": accession,
+        "os_age_days": age_days,
+        "os_stale": stale,
+        "os_current_enough_for_ratio": not stale,
     })
     return result

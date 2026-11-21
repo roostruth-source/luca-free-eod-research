@@ -162,6 +162,8 @@ def attach_companyfacts_os(result: dict, bundle_input: dict,
                 "os_source_url": source.get("source_url"),
                 "os_retrieved_at_utc": source.get("retrieved_at_utc"),
                 "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+                "os_age_days": None, "os_stale": None,
+                "os_current_enough_for_ratio": False,
                 "float_shares": None, "float_verified": False,
                 "float_basis": "NOT_DERIVED_ENTITY_PUBLIC_FLOAT_IS_USD_VALUE",
                 "NO_ORDERS": True,
@@ -387,6 +389,18 @@ def render_html(report: dict) -> str:
     if not report["rows"]:
         lines.append("<p>이번 실행에서는 새 후보 자료를 확보하지 못했습니다.</p>")
     for row in report["rows"]:
+        os_context = row["sec_supply_context"]
+        if os_context.get("os_verified"):
+            os_text = (format(os_context["shares_outstanding"], ",")
+                       + "주 · SEC 기준일 "
+                       + str(os_context.get("os_asof_date") or "미확인")
+                       + " · " + str(os_context.get("os_age_days")) + "일 경과"
+                       + (" · 오래된 과거값(현재 비율 계산 금지)"
+                          if os_context.get("os_stale") else
+                          " · 180일 이내 과거값(실시간 아님)"))
+        else:
+            os_text = ("공식값 미확인 · "
+                       + str(os_context.get("os_status") or "미확인"))
         terms = sorted({m["term"] for f in row["review_filings"] for m in f.get("matched_terms", [])})
         label = row["research_priority_label"]
         css = "p1" if label == "PRIORITY_1_RESEARCH" else (
@@ -430,12 +444,7 @@ def render_html(report: dict) -> str:
                          row["sec_supply_context"].get("signals", [])))
                         if row["sec_supply_context"].get("signals") else "")
                      + "<br>OS(발행주식 수): "
-                     + (format(row["sec_supply_context"]["shares_outstanding"], ",")
-                        + "주 · SEC Company Facts 기준일 "
-                        + escape(row["sec_supply_context"].get("os_asof_date") or "미확인")
-                        if row["sec_supply_context"].get("os_verified") else
-                        "공식값 미확인 · " + escape(
-                            row["sec_supply_context"].get("os_status") or "미확인"))
+                     + escape(os_text)
                      + " · Float(유통주식 수): 공식값 미확인"
                      + "</p><p class='risk'>주의: " + escape(risks)
                      + "</p><small>이 점수는 관찰 순서이며 매수 점수가 아닙니다.</small></article>")
