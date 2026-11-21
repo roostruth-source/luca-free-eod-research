@@ -153,6 +153,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                 "status": "SEC_TEXT_SUPPLY_RISK_REVIEW_REQUIRED",
                 "dilution_risk_detected": True,
                 "os_verified": True,
+                "os_stale": False,
                 "signals": [{"code": "ATM"}, {"code": "WARRANT"}],
             },
             "issuer_region_context": {"detector_profile": "CHINA_1_0"},
@@ -207,7 +208,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("sec_supply:atm", segments)
         self.assertIn("sec_supply:warrant", segments)
         self.assertIn("sec_supply:unavailable_or_partial", segments)
-        self.assertIn("os:verified_point_in_time", segments)
+        self.assertIn("os:verified_point_in_time_180d_or_less", segments)
         self.assertIn("os:unverified", segments)
         self.assertIn("profile:china_1_0", segments)
         self.assertIn("profile:nasdaq_7_0", segments)

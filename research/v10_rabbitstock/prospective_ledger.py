@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 import math
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
+
+from sec_companyfacts_os import MAX_CURRENT_RATIO_AGE_DAYS
 
 ZERO = "0" * 64
 MAX_EVENTS = 5000
@@ -259,6 +261,9 @@ def _sec_supply_context(row: dict, observed_at: datetime) -> dict:
         frozen_os["os_status"] = raw.get(
             "os_status", "SEC_COMPANYFACTS_OS_NOT_AVAILABLE")
         frozen_os["os_rejection_reason"] = raw.get("os_rejection_reason")
+        frozen_os["os_age_days"] = None
+        frozen_os["os_stale"] = None
+        frozen_os["os_current_enough_for_ratio"] = False
         if (not isinstance(frozen_os["os_status"], str)
                 or not frozen_os["os_status"]
                 or (frozen_os["os_rejection_reason"] is not None
@@ -278,7 +283,20 @@ def _sec_supply_context(row: dict, observed_at: datetime) -> dict:
             raise ValueError("future_verified_os_evidence_not_allowed")
         frozen_os = {key: raw.get(key) for key in (
             "os_asof_date", "os_filed_date", "os_knowable_at_utc", "os_form",
-            "os_accession", "os_source_url", "os_retrieved_at_utc", "os_basis")}
+            "os_accession", "os_source_url", "os_retrieved_at_utc", "os_basis",
+            "os_age_days", "os_stale", "os_current_enough_for_ratio")}
+        try:
+            expected_age = (observed_at.date()
+                            - date.fromisoformat(raw["os_asof_date"])).days
+        except ValueError as exc:
+            raise ValueError("verified_os_asof_date_invalid") from exc
+        if (type(raw.get("os_age_days")) is not int
+                or raw["os_age_days"] != expected_age or expected_age < 0
+                or type(raw.get("os_stale")) is not bool
+                or raw["os_stale"] != (expected_age > MAX_CURRENT_RATIO_AGE_DAYS)
+                or type(raw.get("os_current_enough_for_ratio")) is not bool
+                or raw["os_current_enough_for_ratio"] == raw["os_stale"]):
+            raise ValueError("verified_os_staleness_mismatch")
         frozen_os["os_status"] = raw.get(
             "os_status", "SEC_COMPANYFACTS_OS_VERIFIED_POINT_IN_TIME")
         frozen_os["os_rejection_reason"] = None

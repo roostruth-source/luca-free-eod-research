@@ -342,6 +342,8 @@ class LiveResearchTests(unittest.TestCase):
         self.assertFalse(supply["float_verified"])
         rendered = render_html(result)
         self.assertIn("1,250,000주", rendered)
+        self.assertIn("3일 경과", rendered)
+        self.assertIn("180일 이내 과거값", rendered)
         self.assertIn("Float(유통주식 수): 공식값 미확인", rendered)
 
     def test_ambiguous_companyfacts_rejects_only_os_not_all_sec_filings(self):

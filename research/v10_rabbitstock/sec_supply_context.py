@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 import re
 from urllib.parse import urlsplit
 
+from sec_companyfacts_os import MAX_CURRENT_RATIO_AGE_DAYS
+
 
 RISK_TERMS = {
     "ATM": "ATM(시장가 수시매각) 언급",
@@ -56,6 +58,8 @@ def _os_evidence(raw: dict | None, asof: datetime) -> dict:
             "os_accession": None, "os_source_url": None,
             "os_retrieved_at_utc": None,
             "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+            "os_age_days": None, "os_stale": None,
+            "os_current_enough_for_ratio": False,
         }
     required = {
         "schema_version": "LUCA_V10_SEC_OS_CONTEXT_1", "NO_ORDERS": True,
@@ -75,7 +79,8 @@ def _os_evidence(raw: dict | None, asof: datetime) -> dict:
         output = {key: raw.get(key) for key in (
             "shares_outstanding", "os_verified", "os_asof_date", "os_filed_date",
             "os_knowable_at_utc", "os_form", "os_accession", "os_source_url",
-            "os_retrieved_at_utc", "os_basis")}
+            "os_retrieved_at_utc", "os_basis", "os_age_days", "os_stale",
+            "os_current_enough_for_ratio")}
         output["os_status"] = status
         output["os_rejection_reason"] = reason
         return output
@@ -96,10 +101,18 @@ def _os_evidence(raw: dict | None, asof: datetime) -> dict:
     for key in ("os_asof_date", "os_filed_date", "os_form", "os_accession"):
         if not isinstance(raw.get(key), str) or not raw[key]:
             raise ValueError("companyfacts_os_metadata_required")
+    age = raw.get("os_age_days")
+    stale = raw.get("os_stale")
+    current = raw.get("os_current_enough_for_ratio")
+    if (type(age) is not int or age < 0 or type(stale) is not bool
+            or type(current) is not bool or current == stale
+            or stale != (age > MAX_CURRENT_RATIO_AGE_DAYS)):
+        raise ValueError("invalid_companyfacts_os_staleness")
     output = {key: raw.get(key) for key in (
         "shares_outstanding", "os_verified", "os_asof_date", "os_filed_date",
         "os_knowable_at_utc", "os_form", "os_accession", "os_source_url",
-        "os_retrieved_at_utc", "os_basis")}
+        "os_retrieved_at_utc", "os_basis", "os_age_days", "os_stale",
+        "os_current_enough_for_ratio")}
     output["os_status"] = raw.get("status")
     output["os_rejection_reason"] = None
     return output

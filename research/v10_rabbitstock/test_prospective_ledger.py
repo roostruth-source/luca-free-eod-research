@@ -237,6 +237,8 @@ class ProspectiveLedgerTests(unittest.TestCase):
                 "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000123.json"),
             "os_retrieved_at_utc": "2026-11-18T09:59:00Z",
             "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+            "os_age_days": 3, "os_stale": False,
+            "os_current_enough_for_ratio": True,
             "float_shares": None, "float_verified": False,
             "registration_effectiveness_verified": False,
             "remaining_capacity_verified": False,
@@ -248,8 +250,14 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertEqual(frozen["shares_outstanding"], 1_250_000)
         self.assertTrue(frozen["os_verified"])
         self.assertFalse(frozen["float_verified"])
+        self.assertEqual(frozen["os_age_days"], 3)
         row["sec_supply_context"]["os_knowable_at_utc"] = "2026-11-19T00:00:00Z"
         with self.assertRaisesRegex(ValueError, "future_verified_os_evidence"):
+            append_observations(item, "2026-11-18T10:01:00Z")
+        row["sec_supply_context"]["os_knowable_at_utc"] = "2026-11-18T00:00:00Z"
+        row["sec_supply_context"]["os_stale"] = True
+        row["sec_supply_context"]["os_current_enough_for_ratio"] = False
+        with self.assertRaisesRegex(ValueError, "verified_os_staleness_mismatch"):
             append_observations(item, "2026-11-18T10:01:00Z")
 
     def test_china_research_cohort_evidence_is_frozen_and_future_rejected(self):

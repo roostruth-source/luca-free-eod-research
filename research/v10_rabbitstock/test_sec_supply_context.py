@@ -60,6 +60,8 @@ class SecSupplyContextTests(unittest.TestCase):
                 "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000123.json"),
             "os_retrieved_at_utc": "2026-11-18T14:00:00Z",
             "os_basis": "SEC_COMPANYFACTS_POINT_IN_TIME",
+            "os_age_days": 3, "os_stale": False,
+            "os_current_enough_for_ratio": True,
             "float_shares": None, "float_verified": False,
             "float_basis": "NOT_DERIVED_ENTITY_PUBLIC_FLOAT_IS_USD_VALUE",
             "NO_ORDERS": True,
@@ -68,6 +70,8 @@ class SecSupplyContextTests(unittest.TestCase):
         self.assertEqual(result["shares_outstanding"], 1_250_000)
         self.assertTrue(result["os_verified"])
         self.assertFalse(result["float_verified"])
+        self.assertEqual(result["os_age_days"], 3)
+        self.assertTrue(result["os_current_enough_for_ratio"])
         self.assertEqual(result["source"],
                          "SEC_FILING_TEXT_PLUS_COMPANYFACTS")
 
