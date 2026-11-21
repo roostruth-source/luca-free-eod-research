@@ -118,13 +118,20 @@ def fetch_all_daily_bars(symbols: list[str], start: date, end: date, key: str, s
     return output
 
 
+def _same_day_premarket_eligible(event: dict, observed_et: datetime) -> bool:
+    """Only an explicitly fresh, exchange-weekday premarket observation can use same-day OHLC."""
+    return (event.get("observation_status") == "FRESH_PREMARKET_WATCH_ONLY"
+            and observed_et.weekday() < 5
+            and time(4, 0) <= observed_et.time() < time(9, 30))
+
+
 def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
     observed = _time(event["observed_at"]).astimezone(ET)
     cutoff_date = observed.date()
     # A full daily high/low contains prices from before an intraday regular-session
     # observation.  Only a premarket observation can safely use the same session's
     # complete daily OHLC as a wholly forward window.
-    include_cutoff = observed.time() < time(9, 30)
+    include_cutoff = _same_day_premarket_eligible(event, observed)
     evaluated_et = evaluated_at.astimezone(ET)
     completed_today = evaluated_et.time() >= time(16, 15)
     output = []
@@ -550,7 +557,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         observed_et = _time(event["observed_at"]).astimezone(ET)
         outcome_session_anchor = (
             "SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION"
-            if observed_et.time() < time(9, 30) else
+            if _same_day_premarket_eligible(event, observed_et) else
             "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         outcomes = {}
         for horizon in HORIZONS:
