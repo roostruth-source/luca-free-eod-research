@@ -196,6 +196,8 @@ python run_live_research.py \
 
 모델 검토 표본에는 공식 종목 디렉터리에서 `COMMON_EQUITY_CANDIDATE_SCOPE`로 분류되고 Nasdaq Financial Status가 `N`(정상)이거나 다른 거래소라 해당 필드가 제공되지 않는 `NOT_AVAILABLE`인 신선 관찰만 넣는다. ETF·ETP, Warrant·Unit·Right·Preferred·Note·Bond, Nasdaq `D/E/Q/G/H/J/K/S/C`, 알 수 없는 상태, 옛 원장의 종목범위 미기록 행은 모델 표본에서 제외한다. 제외 행은 삭제하지 않고 `descriptive_scope_audit_segment_scorecards`에서 별도 기술 통계로 남겨 범위 차단의 영향을 감사할 수 있게 한다.
 
+정규장 중간에 관찰한 종목은 그날의 완성 일봉을 성과 구간에 넣지 않는다. 하루 고가·저가에는 관찰 전에 이미 발생한 가격이 섞이므로 이를 MFE·MAE에 쓰면 신호 전 움직임을 신호 후 성과로 잘못 셀 수 있다. 정규장 또는 그 이후 관찰은 다음 거래일부터 측정하고, 장전 관찰만 당일 정규장 전체가 관찰 뒤에 있으므로 같은 날 완성 일봉을 허용한다. 다만 역분할 가격단위 비교 창에는 관찰 당일을 계속 포함해 당일과 다음 날 사이의 단위 변경을 놓치지 않는다. 이 규칙은 `outcome_session_anchor`와 `outcome_window_policy`에 고정한다.
+
 독립 티커 30개와 5거래일 성숙 결과 30개는 `sample_size_gate_met`(표본 수 문턱 통과)로만 표시한다. 이 숫자가 채워져도 Corporate Action(역분할 등 기업행사) 가격 단위가 검증되지 않았거나 IEX 단일 시세뿐이거나 실제 체결·슬리피지를 측정하지 않았으면 `performance_validation_ready=false`를 유지한다. `readiness_blockers`에 부족한 표본 수와 데이터 한계를 따로 기록해 표본 수만으로 성능 검증 완료를 선언하지 않는다.
 
 새 관찰부터는 당시 Alpaca 스크리너의 거래량 순위·거래 횟수 순위·상승/하락 목록과 IEX 호가 스프레드를 해시 원장에 함께 고정한다. 성과표는 거래량 상위 10위/11~40위, 거래 횟수 순위, 상승·하락 목록, 스프레드 구간, SEC 검토 상태별로 독립 표본을 나눈다. 과거 원장에 없던 조건은 `legacy_context_missing`으로 분리하며 추정해서 채우지 않는다. 조건 비교는 5거래일이 지난 독립 티커가 구간별 10개 이상일 때만 준비 상태로 표시한다.

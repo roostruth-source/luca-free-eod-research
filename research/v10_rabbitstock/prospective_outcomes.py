@@ -110,13 +110,32 @@ def fetch_all_daily_bars(symbols: list[str], start: date, end: date, key: str, s
 def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
     observed = _time(event["observed_at"]).astimezone(ET)
     cutoff_date = observed.date()
-    include_cutoff = observed.time() < time(16, 0)
+    # A full daily high/low contains prices from before an intraday regular-session
+    # observation.  Only a premarket observation can safely use the same session's
+    # complete daily OHLC as a wholly forward window.
+    include_cutoff = observed.time() < time(9, 30)
     evaluated_et = evaluated_at.astimezone(ET)
     completed_today = evaluated_et.time() >= time(16, 15)
     output = []
     for bar in bars:
         session = date.fromisoformat(bar["session_date"])
         if session < cutoff_date or (session == cutoff_date and not include_cutoff):
+            continue
+        if session > evaluated_et.date() or (session == evaluated_et.date() and not completed_today):
+            continue
+        output.append(bar)
+    return output
+
+
+def _basis_check_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
+    """Keep the observation date for split-basis checks even when outcomes start later."""
+    observed_date = _time(event["observed_at"]).astimezone(ET).date()
+    evaluated_et = evaluated_at.astimezone(ET)
+    completed_today = evaluated_et.time() >= time(16, 15)
+    output = []
+    for bar in bars:
+        session = date.fromisoformat(bar["session_date"])
+        if session < observed_date:
             continue
         if session > evaluated_et.date() or (session == evaluated_et.date() and not completed_today):
             continue
@@ -376,10 +395,16 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         symbol = event["ticker"]
         entry = event.get("iex_reference_price")
         sessions = _eligible_sessions(event, bars.get(symbol, []), now)
-        adjusted_sessions = None if split_bars is None else _eligible_sessions(
+        basis_sessions = _basis_check_sessions(event, bars.get(symbol, []), now)
+        adjusted_basis_sessions = None if split_bars is None else _basis_check_sessions(
             event, split_bars.get(symbol, []), now)
-        basis_guard = _split_basis_guard(sessions, adjusted_sessions)
+        basis_guard = _split_basis_guard(basis_sessions, adjusted_basis_sessions)
         scope_guard = _candidate_scope_guard(event)
+        observed_et = _time(event["observed_at"]).astimezone(ET)
+        outcome_session_anchor = (
+            "SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION"
+            if observed_et.time() < time(9, 30) else
+            "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         outcomes = {}
         for horizon in HORIZONS:
             if not _valid_price(entry) or len(sessions) < horizon:
@@ -429,6 +454,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
             "issuer_region_context": event.get("issuer_region_context", {}),
             "corporate_action_basis_guard": basis_guard,
             "candidate_scope_guard": scope_guard,
+            "outcome_session_anchor": outcome_session_anchor,
             "fresh_price_observation": fresh_price_observation,
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
@@ -495,6 +521,9 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
+        "outcome_window_policy": (
+            "PREMARKET_MAY_INCLUDE_SAME_SESSION_REGULAR_OHLC;"
+            "REGULAR_OR_LATER_STARTS_NEXT_SESSION_TO_BLOCK_PRE_SIGNAL_DAILY_HIGH_LOW"),
         "corporate_action_basis_guard": {
             "method": "ALPACA_IEX_RAW_VS_SPLIT_ADJUSTED_PARITY_NOT_OFFICIAL_ACTION_DATA",
             "split_adjustment_blocked_record_count": split_adjustment_blocked,
