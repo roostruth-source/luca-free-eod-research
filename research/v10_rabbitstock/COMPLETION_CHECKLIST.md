@@ -32,6 +32,14 @@
 3. 중국계 1.0 SEC 원문 적중 후보가 실제 artifact에 나타나는지 확인한다.
 4. 독립 5거래일 표본 30개가 모이면 사전 고정 기준으로 성능을 판정한다.
 
+## 2026-11-21 역분할 가격단위 착시 차단 (CI 및 live 검증 대기)
+
+- 성과 일봉을 Alpaca IEX `raw`와 `split-adjusted` 두 방식으로 별도 수집한다.
+- 같은 관찰 구간의 거래일 또는 OHLC가 다르면 `CORPORATE_ACTION_BASIS_BLOCKED`로 격리해 MFE·MAE·종가수익 통계에서 제외한다.
+- 신선한 가격 관찰 수와 가격단위 차단 수를 따로 기록해 표본이 사라진 이유를 숨기지 않는다.
+- 두 자료가 같아도 같은 제공자의 내부 비교일 뿐 공식 기업행사 검증이 아니다. `corporate_action_basis_verified=false`, `CORPORATE_ACTION_BASIS_UNVERIFIED`, `NOT_VALIDATED`를 유지한다.
+- 관련 회귀검사에는 동일 자료 통과, 가격 차이 격리, 거래일 불일치 격리를 포함한다. 전체 CI와 실제 artifact에서 차단 수·주문 금지·표본 집계를 확인하기 전까지 완료로 표시하지 않는다.
+
 ## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
 
 - SEC 원문에서 `ATM`, `ELOC`, `CB`, `WARRANT`, `SHELF`를 분리해 원문 URL·접수시각·문맥과 함께 `sec_supply_context`에 고정한다.

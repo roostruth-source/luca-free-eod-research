@@ -38,11 +38,13 @@ def _at_least(value: float, threshold: float) -> bool:
 
 
 def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secret: str,
-                     opener=None) -> dict[str, list[dict]]:
+                     opener=None, adjustment: str = "raw") -> dict[str, list[dict]]:
     if not symbols or len(symbols) > MAX_SYMBOLS or len(symbols) != len(set(symbols)):
         raise ValueError("invalid_symbol_batch")
     if not key or not secret:
         raise ValueError("alpaca_credentials_required")
+    if adjustment not in {"raw", "split"}:
+        raise ValueError("invalid_bar_adjustment")
     rows = {symbol: [] for symbol in symbols}
     seen = {symbol: set() for symbol in symbols}
     token = None
@@ -52,7 +54,7 @@ def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secre
         params = {
             "symbols": ",".join(symbols), "timeframe": "1Day",
             "start": start.isoformat(), "end": (end + timedelta(days=1)).isoformat(),
-            "feed": "iex", "adjustment": "raw", "sort": "asc", "limit": 10000,
+            "feed": "iex", "adjustment": adjustment, "sort": "asc", "limit": 10000,
         }
         if token:
             params["page_token"] = token
@@ -95,13 +97,13 @@ def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secre
 
 
 def fetch_all_daily_bars(symbols: list[str], start: date, end: date, key: str, secret: str,
-                         opener=None) -> dict[str, list[dict]]:
+                         opener=None, adjustment: str = "raw") -> dict[str, list[dict]]:
     if not symbols or len(symbols) != len(set(symbols)):
         raise ValueError("invalid_symbol_universe")
     output = {}
     for index in range(0, len(symbols), MAX_SYMBOLS):
         batch = symbols[index:index + MAX_SYMBOLS]
-        output.update(fetch_daily_bars(batch, start, end, key, secret, opener))
+        output.update(fetch_daily_bars(batch, start, end, key, secret, opener, adjustment))
     return output
 
 
@@ -120,6 +122,37 @@ def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) ->
             continue
         output.append(bar)
     return output
+
+
+def _split_basis_guard(raw_sessions: list[dict], split_sessions: list[dict] | None) -> dict:
+    """Detect provider-applied split differences without claiming official verification."""
+    if split_sessions is None:
+        return {"status": "NOT_CHECKED_LEGACY_CALL", "safe_for_descriptive_scorecard": True}
+    raw_dates = [bar["session_date"] for bar in raw_sessions]
+    split_dates = [bar["session_date"] for bar in split_sessions]
+    if raw_dates != split_dates:
+        return {
+            "status": "RAW_SPLIT_SESSION_SET_MISMATCH",
+            "safe_for_descriptive_scorecard": False,
+            "raw_session_count": len(raw_dates),
+            "split_session_count": len(split_dates),
+        }
+    changed = []
+    for raw_bar, split_bar in zip(raw_sessions, split_sessions):
+        if any(not math.isclose(raw_bar[field], split_bar[field], rel_tol=1e-6,
+                                abs_tol=1e-6) for field in ("o", "h", "l", "c")):
+            changed.append(raw_bar["session_date"])
+    if changed:
+        return {
+            "status": "PROVIDER_SPLIT_ADJUSTMENT_DETECTED",
+            "safe_for_descriptive_scorecard": False,
+            "changed_session_dates": changed,
+        }
+    return {
+        "status": "PROVIDER_RAW_SPLIT_PARITY_OBSERVED_NOT_OFFICIAL_VERIFICATION",
+        "safe_for_descriptive_scorecard": True,
+        "compared_session_count": len(raw_dates),
+    }
 
 
 def _descriptive_scorecard(records: list[dict]) -> dict:
@@ -244,6 +277,8 @@ def _segment_labels(record: dict) -> list[str]:
     else:
         profile = "profile:" + str(record["issuer_region_context"].get(
             "detector_profile", "unverified")).lower()
+    basis = "corporate_action_basis:" + str(record.get(
+        "corporate_action_basis_guard", {}).get("status", "legacy_context_missing")).lower()
     if not record["listing_action_context_recorded"]:
         listing = ["listing_action:legacy_context_missing"]
     else:
@@ -276,7 +311,7 @@ def _segment_labels(record: dict) -> list[str]:
         else:
             supply = ["sec_supply:unavailable_or_partial"]
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            financial, session, profile, os_segment, *listing, *supply]
+            financial, session, profile, basis, os_segment, *listing, *supply]
 
 
 def _segment_scorecards(independent: list[dict]) -> dict:
@@ -296,7 +331,8 @@ def _segment_scorecards(independent: list[dict]) -> dict:
     return output
 
 
-def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str) -> dict:
+def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
+                   split_bars: dict[str, list[dict]] | None = None) -> dict:
     now = _time(evaluated_at)
     if ledger.get("schema_version") != "LUCA_V10_PROSPECTIVE_LEDGER_1" or ledger.get("NO_ORDERS") is not True:
         raise ValueError("invalid_prospective_ledger")
@@ -305,10 +341,20 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
         symbol = event["ticker"]
         entry = event.get("iex_reference_price")
         sessions = _eligible_sessions(event, bars.get(symbol, []), now)
+        adjusted_sessions = None if split_bars is None else _eligible_sessions(
+            event, split_bars.get(symbol, []), now)
+        basis_guard = _split_basis_guard(sessions, adjusted_sessions)
         outcomes = {}
         for horizon in HORIZONS:
             if not _valid_price(entry) or len(sessions) < horizon:
                 outcomes[str(horizon)] = {"status": "NOT_MATURE", "completed_sessions": len(sessions)}
+                continue
+            if basis_guard["safe_for_descriptive_scorecard"] is not True:
+                outcomes[str(horizon)] = {
+                    "status": "CORPORATE_ACTION_BASIS_BLOCKED",
+                    "completed_sessions": len(sessions),
+                    "basis_guard_status": basis_guard["status"],
+                }
                 continue
             window = sessions[:horizon]
             outcomes[str(horizon)] = {
@@ -318,8 +364,10 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
                 "mae_pct": (min(bar["l"] for bar in window) / entry - 1.0) * 100.0,
                 "exit_session": window[-1]["session_date"],
             }
-        eligible_for_model = event["observation_status"] in {
+        fresh_price_observation = event["observation_status"] in {
             "FRESH_WATCH_ONLY", "FRESH_PREMARKET_WATCH_ONLY"}
+        eligible_for_model = (fresh_price_observation
+                              and basis_guard["safe_for_descriptive_scorecard"] is True)
         records.append({
             "ticker": symbol, "observed_at": event["observed_at"],
             "event_chain_hash": event["chain_hash"], "entry_reference": entry,
@@ -342,10 +390,15 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
             "sec_supply_context": event.get("sec_supply_context", {}),
             "issuer_region_context_recorded": "issuer_region_context" in event,
             "issuer_region_context": event.get("issuer_region_context", {}),
+            "corporate_action_basis_guard": basis_guard,
+            "fresh_price_observation": fresh_price_observation,
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
         })
     fresh = [record for record in records if record["eligible_for_model_validation"]]
+    fresh_price = [record for record in records if record["fresh_price_observation"]]
+    basis_blocked_fresh = [record for record in fresh_price
+                           if not record["eligible_for_model_validation"]]
     mature = {str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
                           for record in fresh) for h in HORIZONS}
     independent = _first_fresh_observation_per_ticker(records)
@@ -357,6 +410,13 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
     segment_scorecards = _segment_scorecards(independent)
     sample_size_gate_met = len(independent) >= 30 and independent_mature["5"] >= 30
     corporate_action_basis_verified = False
+    split_adjustment_blocked = sum(
+        record["corporate_action_basis_guard"]["safe_for_descriptive_scorecard"] is False
+        for record in records)
+    split_parity_observed = sum(
+        record["corporate_action_basis_guard"]["status"] ==
+        "PROVIDER_RAW_SPLIT_PARITY_OBSERVED_NOT_OFFICIAL_VERIFICATION"
+        for record in records)
     readiness_blockers = []
     if len(independent) < 30:
         readiness_blockers.append("INDEPENDENT_FRESH_TICKERS_BELOW_30")
@@ -371,6 +431,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
     return {
         "schema_version": "LUCA_V10_PROSPECTIVE_OUTCOMES_1",
         "evaluated_at": now.isoformat(), "ledger_event_count": len(records),
+        "fresh_price_observation_count": len(fresh_price),
+        "corporate_action_basis_blocked_fresh_observation_count": len(basis_blocked_fresh),
         "fresh_observation_count": len(fresh), "mature_fresh_horizons": mature,
         "independent_fresh_ticker_count": len(independent),
         "repeated_fresh_observation_count": len(fresh) - len(independent),
@@ -383,6 +445,12 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str)
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
+        "corporate_action_basis_guard": {
+            "method": "ALPACA_IEX_RAW_VS_SPLIT_ADJUSTED_PARITY_NOT_OFFICIAL_ACTION_DATA",
+            "split_adjustment_blocked_record_count": split_adjustment_blocked,
+            "raw_split_parity_observed_record_count": split_parity_observed,
+            "official_corporate_action_verification": False,
+        },
         "sample_size_gate_met": sample_size_gate_met,
         "sample_size_rule": "30_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
         "corporate_action_basis_verified": corporate_action_basis_verified,
@@ -425,10 +493,13 @@ def main() -> int:
         try:
             start = min(_time(event["observed_at"]).astimezone(ET).date() for event in ledger["events"])
             end = _time(args.evaluated_at).astimezone(ET).date()
-            bars = fetch_all_daily_bars(symbols, start, end, os.getenv("ALPACA_KEY", ""),
-                                        os.getenv("ALPACA_SECRET", ""))
-            report = build_outcomes(ledger, bars, args.evaluated_at)
-            report["source_status"] = "IEX_DAILY_BARS_COLLECTED"
+            key, secret = os.getenv("ALPACA_KEY", ""), os.getenv("ALPACA_SECRET", "")
+            bars = fetch_all_daily_bars(symbols, start, end, key, secret,
+                                        adjustment="raw")
+            split_bars = fetch_all_daily_bars(symbols, start, end, key, secret,
+                                              adjustment="split")
+            report = build_outcomes(ledger, bars, args.evaluated_at, split_bars)
+            report["source_status"] = "IEX_RAW_AND_SPLIT_ADJUSTED_DAILY_BARS_COLLECTED"
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
             report = unavailable(ledger, args.evaluated_at, type(exc).__name__)
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,9 @@
+from datetime import date
+import json
 import unittest
+import urllib.parse
 
-from prospective_outcomes import build_outcomes
+from prospective_outcomes import build_outcomes, fetch_daily_bars
 
 
 def event(observed="2026-11-18T15:00:00Z", status="FRESH_WATCH_ONLY"):
@@ -25,6 +28,36 @@ BARS = {"ABC": [
 
 
 class ProspectiveOutcomesTests(unittest.TestCase):
+    def test_daily_bar_request_freezes_requested_adjustment_mode(self):
+        requests = []
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _limit):
+                return json.dumps({"bars": {"ABC": [{
+                    "t": "2026-11-18T05:00:00Z", "o": 1, "h": 1.2,
+                    "l": .9, "c": 1.1,
+                }]}, "next_page_token": None}).encode()
+
+        def opener(request, timeout):
+            requests.append((request, timeout))
+            return Response()
+
+        rows = fetch_daily_bars(["ABC"], date(2026, 11, 18), date(2026, 11, 18),
+                                "key", "secret", opener, adjustment="split")
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(requests[0][0].full_url).query)
+        self.assertEqual(query["adjustment"], ["split"])
+        self.assertEqual(query["feed"], ["iex"])
+        self.assertEqual(len(rows["ABC"]), 1)
+        with self.assertRaisesRegex(ValueError, "invalid_bar_adjustment"):
+            fetch_daily_bars(["ABC"], date(2026, 11, 18), date(2026, 11, 18),
+                             "key", "secret", opener, adjustment="all")
+
     def test_regular_session_observation_uses_same_day_close(self):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
         first = result["records"][0]["outcomes"]
@@ -43,6 +76,46 @@ class ProspectiveOutcomesTests(unittest.TestCase):
     def test_current_incomplete_session_is_excluded(self):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T19:00:00Z")
         self.assertEqual(result["records"][0]["outcomes"]["3"]["completed_sessions"], 1)
+
+    def test_raw_split_parity_keeps_descriptive_record_but_is_not_official_verification(self):
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", BARS)
+        record = result["records"][0]
+        self.assertTrue(record["eligible_for_model_validation"])
+        self.assertEqual(
+            record["corporate_action_basis_guard"]["status"],
+            "PROVIDER_RAW_SPLIT_PARITY_OBSERVED_NOT_OFFICIAL_VERIFICATION")
+        self.assertEqual(result["corporate_action_basis_guard"]
+                         ["raw_split_parity_observed_record_count"], 1)
+        self.assertFalse(result["corporate_action_basis_verified"])
+
+    def test_split_adjustment_difference_is_quarantined_from_scorecards(self):
+        split = {"ABC": [
+            {"session_date": "2026-11-18", "o": .1, "h": .12, "l": .09, "c": .11},
+            {"session_date": "2026-11-19", "o": .11, "h": .14, "l": .10, "c": .13},
+        ]}
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", split)
+        record = result["records"][0]
+        self.assertFalse(record["eligible_for_model_validation"])
+        self.assertEqual(record["corporate_action_basis_guard"]["status"],
+                         "PROVIDER_SPLIT_ADJUSTMENT_DETECTED")
+        self.assertEqual(record["outcomes"]["1"]["status"],
+                         "CORPORATE_ACTION_BASIS_BLOCKED")
+        self.assertEqual(result["fresh_price_observation_count"], 1)
+        self.assertEqual(result["corporate_action_basis_blocked_fresh_observation_count"], 1)
+        self.assertEqual(result["fresh_observation_count"], 0)
+        self.assertEqual(result["descriptive_candidate_scorecard"]["1"]["sample_size"], 0)
+        self.assertEqual(result["corporate_action_basis_guard"]
+                         ["split_adjustment_blocked_record_count"], 1)
+
+    def test_raw_split_session_mismatch_is_quarantined(self):
+        split = {"ABC": BARS["ABC"][:1]}
+        result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", split)
+        record = result["records"][0]
+        self.assertFalse(record["eligible_for_model_validation"])
+        self.assertEqual(record["corporate_action_basis_guard"]["status"],
+                         "RAW_SPLIT_SESSION_SET_MISMATCH")
+        self.assertEqual(record["outcomes"]["1"]["status"],
+                         "CORPORATE_ACTION_BASIS_BLOCKED")
 
     def test_stale_observation_never_enters_validation_cohort(self):
         result = build_outcomes(ledger(event(status="STALE_OR_MISSING_PRICE_BLOCKED")),
