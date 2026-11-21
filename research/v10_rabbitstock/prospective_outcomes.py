@@ -155,13 +155,35 @@ def _split_basis_guard(raw_sessions: list[dict], split_sessions: list[dict] | No
     }
 
 
-def _descriptive_scorecard(records: list[dict]) -> dict:
+def _candidate_scope_guard(event: dict) -> dict:
+    if "security_scope" not in event:
+        return {"status": "LEGACY_SCOPE_MISSING", "eligible": False}
+    scope = event.get("security_scope")
+    if not isinstance(scope, dict):
+        return {"status": "INVALID_SCOPE_CONTEXT", "eligible": False}
+    if scope.get("status") != "COMMON_EQUITY_CANDIDATE_SCOPE":
+        return {"status": "SECURITY_NOT_COMMON_EQUITY_SCOPE", "eligible": False}
+    financial_status = scope.get("financial_status")
+    if financial_status not in {"N", "NOT_AVAILABLE"}:
+        return {
+            "status": "FINANCIAL_STATUS_NOT_ELIGIBLE",
+            "eligible": False,
+            "financial_status": financial_status,
+        }
+    return {
+        "status": "COMMON_EQUITY_SCOPE_ELIGIBLE",
+        "eligible": True,
+        "financial_status": financial_status,
+    }
+
+
+def _descriptive_scorecard(records: list[dict], require_model_eligibility: bool = True) -> dict:
     """Summarize mature watchlist outcomes without claiming prediction accuracy."""
     scorecard = {}
     for horizon in HORIZONS:
         key = str(horizon)
         mature = [record["outcomes"][key] for record in records
-                  if record["eligible_for_model_validation"]
+                  if (not require_model_eligibility or record["eligible_for_model_validation"])
                   and record["outcomes"][key]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"]
         if not mature:
             scorecard[key] = {
@@ -196,6 +218,17 @@ def _first_fresh_observation_per_ticker(records: list[dict]) -> list[dict]:
     first = {}
     fresh = [record for record in records if record["eligible_for_model_validation"]]
     for record in sorted(fresh, key=lambda item: (_time(item["observed_at"]), item["ticker"])):
+        first.setdefault(record["ticker"], record)
+    return list(first.values())
+
+
+def _first_scope_audit_observation_per_ticker(records: list[dict]) -> list[dict]:
+    """Keep one fresh, split-parity-safe record even when candidate scope is blocked."""
+    first = {}
+    audit = [record for record in records if record["fresh_price_observation"]
+             and record["corporate_action_basis_guard"]
+             ["safe_for_descriptive_scorecard"] is True]
+    for record in sorted(audit, key=lambda item: (_time(item["observed_at"]), item["ticker"])):
         first.setdefault(record["ticker"], record)
     return list(first.values())
 
@@ -279,6 +312,8 @@ def _segment_labels(record: dict) -> list[str]:
             "detector_profile", "unverified")).lower()
     basis = "corporate_action_basis:" + str(record.get(
         "corporate_action_basis_guard", {}).get("status", "legacy_context_missing")).lower()
+    cohort_scope = "candidate_scope_guard:" + str(record.get(
+        "candidate_scope_guard", {}).get("status", "legacy_context_missing")).lower()
     if not record["listing_action_context_recorded"]:
         listing = ["listing_action:legacy_context_missing"]
     else:
@@ -311,17 +346,17 @@ def _segment_labels(record: dict) -> list[str]:
         else:
             supply = ["sec_supply:unavailable_or_partial"]
     return [volume, trades, mover, spread_label, sec, volume_first, priority, scope,
-            financial, session, profile, basis, os_segment, *listing, *supply]
+            financial, session, profile, basis, cohort_scope, os_segment, *listing, *supply]
 
 
-def _segment_scorecards(independent: list[dict]) -> dict:
+def _segment_scorecards(independent: list[dict], require_model_eligibility: bool = True) -> dict:
     segments = {}
     for record in independent:
         for label in _segment_labels(record):
             segments.setdefault(label, []).append(record)
     output = {}
     for label, records in sorted(segments.items()):
-        scorecard = _descriptive_scorecard(records)
+        scorecard = _descriptive_scorecard(records, require_model_eligibility)
         mature_five = scorecard["5"]["sample_size"]
         output[label] = {
             "independent_ticker_count": len(records),
@@ -344,6 +379,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         adjusted_sessions = None if split_bars is None else _eligible_sessions(
             event, split_bars.get(symbol, []), now)
         basis_guard = _split_basis_guard(sessions, adjusted_sessions)
+        scope_guard = _candidate_scope_guard(event)
         outcomes = {}
         for horizon in HORIZONS:
             if not _valid_price(entry) or len(sessions) < horizon:
@@ -367,7 +403,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         fresh_price_observation = event["observation_status"] in {
             "FRESH_WATCH_ONLY", "FRESH_PREMARKET_WATCH_ONLY"}
         eligible_for_model = (fresh_price_observation
-                              and basis_guard["safe_for_descriptive_scorecard"] is True)
+                              and basis_guard["safe_for_descriptive_scorecard"] is True
+                              and scope_guard["eligible"] is True)
         records.append({
             "ticker": symbol, "observed_at": event["observed_at"],
             "event_chain_hash": event["chain_hash"], "entry_reference": entry,
@@ -391,6 +428,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
             "issuer_region_context_recorded": "issuer_region_context" in event,
             "issuer_region_context": event.get("issuer_region_context", {}),
             "corporate_action_basis_guard": basis_guard,
+            "candidate_scope_guard": scope_guard,
             "fresh_price_observation": fresh_price_observation,
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
@@ -398,16 +436,24 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
     fresh = [record for record in records if record["eligible_for_model_validation"]]
     fresh_price = [record for record in records if record["fresh_price_observation"]]
     basis_blocked_fresh = [record for record in fresh_price
-                           if not record["eligible_for_model_validation"]]
+                           if record["corporate_action_basis_guard"]
+                           ["safe_for_descriptive_scorecard"] is False]
+    scope_blocked_fresh = [record for record in fresh_price
+                           if record["corporate_action_basis_guard"]
+                           ["safe_for_descriptive_scorecard"] is True
+                           and record["candidate_scope_guard"]["eligible"] is False]
     mature = {str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
                           for record in fresh) for h in HORIZONS}
     independent = _first_fresh_observation_per_ticker(records)
+    scope_audit_independent = _first_scope_audit_observation_per_ticker(records)
     independent_mature = {
         str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
                     for record in independent) for h in HORIZONS
     }
     scorecard = _descriptive_scorecard(independent)
     segment_scorecards = _segment_scorecards(independent)
+    scope_audit_segment_scorecards = _segment_scorecards(
+        scope_audit_independent, require_model_eligibility=False)
     sample_size_gate_met = len(independent) >= 30 and independent_mature["5"] >= 30
     corporate_action_basis_verified = False
     split_adjustment_blocked = sum(
@@ -433,6 +479,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "evaluated_at": now.isoformat(), "ledger_event_count": len(records),
         "fresh_price_observation_count": len(fresh_price),
         "corporate_action_basis_blocked_fresh_observation_count": len(basis_blocked_fresh),
+        "candidate_scope_blocked_fresh_observation_count": len(scope_blocked_fresh),
         "fresh_observation_count": len(fresh), "mature_fresh_horizons": mature,
         "independent_fresh_ticker_count": len(independent),
         "repeated_fresh_observation_count": len(fresh) - len(independent),
@@ -440,6 +487,9 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "independent_cohort_rule": "FIRST_FRESH_OBSERVATION_PER_TICKER",
         "descriptive_candidate_scorecard": scorecard,
         "descriptive_segment_scorecards": segment_scorecards,
+        "descriptive_scope_audit_segment_scorecards": scope_audit_segment_scorecards,
+        "scope_audit_rule": (
+            "FIRST_FRESH_SPLIT_PARITY_SAFE_OBSERVATION_PER_TICKER_NOT_MODEL_COHORT"),
         "segment_comparison_minimum": "10_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
         "scorecard_scope": "FIRST_FRESH_OBSERVATION_PER_TICKER_NOT_BUY_SIGNALS",
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),

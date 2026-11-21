@@ -8,7 +8,9 @@ from prospective_outcomes import build_outcomes, fetch_daily_bars
 
 def event(observed="2026-11-18T15:00:00Z", status="FRESH_WATCH_ONLY"):
     return {"ticker": "ABC", "observed_at": observed, "iex_reference_price": 1.0,
-            "observation_status": status, "chain_hash": "a" * 64, "NO_ORDERS": True}
+            "observation_status": status, "chain_hash": "a" * 64, "NO_ORDERS": True,
+            "security_scope": {"status": "COMMON_EQUITY_CANDIDATE_SCOPE",
+                               "financial_status": "N"}}
 
 
 def ledger(item):
@@ -122,6 +124,41 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                 BARS, "2026-11-19T22:00:00Z")
         self.assertEqual(result["fresh_observation_count"], 0)
         self.assertFalse(result["records"][0]["eligible_for_model_validation"])
+
+    def test_etf_and_financial_status_risk_are_not_model_cohort_samples(self):
+        etf = event()
+        etf["security_scope"] = {"status": "EXCLUDED_ETF_OR_ETP",
+                                 "financial_status": "NOT_AVAILABLE"}
+        deficient = event()
+        deficient["ticker"] = "DEF"
+        deficient["chain_hash"] = "b" * 64
+        deficient["security_scope"] = {"status": "COMMON_EQUITY_CANDIDATE_SCOPE",
+                                       "financial_status": "D"}
+        result = build_outcomes(ledger_many(etf, deficient), {
+            **BARS, "DEF": BARS["ABC"],
+        }, "2026-11-19T22:00:00Z")
+        self.assertEqual(result["fresh_price_observation_count"], 2)
+        self.assertEqual(result["candidate_scope_blocked_fresh_observation_count"], 2)
+        self.assertEqual(result["fresh_observation_count"], 0)
+        self.assertFalse(result["records"][0]["eligible_for_model_validation"])
+        self.assertEqual(result["records"][0]["candidate_scope_guard"]["status"],
+                         "SECURITY_NOT_COMMON_EQUITY_SCOPE")
+        self.assertEqual(result["records"][1]["candidate_scope_guard"]["status"],
+                         "FINANCIAL_STATUS_NOT_ELIGIBLE")
+        audit = result["descriptive_scope_audit_segment_scorecards"]
+        self.assertIn("security_scope:excluded_etf_or_etp", audit)
+        self.assertIn("financial_status:d", audit)
+
+    def test_legacy_missing_scope_is_audit_only_not_model_cohort(self):
+        legacy = event()
+        del legacy["security_scope"]
+        result = build_outcomes(ledger(legacy), BARS, "2026-11-19T22:00:00Z")
+        self.assertFalse(result["records"][0]["eligible_for_model_validation"])
+        self.assertEqual(result["records"][0]["candidate_scope_guard"]["status"],
+                         "LEGACY_SCOPE_MISSING")
+        self.assertEqual(result["fresh_observation_count"], 0)
+        self.assertIn("security_scope:legacy_context_missing",
+                      result["descriptive_scope_audit_segment_scorecards"])
 
     def test_premarket_observation_has_own_eligible_segment(self):
         premarket = event("2026-11-18T12:05:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
@@ -259,7 +296,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
             **BARS,
             "DEF": BARS["ABC"],
         }, "2026-11-19T22:00:00Z")
-        segments = result["descriptive_segment_scorecards"]
+        segments = result["descriptive_scope_audit_segment_scorecards"]
         self.assertEqual(segments["volume:rank_1_10"]["independent_ticker_count"], 1)
         self.assertEqual(segments["volume:rank_11_40"]["independent_ticker_count"], 1)
         self.assertEqual(segments["mover:gainer"]["horizons"]["1"]["sample_size"], 1)
@@ -287,6 +324,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("profile:nasdaq_7_0", segments)
         self.assertIn("session:regular", segments)
         self.assertFalse(segments["volume:rank_1_10"]["comparison_ready"])
+        self.assertNotIn("security_scope:excluded_etf_or_etp",
+                         result["descriptive_segment_scorecards"])
 
 
 if __name__ == "__main__":
