@@ -11,9 +11,12 @@ DATE = "Thu, 19 Nov 2026 09:00:00 GMT"
 
 
 class Response:
-    def __init__(self, payload, date=DATE):
+    def __init__(self, payload, date=DATE, final_url=None):
         self.raw = json.dumps(payload).encode()
         self.headers = {"Date": date}
+        self.final_url = final_url
+    def geturl(self):
+        return self.final_url
     def __enter__(self):
         return self
     def __exit__(self, *args):
@@ -24,11 +27,11 @@ class Response:
 
 def opener(request, timeout):
     if "company_tickers" in request.full_url:
-        return Response({"0": {"ticker": "ABC", "cik_str": 123, "title": "ABC"}})
+        return Response({"0": {"ticker": "ABC", "cik_str": 123, "title": "ABC"}}, final_url=request.full_url)
     if "/companyfacts/" in request.full_url:
         return Response({"cik": 123, "facts": {"us-gaap": {
-            "LargeUnrelatedConcept": {"units": {"USD": [{"val": 1}]}}}}})
-    return Response({"cik": 123, "filings": {"recent": {}}})
+            "LargeUnrelatedConcept": {"units": {"USD": [{"val": 1}]}}}}}, final_url=request.full_url)
+    return Response({"cik": 123, "filings": {"recent": {}}}, final_url=request.full_url)
 
 
 class CaptureSecOfficialInputsTests(unittest.TestCase):
@@ -44,6 +47,24 @@ class CaptureSecOfficialInputsTests(unittest.TestCase):
         self.assertNotIn("contact@example.com", json.dumps(manifest))
         self.assertTrue(manifest["NO_ORDERS"])
         self.assertFalse(manifest["independent_timestamp_fully_verified"])
+
+    def test_redirect_to_non_sec_host_fails_closed(self):
+        def redirected(request, timeout):
+            response = opener(request, timeout)
+            response.final_url = "https://example.org/redirected.json"
+            return response
+        with self.assertRaisesRegex(ValueError, "final_url_mismatch"):
+            capture(["ABC"], "LUCA-Research contact@example.com",
+                    opener=redirected, clock=lambda: NOW, sleeper=lambda _: None)
+
+    def test_redirect_to_different_sec_endpoint_fails_closed(self):
+        def redirected(request, timeout):
+            response = opener(request, timeout)
+            response.final_url = "https://www.sec.gov/files/other.json"
+            return response
+        with self.assertRaisesRegex(ValueError, "final_url_mismatch"):
+            capture(["ABC"], "LUCA-Research contact@example.com",
+                    opener=redirected, clock=lambda: NOW, sleeper=lambda _: None)
 
     def test_missing_http_date_fails_closed(self):
         def missing(request, timeout):
