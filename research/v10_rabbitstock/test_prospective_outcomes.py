@@ -260,12 +260,31 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                                 "2026-11-20T22:00:00Z")
         self.assertTrue(result["sample_size_gate_met"])
         self.assertEqual(result["independent_mature_fresh_horizons"]["5"], 30)
+        self.assertEqual(result["independent_observation_date_count"], 1)
+        self.assertFalse(result["temporal_diversity_gate_met"])
+        self.assertIn("INDEPENDENT_OBSERVATION_DATES_BELOW_5",
+                      result["readiness_blockers"])
         self.assertFalse(result["corporate_action_basis_verified"])
         self.assertFalse(result["performance_validation_ready"])
         self.assertIn("CORPORATE_ACTION_BASIS_UNVERIFIED",
                       result["readiness_blockers"])
         self.assertIn("REAL_FILL_AND_SLIPPAGE_NOT_MEASURED",
                       result["readiness_blockers"])
+
+    def test_temporal_diversity_requires_five_distinct_et_observation_dates(self):
+        events = []
+        days = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"]
+        for index, day in enumerate(days):
+            item = event(day + "T15:00:00Z")
+            item["ticker"] = f"D{index}"
+            item["chain_hash"] = f"{index + 1:064x}"
+            events.append(item)
+        result = build_outcomes(ledger_many(*events), {}, "2026-11-20T22:00:00Z")
+        self.assertEqual(result["independent_observation_date_count"], 5)
+        self.assertTrue(result["temporal_diversity_gate_met"])
+        self.assertNotIn("INDEPENDENT_OBSERVATION_DATES_BELOW_5",
+                         result["readiness_blockers"])
+        self.assertFalse(result["sample_size_gate_met"])
 
     def test_segment_scorecards_separate_frozen_candidate_context(self):
         first = event()

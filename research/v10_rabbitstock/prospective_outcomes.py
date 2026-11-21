@@ -20,6 +20,7 @@ BARS_URL = "https://data.alpaca.markets/v2/stocks/bars"
 MAX_SYMBOLS = 50
 MAX_BYTES = 5_000_000
 MAX_PAGES = 10
+MIN_INDEPENDENT_OBSERVATION_DATES = 5
 
 
 def _time(raw: str) -> datetime:
@@ -476,6 +477,12 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         str(h): sum(record["outcomes"][str(h)]["status"] == "COMPLETE_IEX_REFERENCE_ONLY"
                     for record in independent) for h in HORIZONS
     }
+    observation_date_counts = {}
+    for record in independent:
+        session_date = _time(record["observed_at"]).astimezone(ET).date().isoformat()
+        observation_date_counts[session_date] = observation_date_counts.get(session_date, 0) + 1
+    temporal_diversity_gate_met = (
+        len(observation_date_counts) >= MIN_INDEPENDENT_OBSERVATION_DATES)
     scorecard = _descriptive_scorecard(independent)
     segment_scorecards = _segment_scorecards(independent)
     scope_audit_segment_scorecards = _segment_scorecards(
@@ -494,6 +501,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         readiness_blockers.append("INDEPENDENT_FRESH_TICKERS_BELOW_30")
     if independent_mature["5"] < 30:
         readiness_blockers.append("INDEPENDENT_MATURE_5_SESSION_OUTCOMES_BELOW_30")
+    if not temporal_diversity_gate_met:
+        readiness_blockers.append("INDEPENDENT_OBSERVATION_DATES_BELOW_5")
     if not corporate_action_basis_verified:
         readiness_blockers.append("CORPORATE_ACTION_BASIS_UNVERIFIED")
     readiness_blockers.extend([
@@ -510,6 +519,10 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "independent_fresh_ticker_count": len(independent),
         "repeated_fresh_observation_count": len(fresh) - len(independent),
         "independent_mature_fresh_horizons": independent_mature,
+        "independent_observation_date_counts": dict(sorted(observation_date_counts.items())),
+        "independent_observation_date_count": len(observation_date_counts),
+        "temporal_diversity_gate_met": temporal_diversity_gate_met,
+        "temporal_diversity_rule": "AT_LEAST_5_DISTINCT_ET_OBSERVATION_DATES",
         "independent_cohort_rule": "FIRST_FRESH_OBSERVATION_PER_TICKER",
         "descriptive_candidate_scorecard": scorecard,
         "descriptive_segment_scorecards": segment_scorecards,
@@ -535,7 +548,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "corporate_action_basis_verified": corporate_action_basis_verified,
         "readiness_blockers": readiness_blockers,
         "performance_validation_ready": (
-            sample_size_gate_met and corporate_action_basis_verified
+            sample_size_gate_met and temporal_diversity_gate_met
+            and corporate_action_basis_verified
             and not readiness_blockers),
         "prediction_accuracy_verified": False,
         "WATCH_ONLY": True, "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
@@ -550,6 +564,10 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
         "source_status": reason,
         "sample_size_gate_met": False,
         "sample_size_rule": "30_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
+        "independent_observation_date_count": 0,
+        "independent_observation_date_counts": {},
+        "temporal_diversity_gate_met": False,
+        "temporal_diversity_rule": "AT_LEAST_5_DISTINCT_ET_OBSERVATION_DATES",
         "corporate_action_basis_verified": False,
         "readiness_blockers": ["OUTCOME_SOURCE_UNAVAILABLE", reason],
         "performance_validation_ready": False,

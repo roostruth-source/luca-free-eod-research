@@ -200,6 +200,8 @@ python run_live_research.py \
 
 독립 티커 30개와 5거래일 성숙 결과 30개는 `sample_size_gate_met`(표본 수 문턱 통과)로만 표시한다. 이 숫자가 채워져도 Corporate Action(역분할 등 기업행사) 가격 단위가 검증되지 않았거나 IEX 단일 시세뿐이거나 실제 체결·슬리피지를 측정하지 않았으면 `performance_validation_ready=false`를 유지한다. `readiness_blockers`에 부족한 표본 수와 데이터 한계를 따로 기록해 표본 수만으로 성능 검증 완료를 선언하지 않는다.
 
+티커 수가 많아도 모두 같은 날 포착됐다면 같은 시장 분위기에 함께 움직였을 수 있다. 이를 완전히 독립된 30개 실험으로 오해하지 않도록 미국 동부시간 기준 관찰일이 최소 5일 이상일 때만 `temporal_diversity_gate_met=true`로 표시한다. 5일은 보수적인 연구 운영 기준이며 성능이 검증된 최적 기준이 아니다. 날짜별 독립 티커 수를 `independent_observation_date_counts`에 공개하고, 5일 미만이면 `INDEPENDENT_OBSERVATION_DATES_BELOW_5`를 준비도 차단 사유로 남긴다.
+
 새 관찰부터는 당시 Alpaca 스크리너의 거래량 순위·거래 횟수 순위·상승/하락 목록과 IEX 호가 스프레드를 해시 원장에 함께 고정한다. 성과표는 거래량 상위 10위/11~40위, 거래 횟수 순위, 상승·하락 목록, 스프레드 구간, SEC 검토 상태별로 독립 표본을 나눈다. 과거 원장에 없던 조건은 `legacy_context_missing`으로 분리하며 추정해서 채우지 않는다. 조건 비교는 5거래일이 지난 독립 티커가 구간별 10개 이상일 때만 준비 상태로 표시한다.
 
 `volume_first_live.py`는 미국 정규장 중 상위 후보 최대 12개에 한해 관찰 시각보다 미래인 1분봉을 거부하고, 최근 30분 IEX 단일 거래소 자료에서 기존 6개 봉 연구 공식을 계산한다. 마지막 1분 거래량이 직전 5분 평균의 3배 이상이고 100주 이상이며 저가가 3개 봉 연속 상승하고 6개 봉 가격 변화가 0~15%인 경우를 최근 연구 패턴으로 기록한다. 동시점 스크리너로 이미 활발한 종목을 고른 것이므로 `CONCURRENT_SCREENER_SELECTION_NOT_EARLY_PROOF`를 유지하며, 이를 조기예측이나 매수 신호로 부르지 않는다. 이후 성과표는 `volume_first:recent_pattern`, `no_recent_pattern`, `unavailable_or_not_studied`를 분리한다.

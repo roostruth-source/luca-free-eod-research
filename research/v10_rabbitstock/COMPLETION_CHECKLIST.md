@@ -65,6 +65,13 @@
 - 각 기록에 `outcome_session_anchor`, 전체 결과에 `outcome_window_policy`를 남겨 적용 기준을 감사할 수 있게 한다.
 - 회귀검사에서 정규장 관찰의 다음 거래일 시작, 장전 관찰의 당일 허용, 미완성 당일 제외를 확인했다. 전체 CI와 실제 artifact의 성숙 표본 정정값 확인 전까지 완료로 표시하지 않는다.
 
+## 2026-11-21 독립 표본 날짜 분산 안전장치 (CI 및 live 검증 대기)
+
+- 서로 다른 티커 30개가 같은 날 한꺼번에 관찰돼도 같은 시장 분위기에 묶인 표본이므로 날짜 분산을 별도 검사한다.
+- 미국 동부시간 기준 서로 다른 관찰일 5일 이상을 `temporal_diversity_gate_met` 운영 기준으로 둔다. 이는 검증된 최적값이 아니라 성급한 완료 선언을 막는 보수적 연구 기준이다.
+- 날짜별 최초 독립 티커 수를 `independent_observation_date_counts`에 공개한다. 5일 미만이면 `INDEPENDENT_OBSERVATION_DATES_BELOW_5`를 준비도 차단 사유로 남긴다.
+- 단일 날짜 30티커가 표본 수 문턱을 통과해도 날짜 분산 문턱은 통과하지 못하는 회귀검사를 추가했다. 전체 CI와 실제 artifact 날짜 분포 확인 전까지 완료로 표시하지 않는다.
+
 ## 2026-11-21 SEC 희석위험 원문 연결 (CI 및 live 검증 대기)
 
 - SEC 원문에서 `ATM`, `ELOC`, `CB`, `WARRANT`, `SHELF`를 분리해 원문 URL·접수시각·문맥과 함께 `sec_supply_context`에 고정한다.
