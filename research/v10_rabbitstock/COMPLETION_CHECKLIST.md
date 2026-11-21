@@ -259,3 +259,13 @@
 - `SEC_UNVERIFIED` 및 `FLOAT_UNVERIFIED` 위험 각 45행. `source_status=SEC_TICKER_MAP_HTTP_403`; 실제 SEC 공식 문서 검증 성공으로 간주하지 않음. 장전 PREMARKET 실제 신선 시세 관찰도 0행.
 - 이번 증거는 **기존 HEAD에 대한 CI·live 안전성 확인**이며 SEC 실제 적중·5거래일 독립 성과·예측 정확도 완료 근거가 아님. 이 문서 변경 커밋 자체의 후속 CI는 별도 검증 전까지 미확인으로 둔다.
 - 다음 작업: 공식 SEC 입력 bundle을 확보할 수 있을 때 실제 URL·CIK·HTTP Date·UTC·SHA-256 영수증을 검증해 원문 적중 live artifact를 확인한다. 외부 차단이 지속되면 성숙 5거래일 원장과 신선한 PREMARKET 관찰을 우선 점검한다.
+
+## 2026-11-21 날짜 분산·성과 기준 실제 Artifact 검증 (HEAD dececcf)
+
+- 기준 HEAD: `dececcfcb47c4ef344944bfada67f34b35f316c6`; Actions #44876722589의 `test-and-build` 전체 단계 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/44876722589
+- 실제 artifact `14696196115` ZIP SHA-256 `105a243c10430d70fac7e48cdc001786cd10d6386b8c9d8edbdfd97c4da94107`가 GitHub digest와 일치하며, 내부 `prospective_outcomes.json`과 `live_watchlist.json`을 직접 열어 확인했다.
+- `independent_observation_date_counts`: 2026-11-19 = 26, 2026-11-20 = 15; 서로 다른 미국 동부시간 관찰일 2개. `temporal_diversity_gate_met=false`, `INDEPENDENT_OBSERVATION_DATES_BELOW_5` 확인.
+- 범위 내 신선 관찰 139건, 독립 신선 티커 41개. 독립 1/3/5/10거래일 성숙 티커는 26/0/0/0개. `sample_size_gate_met=false`, `performance_validation_ready=false`, `prediction_accuracy_verified=false` 확인.
+- `outcome_window_policy`는 장전 당일 허용·정규장 이후 다음 거래일 시작 정책을 기록한다. 실제 가격 원장으로 완전한 누출 부재를 입증한 것은 아니며, 표본이 쌓일 때 재검증한다.
+- 실제 live watchlist 45행: `WATCH_ONLY=true`, `NO_ORDERS=true`, `validation_status=NOT_VALIDATED`, `buy_allowed=false` 위반 0건; 양수 `research_priority_score` 0건. `SEC_TICKER_MAP_HTTP_403` 때문에 SEC 원문 확인 없이 `SEC_UNVERIFIED/FLOAT_UNVERIFIED` 상태 유지.
+- 이번 결과로 날짜 분산 필드가 실제 artifact에 기록됨을 확인했으나, 독립 5거래일 성숙 30개와 공식 SEC 자료가 없어 완성 기준 5는 PARTIAL, 최종 완료는 PENDING 유지.
