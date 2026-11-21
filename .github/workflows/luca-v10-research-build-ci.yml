@@ -86,6 +86,7 @@ jobs:
         run: |
           python prospective_outcomes.py build_outputs/prospective_ledger.json \
             --output build_outputs/prospective_outcomes.json \
+            --html-output build_outputs/prospective_outcomes.html \
             --evaluated-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
       - name: Verify order safety flags
         run: |
@@ -109,4 +110,5 @@ jobs:
             research/v10_rabbitstock/build_outputs/live_watchlist.html
             research/v10_rabbitstock/build_outputs/prospective_ledger.json
             research/v10_rabbitstock/build_outputs/prospective_outcomes.json
+            research/v10_rabbitstock/build_outputs/prospective_outcomes.html
           retention-days: 14

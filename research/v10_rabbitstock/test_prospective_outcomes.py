@@ -3,7 +3,7 @@ import json
 import unittest
 import urllib.parse
 
-from prospective_outcomes import build_outcomes, fetch_daily_bars
+from prospective_outcomes import build_outcomes, fetch_daily_bars, render_html
 
 
 def event(observed="2026-11-18T15:00:00Z", status="FRESH_WATCH_ONLY"):
@@ -30,6 +30,19 @@ BARS = {"ABC": [
 
 
 class ProspectiveOutcomesTests(unittest.TestCase):
+    def test_mobile_readiness_html_is_korean_safe_and_escapes_untrusted_text(self):
+        report = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
+        report["independent_observation_date_counts"] = {"<script>x</script>": 1}
+        report["readiness_blockers"].append("<img src=x onerror=alert(1)>")
+        page = render_html(report)
+        self.assertIn("LUCA V10 성과 준비도", page)
+        self.assertIn("아직 성능 검증 전", page)
+        self.assertIn("Slippage(주문 미끄러짐)", page)
+        self.assertIn("NO_ORDERS", page)
+        self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
+        self.assertNotIn("<script>x</script>", page)
+        self.assertNotIn("<img src=x onerror=alert(1)>", page)
+
     def test_daily_bar_request_freezes_requested_adjustment_mode(self):
         requests = []
 
