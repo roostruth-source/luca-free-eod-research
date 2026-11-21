@@ -308,3 +308,10 @@
 - Frozen Spread stress PR #38 병합 HEAD `f6395edbe11a5bfe148a24d8788a30288e9f3f1e`. PR Actions #44914456036 성공, artifact `14710858708` ZIP SHA-256 `6bfb2b611b022d63eb987dbeb261afbb0611a17c8a3e139552df44081981d1fa`가 GitHub digest와 일치. 독립 티커 41개 모두 Spread 기록, 중앙 4.695%, 90% nearest-rank 30.078%, 5% 초과 20개. 독립 1일 26표본의 평균 종가수익은 기준 -7.8235%, 절반 Spread 진입부담 -12.2508%, 전부 Spread 진입부담 -15.8272%. 실제 Fill·Slippage·수수료·시장충격 측정값이 아니며 5일 성숙은 0개. `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED` 유지. 병합 후 Actions #44914590130 성공.
 - Outlier robustness PR #39 병합 HEAD `89fe6de893674c3b7afb76ebbe1887ee1f63ed1c`. PR Actions #44914880111 성공, artifact `14710894269` ZIP SHA-256 `74c9db84f8e0345e43c986cd1e38891d55bbd45fc63841e6c43028806e972543`가 GitHub digest와 일치. 독립 1일 26표본 평균 -7.8235%, 중앙 -10.3453%. 최고 종가수익 티커 LVWR +109.6823%를 제외하면 평균 -12.5237%로 4.7002%p 하락. 최고 MFE도 LVWR +129.7123%이며 제외 시 평균 MFE +3.5647%에서 -1.4812%로 5.0459%p 하락. 3/5/10일 성숙 표본 0개. 병합 후 Actions #44914975150 성공.
 - 결론: 세 기능은 실제 누적 원장과 자동 artifact에서 작동함을 확인했다. 그러나 결과는 오히려 넓은 Spread와 LVWR 단일 급등 의존도를 드러낸다. 공식 기업행사 가격단위, IEX 외 독립시세, 실제 체결, 5거래일 독립 30표본이 없으므로 `performance_validation_ready=false`, 최종 상태 NOT_VALIDATED를 유지한다. 주문·main 병합·배포 금지.
+
+## 2026-11-22 장전 성과 시작일의 시간·상태 일치 검사 (CI/실행 결과 확인 대기)
+
+- 코드 커밋 `000e64f9`, 회귀 테스트 커밋 `e52fe728`: 관찰시각이 뉴욕 09:30 이전이라는 이유만으로 당일 정규장 OHLC를 허용하지 않는다.
+- `FRESH_PREMARKET_WATCH_ONLY` 상태, 미국 동부시간 평일 04:00~09:29:59 조건을 동시에 만족해야 같은 날 성과 측정이 가능하다. 야간 01:00, 정규장 상태의 장전 시각, 주말 장전 표시는 다음 실제 거래일부터 계산한다.
+- 3개 회귀 사례를 추가했다. GitHub Actions #44934924128의 전체 CI·live artifact 결과가 완료되기 전까지 **PARTIAL/PENDING**이며 성과 정확도를 검증했다고 표시하지 않는다.
+- 공식 거래소 휴장일 확인과 최초 IEX 시세의 실제 수집시각 대조는 아직 별도 미완성이다. `WATCH_ONLY`·`NOT_VALIDATED`·`SEC_UNVERIFIED`·`NO_ORDERS` 유지.
