@@ -60,6 +60,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("Spread stress (호가 차이 부담 가정)", page)
         self.assertIn("실제 Fill(체결)", page)
         self.assertIn("Outlier check (한 종목 대박 의존도)", page)
+        self.assertIn("장전 성과 시작 근거", page)
         self.assertIn("NO_ORDERS", page)
         self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
         self.assertNotIn("<script>x</script>", page)
@@ -122,6 +123,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         first = result["records"][0]
         self.assertEqual(first["outcome_session_anchor"],
                          "SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION")
+        self.assertEqual(first["same_day_premarket_gate"]["reason"],
+                         "SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE")
         self.assertAlmostEqual(first["outcomes"]["1"]["close_return_pct"], 10.0)
         self.assertEqual(first["outcomes"]["3"]["completed_sessions"], 2)
 
@@ -131,6 +134,8 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         result = build_outcomes(ledger(missing), BARS, "2026-11-19T22:00:00Z")
         self.assertEqual(result["records"][0]["outcome_session_anchor"],
                          "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
+        self.assertEqual(result["records"][0]["same_day_premarket_gate"]["reason"],
+                         "NEXT_SESSION_PRICE_CONTEXT_MISSING")
 
     def test_spoofed_or_stale_premarket_context_never_unlocks_same_day(self):
         spoofed = premarket_event()
@@ -145,6 +150,10 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertTrue(all(record["outcome_session_anchor"] ==
                             "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION"
                             for record in result["records"]))
+        self.assertEqual(result["records"][0]["same_day_premarket_gate"]["reason"],
+                         "NEXT_SESSION_PRICE_SOURCE_UNVERIFIED")
+        self.assertEqual(result["records"][1]["same_day_premarket_gate"]["reason"],
+                         "NEXT_SESSION_EVIDENCE_NOT_FRESH")
 
     def test_claimed_age_must_match_frozen_premarket_timestamp(self):
         mismatched = premarket_event()
@@ -152,6 +161,23 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         result = build_outcomes(ledger(mismatched), BARS, "2026-11-19T22:00:00Z")
         self.assertEqual(result["records"][0]["outcome_session_anchor"],
                          "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
+        self.assertEqual(result["records"][0]["same_day_premarket_gate"]["reason"],
+                         "NEXT_SESSION_CLAIMED_AGE_TIMESTAMP_MISMATCH")
+
+    def test_premarket_gate_reason_counts_cover_every_ledger_event(self):
+        regular = event()
+        premarket = premarket_event()
+        premarket["ticker"] = "DEF"
+        premarket["chain_hash"] = "b" * 64
+        result = build_outcomes(ledger_many(regular, premarket), {
+            **BARS, "DEF": BARS["ABC"],
+        }, "2026-11-19T22:00:00Z")
+        self.assertEqual(sum(result["outcome_session_anchor_counts"].values()), 2)
+        self.assertEqual(sum(result["same_day_premarket_gate_reason_counts"].values()), 2)
+        self.assertEqual(result["same_day_premarket_gate_reason_counts"]
+                         ["SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE"], 1)
+        self.assertEqual(result["same_day_premarket_gate_reason_counts"]
+                         ["NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET"], 1)
 
     def test_overnight_clock_time_is_not_automatically_premarket(self):
         overnight = event("2026-11-18T06:00:00Z",
