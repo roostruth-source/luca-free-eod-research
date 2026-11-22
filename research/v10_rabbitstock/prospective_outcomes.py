@@ -31,6 +31,26 @@ BLOCKER_KO = {
     "REAL_FILL_AND_SLIPPAGE_NOT_MEASURED": "실제 체결가격과 Slippage(주문 미끄러짐)를 측정하지 않음",
     "OUTCOME_SOURCE_UNAVAILABLE": "후속 일봉 자료를 가져오지 못함",
 }
+PREMARKET_GATE_KO = {
+    "SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE": "검증된 장전 IEX 체결·호가가 있어 당일 정규장부터 측정",
+    "NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET": "장전 관찰 상태가 아니므로 다음 거래일부터 측정",
+    "NEXT_SESSION_WEEKEND_OBSERVATION": "주말 관찰이므로 다음 거래일부터 측정",
+    "NEXT_SESSION_OUTSIDE_0400_0930_ET": "미국 동부시간 장전 구간 밖이므로 다음 거래일부터 측정",
+    "NEXT_SESSION_PRICE_CONTEXT_MISSING": "저장된 장전 시세 문맥이 없어 다음 거래일부터 측정",
+    "NEXT_SESSION_PRICE_CONTEXT_STATUS_MISMATCH": "장전 시세 상태가 서로 맞지 않음",
+    "NEXT_SESSION_PRICE_CONTEXT_SESSION_MISMATCH": "저장된 시장 세션이 PREMARKET과 맞지 않음",
+    "NEXT_SESSION_TRADE_OR_QUOTE_NOT_FRESH": "체결 또는 호가가 10분 이내 신선 자료가 아님",
+    "NEXT_SESSION_FULL_MARKET_CLAIM_REJECTED": "IEX 자료를 전체시장 시세로 표시한 잘못된 문맥",
+    "NEXT_SESSION_PRICE_SOURCE_UNVERIFIED": "허용된 IEX 단일 거래소 출처가 아님",
+    "NEXT_SESSION_PRICE_CONTEXT_NO_ORDERS_MISSING": "시세 문맥의 주문금지 표시가 없음",
+    "NEXT_SESSION_SPREAD_INVALID": "저장된 Spread가 없거나 잘못됨",
+    "NEXT_SESSION_CLAIMED_AGE_INVALID": "저장된 시세 age가 잘못됨",
+    "NEXT_SESSION_EVIDENCE_TIMESTAMP_INVALID": "체결·호가 시각을 해석할 수 없음",
+    "NEXT_SESSION_EVIDENCE_NOT_FRESH": "체결·호가 실제 시각이 관찰시각에서 10분을 벗어남",
+    "NEXT_SESSION_CLAIMED_AGE_TIMESTAMP_MISMATCH": "저장 age와 실제 timestamp 차이가 맞지 않음",
+    "NEXT_SESSION_EVIDENCE_ET_DATE_MISMATCH": "시세와 관찰의 미국 동부 날짜가 다름",
+    "NEXT_SESSION_EVIDENCE_OUTSIDE_PREMARKET": "체결·호가 시각이 장전 구간 밖임",
+}
 
 
 def _time(raw: str) -> datetime:
@@ -118,25 +138,36 @@ def fetch_all_daily_bars(symbols: list[str], start: date, end: date, key: str, s
     return output
 
 
-def _same_day_premarket_eligible(event: dict, observed_et: datetime) -> bool:
-    """Require frozen, recent IEX trade and quote evidence before same-day OHLC use."""
-    if (event.get("observation_status") != "FRESH_PREMARKET_WATCH_ONLY"
-            or observed_et.weekday() >= 5
-            or not time(4, 0) <= observed_et.time() < time(9, 30)):
-        return False
+def _same_day_premarket_gate(event: dict, observed_et: datetime) -> dict:
+    """Explain why same-day OHLC is allowed or conservatively deferred."""
+    def blocked(reason: str) -> dict:
+        return {"eligible": False, "reason": reason}
+
+    if event.get("observation_status") != "FRESH_PREMARKET_WATCH_ONLY":
+        return blocked("NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET")
+    if observed_et.weekday() >= 5:
+        return blocked("NEXT_SESSION_WEEKEND_OBSERVATION")
+    if not time(4, 0) <= observed_et.time() < time(9, 30):
+        return blocked("NEXT_SESSION_OUTSIDE_0400_0930_ET")
     context = event.get("price_session_context")
     spread = event.get("iex_quote_spread_pct")
-    if (not isinstance(context, dict)
-            or context.get("status") != "WATCH_ONLY_FRESH_IEX_PREMARKET"
-            or context.get("market_session") != "PREMARKET"
-            or context.get("trade_fresh") is not True
-            or context.get("quote_fresh") is not True
-            or context.get("full_market_quote_verified") is not False
-            or context.get("source") != "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP"
-            or context.get("NO_ORDERS") is not True
-            or type(spread) not in (int, float) or not math.isfinite(spread)
+    if not isinstance(context, dict):
+        return blocked("NEXT_SESSION_PRICE_CONTEXT_MISSING")
+    if context.get("status") != "WATCH_ONLY_FRESH_IEX_PREMARKET":
+        return blocked("NEXT_SESSION_PRICE_CONTEXT_STATUS_MISMATCH")
+    if context.get("market_session") != "PREMARKET":
+        return blocked("NEXT_SESSION_PRICE_CONTEXT_SESSION_MISMATCH")
+    if context.get("trade_fresh") is not True or context.get("quote_fresh") is not True:
+        return blocked("NEXT_SESSION_TRADE_OR_QUOTE_NOT_FRESH")
+    if context.get("full_market_quote_verified") is not False:
+        return blocked("NEXT_SESSION_FULL_MARKET_CLAIM_REJECTED")
+    if context.get("source") != "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP":
+        return blocked("NEXT_SESSION_PRICE_SOURCE_UNVERIFIED")
+    if context.get("NO_ORDERS") is not True:
+        return blocked("NEXT_SESSION_PRICE_CONTEXT_NO_ORDERS_MISSING")
+    if (type(spread) not in (int, float) or not math.isfinite(spread)
             or not 0 <= spread <= 1000):
-        return False
+        return blocked("NEXT_SESSION_SPREAD_INVALID")
     observed_utc = observed_et.astimezone(timezone.utc)
     for timestamp_key, age_key in (
             ("trade_timestamp_utc", "trade_age_seconds"),
@@ -144,19 +175,26 @@ def _same_day_premarket_eligible(event: dict, observed_et: datetime) -> bool:
         claimed_age = context.get(age_key)
         if (type(claimed_age) not in (int, float) or not math.isfinite(claimed_age)
                 or not 0 <= claimed_age <= 600):
-            return False
+            return blocked("NEXT_SESSION_CLAIMED_AGE_INVALID")
         try:
             evidence_time = _time(context[timestamp_key])
         except (KeyError, TypeError, ValueError):
-            return False
+            return blocked("NEXT_SESSION_EVIDENCE_TIMESTAMP_INVALID")
         actual_age = (observed_utc - evidence_time).total_seconds()
         evidence_et = evidence_time.astimezone(ET)
-        if (not 0 <= actual_age <= 600
-                or abs(actual_age - claimed_age) > 1.0
-                or evidence_et.date() != observed_et.date()
-                or not time(4, 0) <= evidence_et.time() < time(9, 30)):
-            return False
-    return True
+        if not 0 <= actual_age <= 600:
+            return blocked("NEXT_SESSION_EVIDENCE_NOT_FRESH")
+        if abs(actual_age - claimed_age) > 1.0:
+            return blocked("NEXT_SESSION_CLAIMED_AGE_TIMESTAMP_MISMATCH")
+        if evidence_et.date() != observed_et.date():
+            return blocked("NEXT_SESSION_EVIDENCE_ET_DATE_MISMATCH")
+        if not time(4, 0) <= evidence_et.time() < time(9, 30):
+            return blocked("NEXT_SESSION_EVIDENCE_OUTSIDE_PREMARKET")
+    return {"eligible": True, "reason": "SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE"}
+
+
+def _same_day_premarket_eligible(event: dict, observed_et: datetime) -> bool:
+    return _same_day_premarket_gate(event, observed_et)["eligible"]
 
 
 def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
@@ -589,9 +627,10 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         basis_guard = _split_basis_guard(basis_sessions, adjusted_basis_sessions)
         scope_guard = _candidate_scope_guard(event)
         observed_et = _time(event["observed_at"]).astimezone(ET)
+        same_day_gate = _same_day_premarket_gate(event, observed_et)
         outcome_session_anchor = (
             "SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION"
-            if _same_day_premarket_eligible(event, observed_et) else
+            if same_day_gate["eligible"] else
             "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         outcomes = {}
         for horizon in HORIZONS:
@@ -643,6 +682,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
             "corporate_action_basis_guard": basis_guard,
             "candidate_scope_guard": scope_guard,
             "outcome_session_anchor": outcome_session_anchor,
+            "same_day_premarket_gate": same_day_gate,
             "fresh_price_observation": fresh_price_observation,
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
@@ -685,6 +725,13 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         record["corporate_action_basis_guard"]["status"] ==
         "PROVIDER_RAW_SPLIT_PARITY_OBSERVED_NOT_OFFICIAL_VERIFICATION"
         for record in records)
+    anchor_counts = {}
+    gate_reason_counts = {}
+    for record in records:
+        anchor = record["outcome_session_anchor"]
+        anchor_counts[anchor] = anchor_counts.get(anchor, 0) + 1
+        reason = record["same_day_premarket_gate"]["reason"]
+        gate_reason_counts[reason] = gate_reason_counts.get(reason, 0) + 1
     readiness_blockers = []
     if len(independent) < 30:
         readiness_blockers.append("INDEPENDENT_FRESH_TICKERS_BELOW_30")
@@ -724,6 +771,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "scorecard_scope": "FIRST_FRESH_OBSERVATION_PER_TICKER_NOT_BUY_SIGNALS",
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
+        "outcome_session_anchor_counts": dict(sorted(anchor_counts.items())),
+        "same_day_premarket_gate_reason_counts": dict(sorted(gate_reason_counts.items())),
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
         "outcome_window_policy": (
             "PREMARKET_MAY_INCLUDE_SAME_SESSION_REGULAR_OHLC;"
@@ -757,6 +806,8 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
         "sample_size_rule": "30_INDEPENDENT_TICKERS_WITH_MATURE_5_SESSION_OUTCOMES",
         "independent_observation_date_count": 0,
         "independent_observation_date_counts": {},
+        "outcome_session_anchor_counts": {},
+        "same_day_premarket_gate_reason_counts": {},
         "temporal_diversity_gate_met": False,
         "temporal_diversity_rule": "AT_LEAST_5_DISTINCT_ET_OBSERVATION_DATES",
         "corporate_action_basis_verified": False,
@@ -798,6 +849,11 @@ def render_html(report: dict) -> str:
         f"<td>{esc(pct(scenarios.get('FULL_SPREAD_ENTRY', {}).get('horizons', {}).get(str(h), {}).get('average_close_return_pct')))}</td>"
         "</tr>" for h in HORIZONS)
     robust_one = report.get("outlier_robustness", {}).get("horizons", {}).get("1", {})
+    anchor_counts = report.get("outcome_session_anchor_counts", {})
+    gate_reasons = report.get("same_day_premarket_gate_reason_counts", {})
+    gate_rows = "".join(
+        f"<tr><td><code>{esc(reason)}</code><br>{esc(PREMARKET_GATE_KO.get(reason, '추가 확인 필요'))}</td><td>{esc(count)}</td></tr>"
+        for reason, count in sorted(gate_reasons.items())) or "<tr><td colspan='2'>아직 성과 시작 근거 없음</td></tr>"
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LUCA V10 성과 준비도</title><style>
@@ -816,6 +872,11 @@ main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;bo
 <div class="metric"><b>범위 차단</b><span>{esc(report.get('candidate_scope_blocked_fresh_observation_count', 0))}</span></div></div></section>
 <section class="card"><h2>독립 표본 성숙도</h2><div class="grid">{maturity}</div>
 <small>MFE/MAE는 신호 전 가격 누출을 차단한 뒤 계산합니다. 5거래일 표본 30개가 최소 문턱입니다.</small></section>
+<section class="card"><h2>장전 성과 시작 근거</h2><div class="grid">
+<div class="metric"><b>당일 정규장 허용</b><span>{esc(anchor_counts.get('SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION', 0))}건</span></div>
+<div class="metric"><b>다음 거래일부터</b><span>{esc(anchor_counts.get('NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION', 0))}건</span></div></div>
+<table><thead><tr><th>판정 이유</th><th>건수</th></tr></thead><tbody>{gate_rows}</tbody></table>
+<small>정규장·야간 관찰은 정상적으로 다음 거래일부터 계산됩니다. 장전 당일 허용은 저장된 IEX 체결·호가 문맥까지 서로 맞는 경우뿐입니다.</small></section>
 <section class="card"><h2>Spread stress (호가 차이 부담 가정)</h2><div class="grid">
 <div class="metric"><b>호가 기록</b><span>{esc(friction.get('spread_recorded_ticker_count', 0))}/{esc(friction.get('independent_ticker_count', 0))}</span></div>
 <div class="metric"><b>중앙 Spread</b><span>{esc(pct(spread_distribution.get('median')))}</span></div>
