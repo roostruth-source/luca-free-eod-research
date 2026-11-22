@@ -138,6 +138,33 @@ def fetch_all_daily_bars(symbols: list[str], start: date, end: date, key: str, s
     return output
 
 
+def _validate_daily_bar_series(symbol: str, bars, latest_session: date) -> list[dict]:
+    """Fail closed when an outcome series can reorder, duplicate, or invent sessions."""
+    if not isinstance(bars, list):
+        raise ValueError("invalid_daily_bar_series")
+    previous = None
+    for bar in bars:
+        if not isinstance(bar, dict):
+            raise ValueError("invalid_daily_bar_row")
+        try:
+            session = date.fromisoformat(bar["session_date"])
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("invalid_daily_bar_session") from None
+        if session > latest_session:
+            raise ValueError("future_daily_bar_session")
+        if previous is not None and session <= previous:
+            raise ValueError("daily_bars_not_strictly_ascending_unique")
+        prices = {field: bar.get(field) for field in ("o", "h", "l", "c")}
+        if not all(_valid_price(value) for value in prices.values()):
+            raise ValueError("invalid_daily_bar_price")
+        if (prices["l"] > min(prices["o"], prices["c"])
+                or prices["h"] < max(prices["o"], prices["c"])
+                or prices["l"] > prices["h"]):
+            raise ValueError("invalid_daily_bar_ohlc")
+        previous = session
+    return bars
+
+
 def _same_day_premarket_gate(event: dict, observed_et: datetime) -> dict:
     """Explain why same-day OHLC is allowed or conservatively deferred."""
     def blocked(reason: str) -> dict:
@@ -616,14 +643,27 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
     now = _time(evaluated_at)
     if ledger.get("schema_version") != "LUCA_V10_PROSPECTIVE_LEDGER_1" or ledger.get("NO_ORDERS") is not True:
         raise ValueError("invalid_prospective_ledger")
+    if not isinstance(bars, dict) or (split_bars is not None and not isinstance(split_bars, dict)):
+        raise ValueError("invalid_daily_bar_universe")
+    latest_session = now.astimezone(ET).date()
+    symbols = {event["ticker"] for event in ledger["events"]}
+    verified_bars = {
+        symbol: _validate_daily_bar_series(symbol, bars.get(symbol, []), latest_session)
+        for symbol in symbols
+    }
+    verified_split_bars = None if split_bars is None else {
+        symbol: _validate_daily_bar_series(
+            symbol, split_bars.get(symbol, []), latest_session)
+        for symbol in symbols
+    }
     records = []
     for event in ledger["events"]:
         symbol = event["ticker"]
         entry = event.get("iex_reference_price")
-        sessions = _eligible_sessions(event, bars.get(symbol, []), now)
-        basis_sessions = _basis_check_sessions(event, bars.get(symbol, []), now)
-        adjusted_basis_sessions = None if split_bars is None else _basis_check_sessions(
-            event, split_bars.get(symbol, []), now)
+        sessions = _eligible_sessions(event, verified_bars[symbol], now)
+        basis_sessions = _basis_check_sessions(event, verified_bars[symbol], now)
+        adjusted_basis_sessions = None if verified_split_bars is None else _basis_check_sessions(
+            event, verified_split_bars[symbol], now)
         basis_guard = _split_basis_guard(basis_sessions, adjusted_basis_sessions)
         scope_guard = _candidate_scope_guard(event)
         observed_et = _time(event["observed_at"]).astimezone(ET)
@@ -635,12 +675,16 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         outcomes = {}
         for horizon in HORIZONS:
             if not _valid_price(entry) or len(sessions) < horizon:
-                outcomes[str(horizon)] = {"status": "NOT_MATURE", "completed_sessions": len(sessions)}
+                outcomes[str(horizon)] = {
+                    "status": "NOT_MATURE", "completed_sessions": len(sessions),
+                    "completed_session_dates": [bar["session_date"] for bar in sessions],
+                }
                 continue
             if basis_guard["safe_for_descriptive_scorecard"] is not True:
                 outcomes[str(horizon)] = {
                     "status": "CORPORATE_ACTION_BASIS_BLOCKED",
                     "completed_sessions": len(sessions),
+                    "completed_session_dates": [bar["session_date"] for bar in sessions],
                     "basis_guard_status": basis_guard["status"],
                 }
                 continue
@@ -651,6 +695,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
                 "mfe_pct": (max(bar["h"] for bar in window) / entry - 1.0) * 100.0,
                 "mae_pct": (min(bar["l"] for bar in window) / entry - 1.0) * 100.0,
                 "exit_session": window[-1]["session_date"],
+                "window_session_dates": [bar["session_date"] for bar in window],
             }
         fresh_price_observation = event["observation_status"] in {
             "FRESH_WATCH_ONLY", "FRESH_PREMARKET_WATCH_ONLY"}
@@ -771,6 +816,12 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "scorecard_scope": "FIRST_FRESH_OBSERVATION_PER_TICKER_NOT_BUY_SIGNALS",
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
+        "daily_bar_integrity_guard": {
+            "status": "PASSED_STRICT_ASCENDING_UNIQUE_COMPLETE_OHLC",
+            "verified_symbol_count": len(symbols),
+            "future_session_rejected": True,
+            "duplicate_or_reordered_session_rejected": True,
+        },
         "outcome_session_anchor_counts": dict(sorted(anchor_counts.items())),
         "same_day_premarket_gate_reason_counts": dict(sorted(gate_reason_counts.items())),
         "measurement": "IEX_REFERENCE_PRICE_TO_RAW_IEX_DAILY_BAR_NOT_REAL_FILL",
@@ -808,6 +859,12 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
         "independent_observation_date_counts": {},
         "outcome_session_anchor_counts": {},
         "same_day_premarket_gate_reason_counts": {},
+        "daily_bar_integrity_guard": {
+            "status": "NOT_VERIFIED_OUTCOME_SOURCE_UNAVAILABLE",
+            "verified_symbol_count": 0,
+            "future_session_rejected": True,
+            "duplicate_or_reordered_session_rejected": True,
+        },
         "temporal_diversity_gate_met": False,
         "temporal_diversity_rule": "AT_LEAST_5_DISTINCT_ET_OBSERVATION_DATES",
         "corporate_action_basis_verified": False,
@@ -854,6 +911,7 @@ def render_html(report: dict) -> str:
     gate_rows = "".join(
         f"<tr><td><code>{esc(reason)}</code><br>{esc(PREMARKET_GATE_KO.get(reason, '추가 확인 필요'))}</td><td>{esc(count)}</td></tr>"
         for reason, count in sorted(gate_reasons.items())) or "<tr><td colspan='2'>아직 성과 시작 근거 없음</td></tr>"
+    bar_guard = report.get("daily_bar_integrity_guard", {})
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LUCA V10 성과 준비도</title><style>
@@ -877,6 +935,10 @@ main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;bo
 <div class="metric"><b>다음 거래일부터</b><span>{esc(anchor_counts.get('NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION', 0))}건</span></div></div>
 <table><thead><tr><th>판정 이유</th><th>건수</th></tr></thead><tbody>{gate_rows}</tbody></table>
 <small>정규장·야간 관찰은 정상적으로 다음 거래일부터 계산됩니다. 장전 당일 허용은 저장된 IEX 체결·호가 문맥까지 서로 맞는 경우뿐입니다.</small></section>
+<section class="card"><h2>일봉 순서 무결성</h2><div class="grid">
+<div class="metric"><b>검증 종목</b><span>{esc(bar_guard.get('verified_symbol_count', 0))}개</span></div>
+<div class="metric"><b>검사 상태</b><span>{esc(bar_guard.get('status', '미확인'))}</span></div></div>
+<small>거래일 중복·역순·미래 날짜·비정상 OHLC를 차단합니다. 각 기간 계산에 실제 사용한 거래일 목록도 JSON에 남깁니다.</small></section>
 <section class="card"><h2>Spread stress (호가 차이 부담 가정)</h2><div class="grid">
 <div class="metric"><b>호가 기록</b><span>{esc(friction.get('spread_recorded_ticker_count', 0))}/{esc(friction.get('independent_ticker_count', 0))}</span></div>
 <div class="metric"><b>중앙 Spread</b><span>{esc(pct(spread_distribution.get('median')))}</span></div>
