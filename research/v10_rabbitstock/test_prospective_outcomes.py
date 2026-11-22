@@ -13,6 +13,25 @@ def event(observed="2026-11-18T15:00:00Z", status="FRESH_WATCH_ONLY"):
                                "financial_status": "N"}}
 
 
+def premarket_event(day="2026-11-18"):
+    item = event(day + "T12:00:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
+    item["iex_quote_spread_pct"] = 1.0
+    item["price_session_context"] = {
+        "status": "WATCH_ONLY_FRESH_IEX_PREMARKET",
+        "market_session": "PREMARKET",
+        "trade_timestamp_utc": day + "T11:55:00Z",
+        "quote_timestamp_utc": day + "T11:59:00Z",
+        "trade_age_seconds": 300,
+        "quote_age_seconds": 60,
+        "trade_fresh": True,
+        "quote_fresh": True,
+        "full_market_quote_verified": False,
+        "source": "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP",
+        "NO_ORDERS": True,
+    }
+    return item
+
+
 def ledger(item):
     return {"schema_version": "LUCA_V10_PROSPECTIVE_LEDGER_1", "events": [item],
             "NO_ORDERS": True}
@@ -98,13 +117,41 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertEqual(result["records"][0]["outcomes"]["3"]["completed_sessions"], 0)
 
     def test_premarket_can_use_same_day_because_full_regular_bar_is_forward(self):
-        premarket = event("2026-11-18T12:00:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
+        premarket = premarket_event()
         result = build_outcomes(ledger(premarket), BARS, "2026-11-19T22:00:00Z")
         first = result["records"][0]
         self.assertEqual(first["outcome_session_anchor"],
                          "SAME_SESSION_ALLOWED_PREMARKET_OBSERVATION")
         self.assertAlmostEqual(first["outcomes"]["1"]["close_return_pct"], 10.0)
         self.assertEqual(first["outcomes"]["3"]["completed_sessions"], 2)
+
+    def test_premarket_label_without_frozen_price_context_starts_next_session(self):
+        missing = event("2026-11-18T12:00:00Z",
+                        status="FRESH_PREMARKET_WATCH_ONLY")
+        result = build_outcomes(ledger(missing), BARS, "2026-11-19T22:00:00Z")
+        self.assertEqual(result["records"][0]["outcome_session_anchor"],
+                         "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
+
+    def test_spoofed_or_stale_premarket_context_never_unlocks_same_day(self):
+        spoofed = premarket_event()
+        spoofed["price_session_context"]["source"] = "FAKE_FULL_MARKET_FEED"
+        stale = premarket_event()
+        stale["ticker"] = "DEF"
+        stale["chain_hash"] = "b" * 64
+        stale["price_session_context"]["trade_timestamp_utc"] = "2026-11-18T11:40:00Z"
+        result = build_outcomes(ledger_many(spoofed, stale), {
+            **BARS, "DEF": BARS["ABC"],
+        }, "2026-11-19T22:00:00Z")
+        self.assertTrue(all(record["outcome_session_anchor"] ==
+                            "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION"
+                            for record in result["records"]))
+
+    def test_claimed_age_must_match_frozen_premarket_timestamp(self):
+        mismatched = premarket_event()
+        mismatched["price_session_context"]["trade_age_seconds"] = 10
+        result = build_outcomes(ledger(mismatched), BARS, "2026-11-19T22:00:00Z")
+        self.assertEqual(result["records"][0]["outcome_session_anchor"],
+                         "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
 
     def test_overnight_clock_time_is_not_automatically_premarket(self):
         overnight = event("2026-11-18T06:00:00Z",
@@ -288,7 +335,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         bars = {}
         for index in range(30):
             ticker = f"T{index:02d}"
-            item = event("2026-11-16T12:00:00Z", status="FRESH_PREMARKET_WATCH_ONLY")
+            item = premarket_event("2026-11-16")
             item["ticker"] = ticker
             events.append(item)
             bars[ticker] = [

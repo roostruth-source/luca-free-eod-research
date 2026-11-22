@@ -119,10 +119,44 @@ def fetch_all_daily_bars(symbols: list[str], start: date, end: date, key: str, s
 
 
 def _same_day_premarket_eligible(event: dict, observed_et: datetime) -> bool:
-    """Only an explicitly fresh, exchange-weekday premarket observation can use same-day OHLC."""
-    return (event.get("observation_status") == "FRESH_PREMARKET_WATCH_ONLY"
-            and observed_et.weekday() < 5
-            and time(4, 0) <= observed_et.time() < time(9, 30))
+    """Require frozen, recent IEX trade and quote evidence before same-day OHLC use."""
+    if (event.get("observation_status") != "FRESH_PREMARKET_WATCH_ONLY"
+            or observed_et.weekday() >= 5
+            or not time(4, 0) <= observed_et.time() < time(9, 30)):
+        return False
+    context = event.get("price_session_context")
+    spread = event.get("iex_quote_spread_pct")
+    if (not isinstance(context, dict)
+            or context.get("status") != "WATCH_ONLY_FRESH_IEX_PREMARKET"
+            or context.get("market_session") != "PREMARKET"
+            or context.get("trade_fresh") is not True
+            or context.get("quote_fresh") is not True
+            or context.get("full_market_quote_verified") is not False
+            or context.get("source") != "ALPACA_IEX_SINGLE_EXCHANGE_NOT_SIP"
+            or context.get("NO_ORDERS") is not True
+            or type(spread) not in (int, float) or not math.isfinite(spread)
+            or not 0 <= spread <= 1000):
+        return False
+    observed_utc = observed_et.astimezone(timezone.utc)
+    for timestamp_key, age_key in (
+            ("trade_timestamp_utc", "trade_age_seconds"),
+            ("quote_timestamp_utc", "quote_age_seconds")):
+        claimed_age = context.get(age_key)
+        if (type(claimed_age) not in (int, float) or not math.isfinite(claimed_age)
+                or not 0 <= claimed_age <= 600):
+            return False
+        try:
+            evidence_time = _time(context[timestamp_key])
+        except (KeyError, TypeError, ValueError):
+            return False
+        actual_age = (observed_utc - evidence_time).total_seconds()
+        evidence_et = evidence_time.astimezone(ET)
+        if (not 0 <= actual_age <= 600
+                or abs(actual_age - claimed_age) > 1.0
+                or evidence_et.date() != observed_et.date()
+                or not time(4, 0) <= evidence_et.time() < time(9, 30)):
+            return False
+    return True
 
 
 def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
