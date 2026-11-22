@@ -339,3 +339,12 @@
 - 성과 계산 전 원시·분할조정 일봉 모두 종목별 거래일의 엄격한 오름차순·중복 없음·미래 날짜 없음·유효 OHLC를 요구한다. 하나라도 위반하면 성과표 전체를 실패 폐쇄한다.
 - 완료 기간에는 실제 사용한 `window_session_dates`, 미성숙·기업행사 차단 기간에는 `completed_session_dates`를 기록한다. 보고서와 한국어 HTML에 검증 종목 수 및 무결성 상태를 표시한다.
 - 로컬 전체 연구 안전 테스트 248개와 별도 IEX 회귀 테스트 14개 통과. 실제 누적 원장 artifact를 확인하기 전까지 완료 근거로 사용하지 않는다. 성능검증·공식 시세·주문 금지 기준은 그대로 유지한다.
+
+## 2026-11-23 병합 HEAD 일봉 무결성 실제 실행 근거
+
+- PR #44는 연구 브랜치에만 병합했다. 기준 HEAD `06398dd6b50cc723b1d266dfaf9a379ffeb5d3a7`; `main` 병합·배포·주문 없음.
+- 병합 후 Actions #45042898588의 `test-and-build` job #137271062633은 성공했다. 전체 연구 안전 테스트, 실제 watchlist 수집, 전향 원장, 성숙 성과, 주문 안전 검사 및 artifact 업로드 단계가 모두 성공했다: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45042898588
+- 실제 artifact `14762725942` (`luca-v10-executable-research-build`, 927252 bytes, GitHub 등록 digest `sha256:0511916cbfbf2b6ea10d9deb1528dddf1d8c4b73905205bbf86d944dd8b33a4c`, 2026-12-06 만료)가 위 HEAD에 연결되어 있으며 `expired=false`임을 확인했다.
+- 직전 실행의 ZIP 내부 검증 기록: 관찰 후보 45개, 가격 오래됨 20개, 범위 제외·미확인 19개, 상장상태 보류 6개; 보류 양수 점수 0건·주문 허용 0건; 일봉 무결성 `PASSED`(193종목). **이번 문서 갱신에서는 ZIP을 새로 다운로드해 독립 재검증하지 않았으므로 직전 검증 결과와 이번 GitHub 메타데이터 확인을 구분한다.**
+- SEC HTTP 403, Float 미검증, 독립 5거래일 성숙 표본 부족으로 기준 1~6 및 10의 미완성 상태는 변경하지 않는다. `WATCH_ONLY`, `NOT_VALIDATED`, `SEC_UNVERIFIED`, `FLOAT_UNVERIFIED`, `NO_ORDERS` 유지.
+- 이 문서 갱신 커밋 자체의 CI·새 artifact는 별도로 확인되기 전까지 완료 근거가 아니다.
