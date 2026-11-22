@@ -327,3 +327,9 @@
 - 각 레코드에 `same_day_premarket_gate` 허용·차단 이유를 저장하고, 전체 보고서와 한국어 HTML에 이유별 건수 및 당일/다음 거래일 시작 건수를 표시한다.
 - 장전이 아닌 정상 정규장·야간 관찰과 문맥 누락·상태 불일치·신선도·출처·NO_ORDERS·Spread·timestamp·age·날짜·장전 시간 위반을 서로 다른 코드로 구분한다.
 - 로컬 전체 연구 안전 테스트 245개와 별도 IEX 회귀 테스트 14개 통과. 실제 누적 원장 artifact를 확인하기 전까지 완료 근거로 사용하지 않는다. 이 변경은 성능검증 기준이나 주문 금지를 완화하지 않는다.
+
+## 2026-11-22 17:00 KST 장전 성과 근거 강화 실제 Artifact 검증
+
+- Frozen 장전 시세 문맥 PR #41 병합 HEAD `19cd190e349c8158dfdc9eb35d08e4daa344e1b3`. PR Actions #45000113881 성공, artifact `14745307861` ZIP SHA-256 `c64f0f17792074b60bd7655b8d8e5a462989dc25d9359cf6597f46ddf3c37df4`가 GitHub digest와 일치. 누적 원장 2,690건 중 다음 거래일 시작 2,668건, 검증된 장전 당일 시작 22건. 22건의 상태·IEX 출처·체결/호가 timestamp·age·같은 ET 날짜·장전시간·Spread·NO_ORDERS 불일치 0건. Watchlist 45행의 주문 안전 위반 및 양수 우선점수 0건. 병합 후 Actions #45000207777 성공.
+- 판정 이유 공개 PR #42 병합 HEAD `a13ab614cd52c1d93c41d3831b71be18094ddd05`. PR Actions #45000509306 성공, artifact `14745930925` ZIP SHA-256 `fb6a76993d5ae1fee300b5684d1c377e2ec12093aee3eb568833fc9926e1a65d`가 GitHub digest와 일치. 누적 원장 2,735건의 anchor 합계와 reason 합계가 각각 2,735로 전수 일치. `NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET` 2,713건, `SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE` 22건이며 레코드별 재집계와 보고서 집계가 일치했다. 한국어 HTML에 두 이유·건수·NO_ORDERS가 표시되고 form/button 없음. 병합 후 Actions #45000593470 성공.
+- 독립 성숙 표본은 여전히 1/3/5/10일 26/0/0/0, 독립 관찰일 2일이다. `performance_validation_ready=false`, `NOT_VALIDATED`, `IEX_SINGLE_FEED_REFERENCE_ONLY`, `CORPORATE_ACTION_BASIS_UNVERIFIED`, `REAL_FILL_AND_SLIPPAGE_NOT_MEASURED`를 유지한다. 공식 휴장일·SIP·실제 체결 검증은 미완성이다.
