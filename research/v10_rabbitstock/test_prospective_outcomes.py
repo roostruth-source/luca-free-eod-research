@@ -61,6 +61,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("실제 Fill(체결)", page)
         self.assertIn("Outlier check (한 종목 대박 의존도)", page)
         self.assertIn("장전 성과 시작 근거", page)
+        self.assertIn("일봉 순서 무결성", page)
         self.assertIn("NO_ORDERS", page)
         self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
         self.assertNotIn("<script>x</script>", page)
@@ -100,11 +101,40 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         result = build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z")
         first = result["records"][0]["outcomes"]
         self.assertAlmostEqual(first["1"]["close_return_pct"], 30.0)
+        self.assertEqual(first["1"]["window_session_dates"], ["2026-11-19"])
         self.assertEqual(first["3"]["completed_sessions"], 1)
         self.assertEqual(result["mature_fresh_horizons"]["1"], 1)
         self.assertEqual(result["records"][0]["outcome_session_anchor"],
                          "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         self.assertFalse(result["prediction_accuracy_verified"])
+        self.assertEqual(result["daily_bar_integrity_guard"]["status"],
+                         "PASSED_STRICT_ASCENDING_UNIQUE_COMPLETE_OHLC")
+
+    def test_out_of_order_or_duplicate_daily_sessions_fail_closed(self):
+        reversed_bars = {"ABC": list(reversed(BARS["ABC"]))}
+        with self.assertRaisesRegex(ValueError,
+                                    "daily_bars_not_strictly_ascending_unique"):
+            build_outcomes(ledger(event()), reversed_bars, "2026-11-19T22:00:00Z")
+        duplicate = {"ABC": [BARS["ABC"][0], dict(BARS["ABC"][0])]}
+        with self.assertRaisesRegex(ValueError,
+                                    "daily_bars_not_strictly_ascending_unique"):
+            build_outcomes(ledger(event()), duplicate, "2026-11-19T22:00:00Z")
+
+    def test_future_or_invalid_ohlc_daily_bar_fails_closed(self):
+        future = {"ABC": [{"session_date": "2026-11-20", "o": 1.0,
+                            "h": 1.1, "l": .9, "c": 1.0}]}
+        with self.assertRaisesRegex(ValueError, "future_daily_bar_session"):
+            build_outcomes(ledger(event()), future, "2026-11-19T22:00:00Z")
+        bad_ohlc = {"ABC": [{"session_date": "2026-11-19", "o": 1.0,
+                              "h": .8, "l": .9, "c": 1.0}]}
+        with self.assertRaisesRegex(ValueError, "invalid_daily_bar_ohlc"):
+            build_outcomes(ledger(event()), bad_ohlc, "2026-11-19T22:00:00Z")
+
+    def test_split_adjusted_daily_series_must_also_be_ordered(self):
+        split = {"ABC": list(reversed(BARS["ABC"]))}
+        with self.assertRaisesRegex(ValueError,
+                                    "daily_bars_not_strictly_ascending_unique"):
+            build_outcomes(ledger(event()), BARS, "2026-11-19T22:00:00Z", split)
 
     def test_after_close_observation_starts_next_session(self):
         result = build_outcomes(ledger(event("2026-11-18T22:00:00Z")), BARS,

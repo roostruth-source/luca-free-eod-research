@@ -212,6 +212,8 @@ python run_live_research.py \
 
 각 성과 레코드는 `same_day_premarket_gate`에 허용·차단 이유를 저장하며, 보고서는 `same_day_premarket_gate_reason_counts`와 `outcome_session_anchor_counts`로 이를 합산한다. 아이폰용 한국어 HTML에서도 당일 정규장 허용 건수, 다음 거래일 시작 건수, 상태·출처·timestamp·age·Spread별 이유를 확인할 수 있다.
 
+성과 계산 전 원시·분할조정 IEX 일봉을 종목별로 다시 검사한다. 거래일은 중복 없이 엄격한 오름차순이어야 하고 평가일 뒤의 미래 날짜, 0 이하/비정상 가격, 서로 맞지 않는 OHLC는 전체 성과 생성을 실패시킨다. 완료된 각 기간에는 `window_session_dates`, 미성숙·기업행사 차단 기간에는 `completed_session_dates`를 남겨 실제 사용 거래일을 감사할 수 있다.
+
 `volume_first_live.py`는 미국 정규장 중 상위 후보 최대 12개에 한해 관찰 시각보다 미래인 1분봉을 거부하고, 최근 30분 IEX 단일 거래소 자료에서 기존 6개 봉 연구 공식을 계산한다. 마지막 1분 거래량이 직전 5분 평균의 3배 이상이고 100주 이상이며 저가가 3개 봉 연속 상승하고 6개 봉 가격 변화가 0~15%인 경우를 최근 연구 패턴으로 기록한다. 동시점 스크리너로 이미 활발한 종목을 고른 것이므로 `CONCURRENT_SCREENER_SELECTION_NOT_EARLY_PROOF`를 유지하며, 이를 조기예측이나 매수 신호로 부르지 않는다. 이후 성과표는 `volume_first:recent_pattern`, `no_recent_pattern`, `unavailable_or_not_studied`를 분리한다.
 
 `prioritize_watchlist.py`는 모바일 보고서의 관찰 순서만 정한다. 신선한 IEX 가격 20점, 최근 Volume-First 연구 패턴 35점, 거래량 순위 최대 20점, 거래 횟수 순위 최대 10점, 상승 목록 5점, IEX 스프레드 최대 10점을 미리 정한 공식으로 합산한다. 가격이 오래됐으면 다른 조건과 무관하게 0점 보류이며, 넓은 스프레드는 10점을 뺀다. 60점 이상이면서 정규장 Volume-First가 있을 때만 `우선 관찰`, 40점 이상은 `일반 관찰`로 표시한다. 모든 카드에 SEC·Float 미검증과 동시점 스크리너 편향을 표시하며 점수는 매수 점수가 아니다. 점수·이유·위험은 해시 원장에 함께 고정되어 나중에 결과를 보고 바꿀 수 없다.
