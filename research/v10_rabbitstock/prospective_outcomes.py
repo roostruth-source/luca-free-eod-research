@@ -26,6 +26,17 @@ NYSE_FULL_CLOSURES_2026 = frozenset({
 })
 
 
+# NYSE published 2026 13:00 ET early equity closes; the 15-minute buffer
+# avoids treating an in-progress daily OHLC as complete. This is not an
+# assertion that every data provider has finalized its daily bar by 13:15.
+NYSE_EARLY_EQUITY_CLOSES_2026 = frozenset({date(2026, 11, 27), date(2026, 12, 24)})
+
+
+def _daily_bar_completed_at(evaluated_et: datetime) -> bool:
+    cutoff = time(13, 15) if evaluated_et.date() in NYSE_EARLY_EQUITY_CLOSES_2026 else time(16, 15)
+    return evaluated_et.time() >= cutoff
+
+
 def _known_closed_equity_session(day: date) -> bool:
     """Only reject positively documented closures, never infer an open day."""
     return day.weekday() >= 5 or day in NYSE_FULL_CLOSURES_2026
@@ -257,7 +268,7 @@ def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) ->
     # complete daily OHLC as a wholly forward window.
     include_cutoff = _same_day_premarket_eligible(event, observed)
     evaluated_et = evaluated_at.astimezone(ET)
-    completed_today = evaluated_et.time() >= time(16, 15)
+    completed_today = _daily_bar_completed_at(evaluated_et)
     output = []
     for bar in bars:
         session = date.fromisoformat(bar["session_date"])
@@ -273,7 +284,7 @@ def _basis_check_sessions(event: dict, bars: list[dict], evaluated_at: datetime)
     """Keep the observation date for split-basis checks even when outcomes start later."""
     observed_date = _time(event["observed_at"]).astimezone(ET).date()
     evaluated_et = evaluated_at.astimezone(ET)
-    completed_today = evaluated_et.time() >= time(16, 15)
+    completed_today = _daily_bar_completed_at(evaluated_et)
     output = []
     for bar in bars:
         session = date.fromisoformat(bar["session_date"])
