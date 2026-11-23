@@ -383,3 +383,9 @@
 - **상태: CI_PASSED_LIVE_EARLY_CLOSE_CASE_PENDING**. 전체 CI https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45182588696 성공(HEAD `942d4505`); Artifact `14821687818` 1,054,287바이트, ZIP SHA-256 `113b501ef36c6dc734927405d6ebd9f705208f482032b83b8d1379514b2df50c` 직접 일치 확인.
 - 실제 ZIP 8개 파일 확인: watchlist 45개, 보류 41개 전부 0점, 범위 밖·오래된 가격 양수 점수 0건, 매수허용/주문금지 위반 0건. 전향 원장 3,140건, 독립 5거래일 성숙 0개, `prediction_accuracy_verified=false`.
 - 조기폐장 2026-11-27은 아직 오지 않아 실제 13:15 ET 완료 사례를 관찰할 수 없다. **실제 조기폐장일 artifact 적중 확인 전에는 해당 운영 조건 완료로 표시하지 않는다.** 실거래와 배포는 금지한다.
+
+## 2026-11-24 보류 0점 설명 감사 (CI·live artifact 검증 대기)
+
+- 보류(HOLD_) 후보는 기존의 양수 근거(거래량 순위 등)를 감사 기록으로 보존하면서 `research_priority_score_suppressed=true` 및 `research_priority_score_suppressed_ko`로 **왜 최종 점수가 0인지** 명시한다. 정상 후보는 false/null이다.
+- 코드 커밋 `da6832d07e4fc28c603d46834c323e6c72f0bd4f`, 회귀검사 커밋 `103a4cb2815f9f24e9571a67e74f6c48f978b690`.
+- 신규 테스트 1개. 이 기능의 전체 CI와 실제 artifact 내부 필드 검증 전에는 완료로 표시하지 않는다. 기존 `WATCH_ONLY`, `NOT_VALIDATED`, `SEC_UNVERIFIED`, `NO_ORDERS` 유지.
