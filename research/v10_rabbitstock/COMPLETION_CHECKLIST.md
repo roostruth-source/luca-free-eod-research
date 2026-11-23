@@ -349,9 +349,16 @@
 - SEC HTTP 403, Float 미검증, 독립 5거래일 성숙 표본 부족으로 기준 1~6 및 10의 미완성 상태는 변경하지 않는다. `WATCH_ONLY`, `NOT_VALIDATED`, `SEC_UNVERIFIED`, `FLOAT_UNVERIFIED`, `NO_ORDERS` 유지.
 - 이 문서 갱신 커밋 자체의 CI·새 artifact는 별도로 확인되기 전까지 완료 근거가 아니다.
 
-## 2026-11-23 주말 일봉 유입 차단 (CI·live artifact 검증 대기)
+## 2026-11-23 주말 일봉 유입 차단 (CI·live artifact 검증 완료, 공식 휴장일 별도 미완성)
 
 - 성과 일봉의 미국 동부 날짜가 토요일·일요일이면 `non_trading_weekend_daily_session`으로 즉시 실패한다. 원격 Alpaca 응답과 이미 전달된 일봉 모두에 적용한다.
 - 목적은 잘못된 주말 일봉이 거래일 수와 MFE/MAE/종가 수익률을 왜곡하지 못하게 하는 것이다.
 - 회귀검사를 추가했다. 현재 변경 커밋 `c76d88b5`, 테스트 커밋 `6f7a2579`이며 전체 CI와 실제 Actions artifact 검증 전까지 COMPLETE로 표시하지 않는다.
 - **제한:** 이 검사는 미국 공식 휴장일·조기 폐장일 달력 검증을 대체하지 않는다. 공식 달력과 실제 일봉 비교는 다음 별도 작업이다.
+
+### 2026-11-23 주말 일봉 가드 실행 근거
+
+- 연구 브랜치 HEAD `0875009abf7ccb8dcae9502c109b6d03bae3f81c`의 Actions #45099527448 전체 작업 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45099527448
+- 실제 artifact `14784354466` ZIP SHA-256 `3e4b9e998d12a4e66c25601e9c873b555e2d2bdc76673e656580148330a84627` 일치, ZIP 내부 JSON 직접 확인.
+- 실제 후보 45개: 가격 보류 20, 종목범위 보류 19, 상장상태 보류 6, 우선/일반 관찰 0. `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED` 유지. 전향 원장 2,915건, 일봉 검증 대상 193개, 독립 5거래일 성숙 표본 0개, `prediction_accuracy_verified=false`.
+- 주말 일봉 거부는 CI 회귀검사로 확인했고, 이번 실제 관찰에서는 주말 일봉이 발생해 거부된 사례는 관측하지 않았다. 따라서 **주말 방어 코드·CI는 검증됐지만 공식 휴장일/조기 폐장일 대응은 미완성**이다.
