@@ -46,6 +46,19 @@ class PrioritizeWatchlistTests(unittest.TestCase):
         self.assertEqual(item["research_priority_label"], "HOLD_STALE_OR_MISSING_PRICE")
         self.assertIn("PRICE_STALE_OR_MISSING", item["risk_flags"])
 
+    def test_held_candidate_explains_zero_score_despite_positive_evidence(self):
+        item = prioritize(report())
+        stale = next(row for row in item["rows"] if row["ticker"] == "STALE")
+        strong = next(row for row in item["rows"] if row["ticker"] == "STRONG")
+        self.assertEqual(stale["research_priority_score"], 0)
+        self.assertTrue(stale["research_priority_score_suppressed"])
+        self.assertEqual(stale["research_priority_score_suppressed_ko"],
+                         "가격 확인 전 보류")
+        self.assertIn("ACTIVE_VOLUME_RANK",
+                      {reason["code"] for reason in stale["priority_reasons"]})
+        self.assertFalse(strong["research_priority_score_suppressed"])
+        self.assertIsNone(strong["research_priority_score_suppressed_ko"])
+
     def test_wide_spread_and_missing_volume_pattern_are_visible_risks(self):
         weak = next(row for row in prioritize(report())["rows"] if row["ticker"] == "WEAK")
         self.assertIn("WIDE_IEX_SPREAD", weak["risk_flags"])
