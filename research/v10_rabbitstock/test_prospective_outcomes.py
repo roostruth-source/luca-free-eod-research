@@ -130,6 +130,12 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_daily_bar_ohlc"):
             build_outcomes(ledger(event()), bad_ohlc, "2026-11-19T22:00:00Z")
 
+    def test_weekend_daily_bar_is_rejected_before_outcome_scoring(self):
+        weekend = {"ABC": [{"session_date": "2026-11-21", "o": 1.0,
+                            "h": 1.2, "l": 0.9, "c": 1.1}]}
+        with self.assertRaisesRegex(ValueError, "non_trading_weekend_daily_session"):
+            build_outcomes(ledger(event()), weekend, "2026-11-23T22:00:00Z")
+
     def test_split_adjusted_daily_series_must_also_be_ordered(self):
         split = {"ABC": list(reversed(BARS["ABC"]))}
         with self.assertRaisesRegex(ValueError,
