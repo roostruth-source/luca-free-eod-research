@@ -362,3 +362,14 @@
 - 실제 artifact `14784354466` ZIP SHA-256 `3e4b9e998d12a4e66c25601e9c873b555e2d2bdc76673e656580148330a84627` 일치, ZIP 내부 JSON 직접 확인.
 - 실제 후보 45개: 가격 보류 20, 종목범위 보류 19, 상장상태 보류 6, 우선/일반 관찰 0. `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED` 유지. 전향 원장 2,915건, 일봉 검증 대상 193개, 독립 5거래일 성숙 표본 0개, `prediction_accuracy_verified=false`.
 - 주말 일봉 거부는 CI 회귀검사로 확인했고, 이번 실제 관찰에서는 주말 일봉이 발생해 거부된 사례는 관측하지 않았다. 따라서 **주말 방어 코드·CI는 검증됐지만 공식 휴장일/조기 폐장일 대응은 미완성**이다.
+
+
+## 2026-11-23 NYSE 공식 2026 휴장일 차단 — CI 및 live artifact 검증
+
+- 공식 NYSE 휴장일 자료: https://www.nyse.com/trade/hours-calendars
+- 2026년 전체 휴장일 10개를 명시적으로 기록해 일봉 수집 및 성과 일봉 검증에서 거부한다. 다른 연도로 규칙을 추정하지 않는다.
+- 장전 당일 성과 허용도 휴장일에는 차단한다. 11월 26일 추수감사절은 차단, 11월 27일 조기폐장 거래일과 11월 11일 Veterans Day는 정상 거래일로 취급한다.
+- 주말 오류코드는 기존 회귀계약과 호환되게 유지한다. 조기폐장 13:00 ET 시각 처리 및 임시 특별 휴장은 별도 보강 대상으로 남긴다.
+- 구현 HEAD `6cbe7026f6db2b014344033e7ef112d143a08c6c`, Actions #45173494345 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45173494345
+- 실제 Artifact #14817413072 ZIP SHA-256 `409775a427a1a8d13a80303c7a75b0e62328dec870ae2af807b19fde6c155b4f` 일치 확인. ZIP 내 watchlist 45건(가격 보류 18, 범위 보류 21, 상장상태 보류 6), 성과 원장 3,005건, 독립 5거래일 성숙 0건. `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED`, `prediction_accuracy_verified=false` 유지.
+- 이 실행에 공식 휴장일 가짜 일봉이 실제 유입되지는 않았으므로 차단 동작은 회귀검사로 확인했으며, live artifact에서는 정상 안전상태와 빌드 성공을 확인했다. 외부 SEC 403 및 Float 미검증은 계속 유지한다.
