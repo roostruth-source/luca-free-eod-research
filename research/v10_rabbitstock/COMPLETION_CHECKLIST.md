@@ -373,3 +373,11 @@
 - 구현 HEAD `6cbe7026f6db2b014344033e7ef112d143a08c6c`, Actions #45173494345 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45173494345
 - 실제 Artifact #14817413072 ZIP SHA-256 `409775a427a1a8d13a80303c7a75b0e62328dec870ae2af807b19fde6c155b4f` 일치 확인. ZIP 내 watchlist 45건(가격 보류 18, 범위 보류 21, 상장상태 보류 6), 성과 원장 3,005건, 독립 5거래일 성숙 0건. `WATCH_ONLY=true`, `NO_ORDERS=true`, `NOT_VALIDATED`, `prediction_accuracy_verified=false` 유지.
 - 이 실행에 공식 휴장일 가짜 일봉이 실제 유입되지는 않았으므로 차단 동작은 회귀검사로 확인했으며, live artifact에서는 정상 안전상태와 빌드 성공을 확인했다. 외부 SEC 403 및 Float 미검증은 계속 유지한다.
+
+## 2026-11-23 2026년 NYSE 조기폐장 일봉 완료시각 (CI 및 live artifact 검증 대기)
+
+- NYSE 공식 거래시간표(https://www.nyse.com/trade/hours-calendars)에 명시된 2026-11-27, 2026-12-24 주식 정규장 13:00 ET 조기폐장을 적용한다. 조기폐장일은 휴장일이 아니다.
+- 성과 일봉과 역분할 가격단위 비교에 사용하는 당일 완료 판정은 두 날짜에 한해 13:15 ET부터 허용한다. 그 외 거래일은 기존 16:15 ET를 유지한다. 이 15분 여유는 보수적 연구 운영 기준이지 IEX 제공자 데이터 확정 보증이 아니다.
+- 2026-07-02 등 공식 표에 없는 날짜를 조기폐장으로 추정하지 않는다. 2027년 이후로 자동 확장하지 않는다.
+- 코드 커밋 `16052e7e`, 회귀검사 커밋 `19ce78ae`. 조기폐장 전후 및 일반 거래일의 완료 시각을 검사한다.
+- **상태: PENDING_CI_AND_LIVE_ARTIFACT**. 전체 CI 성공, 실제 새 artifact 내부 성과 데이터 검증 전에는 완료 표시 금지. 실거래와 배포는 금지한다.
