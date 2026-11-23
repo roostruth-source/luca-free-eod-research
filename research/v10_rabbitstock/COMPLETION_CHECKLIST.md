@@ -400,3 +400,13 @@
 - `prospective_ledger.json` 원장 3,235건, 신규 50건, `CHAIN_CONTINUED`. 독립 5거래일 성숙 0건; `prediction_accuracy_verified=false` 유지.
 - 이번 실데이터는 `SEC_TICKER_MAP_HTTP_403`으로 50개 모두 SEC 원문 미검증. `WATCH_ONLY`, `NOT_VALIDATED`, `NO_ORDERS` 유지. SEC/Float 원문 실관측과 성능 검증 완료로 해석하지 않는다.
 - 본 문서 갱신 커밋의 별도 Actions 및 artifact는 아직 재확인 전이므로 문서 커밋 자체의 CI 검증은 별도 확인 필요.
+
+## 2026-11-24 IEX 호가 간격 기반 우선순위 상한 (CI 및 실제 artifact 검증 완료)
+
+- 문제: IEX Spread(매수·매도 호가 차이) 18.34%인 후보도 거래량·순위 가점으로 우선 관찰 1위에 남을 수 있었다. 이는 IEX 단일 거래소 호가이며 체결 가능 가격을 보증하지 않는다.
+- 변경: Spread >10%이면 연구 점수 상한 39점 및 `EXTREME_IEX_SPREAD_PRIORITY_CAPPED`, Spread >5%이면 상한 59점 및 `WIDE_IEX_SPREAD_PRIORITY_CAPPED`를 기록한다. 기존 `WIDE_IEX_SPREAD`와 긍정적 근거는 감사용으로 보존한다. 5% 이하 기존 점수는 유지한다. 상한값은 예측 최적화값이 아니라 보수적인 연구 운영 규칙이다.
+- 코드 커밋 `b4132b8097c56dd0ff8b738d02e94013ec1bf0e9`, 회귀검사 커밋 `d11663821d6ab7172bcababa1c6a74e9bc58f301`.
+- 전체 GitHub Actions #45258358025 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45258358025. 안전 테스트, live 관찰, 원장, 성과, 주문 금지, 업로드 단계 성공.
+- 실제 Artifact #14858683436, SHA-256 `ef3ead6a4e869a609e0c482ab84fed76eddcc94b5b12bac0d00c3f2b251a2fe9` ZIP 직접 검증. live_watchlist 46행: 근거 부족 15, 가격 보류 2, 범위 보류 24, 상장위험 보류 5, 우선/일반 관찰 0. Spread >10%인 일반주 GMEX 21.429%, PAAI 28.708%, OTLY 18.209%, AIAI 27.426%가 모두 근거 부족(각 21/20/15/10점)에 머물렀다. 보류 양수 점수 0건, 행별 주문 허용 위반 0건.
+- 실제 관찰에서 극단적 호가 차이 차단은 확인했지만 5~10% 구간 상한의 실제 적중 여부는 별도 증거가 필요하다. 기존 안전 플래그 `WATCH_ONLY`, `NOT_VALIDATED`, `SEC_UNVERIFIED`, `NO_ORDERS` 유지. SEC/Float 원문과 5거래일 성숙 표본 부족으로 전체 V10 완료 판정은 보류한다.
+- 이 문서 커밋의 후속 CI는 별도 확인 전까지 완료 근거로 사용하지 않는다.
