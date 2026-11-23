@@ -128,6 +128,16 @@ def prioritize(report: dict) -> dict:
                 risks.append("WIDE_IEX_SPREAD")
         else:
             risks.append("IEX_SPREAD_UNKNOWN")
+        # A single-exchange quote with a wide bid/ask gap is not strong
+        # evidence of executable liquidity. Preserve positive observations
+        # for audit, but cap research priority rather than merely deducting
+        # a small additive penalty.
+        if spread is not None and spread > 10:
+            score = min(score, 39)
+            risks.append("EXTREME_IEX_SPREAD_PRIORITY_CAPPED")
+        elif spread is not None and spread > 5:
+            score = min(score, 59)
+            risks.append("WIDE_IEX_SPREAD_PRIORITY_CAPPED")
         score = (max(0, min(100, score))
                  if fresh and common_scope and not financial_risk
                  and not listing_action_risk and not supply_risk else 0)
