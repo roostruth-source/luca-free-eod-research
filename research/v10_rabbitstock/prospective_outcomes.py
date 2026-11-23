@@ -108,6 +108,8 @@ def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secre
             for bar in bars:
                 timestamp = _time(bar["t"])
                 session = timestamp.astimezone(ET).date().isoformat()
+                if timestamp.astimezone(ET).weekday() >= 5:
+                    raise ValueError("non_trading_weekend_daily_session")
                 if session in seen[symbol]:
                     raise ValueError("duplicate_daily_session")
                 prices = {field: float(bar[field]) for field in ("o", "h", "l", "c")}
@@ -152,6 +154,8 @@ def _validate_daily_bar_series(symbol: str, bars, latest_session: date) -> list[
             raise ValueError("invalid_daily_bar_session") from None
         if session > latest_session:
             raise ValueError("future_daily_bar_session")
+        if session.weekday() >= 5:
+            raise ValueError("non_trading_weekend_daily_session")
         if previous is not None and session <= previous:
             raise ValueError("daily_bars_not_strictly_ascending_unique")
         prices = {field: bar.get(field) for field in ("o", "h", "l", "c")}
