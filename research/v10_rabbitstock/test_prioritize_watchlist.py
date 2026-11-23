@@ -64,6 +64,33 @@ class PrioritizeWatchlistTests(unittest.TestCase):
         self.assertIn("WIDE_IEX_SPREAD", weak["risk_flags"])
         self.assertIn("VOLUME_FIRST_NOT_CONFIRMED", weak["risk_flags"])
 
+    def test_wide_spread_caps_priority_even_with_strong_volume(self):
+        item = report()
+        strong = item["rows"][1]
+        strong["iex_quote_spread_pct"] = 18.34
+        extreme = next(row for row in prioritize(item)["rows"]
+                       if row["ticker"] == "STRONG")
+        self.assertLessEqual(extreme["research_priority_score"], 39)
+        self.assertEqual(extreme["research_priority_label"],
+                         "PRIORITY_3_LOW_EVIDENCE")
+        self.assertIn("EXTREME_IEX_SPREAD_PRIORITY_CAPPED",
+                      extreme["risk_flags"])
+        self.assertIn("VOLUME_FIRST_RECENT",
+                      {reason["code"] for reason in extreme["priority_reasons"]})
+        self.assertFalse(extreme["buy_allowed"])
+        strong["iex_quote_spread_pct"] = 7.0
+        wide = next(row for row in prioritize(item)["rows"]
+                    if row["ticker"] == "STRONG")
+        self.assertLessEqual(wide["research_priority_score"], 59)
+        self.assertNotEqual(wide["research_priority_label"],
+                            "PRIORITY_1_RESEARCH")
+        self.assertIn("WIDE_IEX_SPREAD_PRIORITY_CAPPED", wide["risk_flags"])
+        strong["iex_quote_spread_pct"] = 5.0
+        moderate = next(row for row in prioritize(item)["rows"]
+                        if row["ticker"] == "STRONG")
+        self.assertEqual(moderate["research_priority_label"],
+                         "PRIORITY_1_RESEARCH")
+
     def test_input_is_not_mutated_and_unsafe_input_is_rejected(self):
         original = report()
         prioritize(original)
