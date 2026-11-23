@@ -1,7 +1,7 @@
 """NYSE official full-day closure regression; no extrapolation to other years."""
 import unittest
 from datetime import date
-from prospective_outcomes import _known_closed_equity_session, _validate_daily_bar_series, _same_day_premarket_gate
+from prospective_outcomes import _known_closed_equity_session, _validate_daily_bar_series, _same_day_premarket_gate, _daily_bar_completed_at
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
@@ -10,6 +10,19 @@ class OfficialClosureTests(unittest.TestCase):
         self.assertTrue(_known_closed_equity_session(date(2026, 11, 26)))
         self.assertFalse(_known_closed_equity_session(date(2026, 11, 27)))
         self.assertFalse(_known_closed_equity_session(date(2026, 11, 11)))
+
+    def test_2026_official_early_closes_use_1315_et_buffer(self):
+        et = ZoneInfo("America/New_York")
+        for day in (date(2026, 11, 27), date(2026, 12, 24)):
+            self.assertFalse(_known_closed_equity_session(day))
+            self.assertFalse(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 14, tzinfo=et)))
+            self.assertTrue(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 15, tzinfo=et)))
+
+    def test_regular_day_and_holiday_eve_do_not_inherit_early_close(self):
+        et = ZoneInfo("America/New_York")
+        for day in (date(2026, 11, 25), date(2026, 12, 23), date(2026, 7, 2)):
+            self.assertFalse(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 15, tzinfo=et)))
+            self.assertTrue(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 16, 15, tzinfo=et)))
 
     def test_holiday_daily_bar_rejected(self):
         row = {"session_date": "2026-11-26", "o": 1.0, "h": 1.1, "l": 0.9, "c": 1.0}
