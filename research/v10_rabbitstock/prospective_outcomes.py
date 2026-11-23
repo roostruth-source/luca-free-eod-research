@@ -124,6 +124,8 @@ def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secre
             for bar in bars:
                 timestamp = _time(bar["t"])
                 session = timestamp.astimezone(ET).date().isoformat()
+                if timestamp.astimezone(ET).weekday() >= 5:
+                    raise ValueError("non_trading_weekend_daily_session")
                 if _known_closed_equity_session(timestamp.astimezone(ET).date()):
                     raise ValueError("non_trading_closed_daily_session")
                 if session in seen[symbol]:
@@ -170,6 +172,8 @@ def _validate_daily_bar_series(symbol: str, bars, latest_session: date) -> list[
             raise ValueError("invalid_daily_bar_session") from None
         if session > latest_session:
             raise ValueError("future_daily_bar_session")
+        if session.weekday() >= 5:
+            raise ValueError("non_trading_weekend_daily_session")
         if _known_closed_equity_session(session):
             raise ValueError("non_trading_closed_daily_session")
         if previous is not None and session <= previous:
