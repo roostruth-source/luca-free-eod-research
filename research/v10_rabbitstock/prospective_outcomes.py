@@ -15,6 +15,21 @@ import urllib.request
 from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
+# Exact 2026 full-day US equity closures published by NYSE. Do not extrapolate
+# these dates to other years or mistake bank holidays / early closes for closures.
+# Source: https://www.nyse.com/trade/hours-calendars
+NYSE_FULL_CLOSURES_2026 = frozenset({
+    date(2026, 1, 1), date(2026, 1, 19), date(2026, 2, 16),
+    date(2026, 4, 3), date(2026, 5, 25), date(2026, 6, 19),
+    date(2026, 7, 3), date(2026, 9, 7), date(2026, 11, 26),
+    date(2026, 12, 25),
+})
+
+
+def _known_closed_equity_session(day: date) -> bool:
+    """Only reject positively documented closures, never infer an open day."""
+    return day.weekday() >= 5 or day in NYSE_FULL_CLOSURES_2026
+
 HORIZONS = (1, 3, 5, 10)
 MFE_THRESHOLDS_PCT = (5.0, 10.0, 20.0)
 BARS_URL = "https://data.alpaca.markets/v2/stocks/bars"
@@ -108,8 +123,8 @@ def fetch_daily_bars(symbols: list[str], start: date, end: date, key: str, secre
             for bar in bars:
                 timestamp = _time(bar["t"])
                 session = timestamp.astimezone(ET).date().isoformat()
-                if timestamp.astimezone(ET).weekday() >= 5:
-                    raise ValueError("non_trading_weekend_daily_session")
+                if _known_closed_equity_session(timestamp.astimezone(ET).date()):
+                    raise ValueError("non_trading_closed_daily_session")
                 if session in seen[symbol]:
                     raise ValueError("duplicate_daily_session")
                 prices = {field: float(bar[field]) for field in ("o", "h", "l", "c")}
@@ -154,8 +169,8 @@ def _validate_daily_bar_series(symbol: str, bars, latest_session: date) -> list[
             raise ValueError("invalid_daily_bar_session") from None
         if session > latest_session:
             raise ValueError("future_daily_bar_session")
-        if session.weekday() >= 5:
-            raise ValueError("non_trading_weekend_daily_session")
+        if _known_closed_equity_session(session):
+            raise ValueError("non_trading_closed_daily_session")
         if previous is not None and session <= previous:
             raise ValueError("daily_bars_not_strictly_ascending_unique")
         prices = {field: bar.get(field) for field in ("o", "h", "l", "c")}
@@ -176,7 +191,7 @@ def _same_day_premarket_gate(event: dict, observed_et: datetime) -> dict:
 
     if event.get("observation_status") != "FRESH_PREMARKET_WATCH_ONLY":
         return blocked("NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET")
-    if observed_et.weekday() >= 5:
+    if _known_closed_equity_session(observed_et.date()):
         return blocked("NEXT_SESSION_WEEKEND_OBSERVATION")
     if not time(4, 0) <= observed_et.time() < time(9, 30):
         return blocked("NEXT_SESSION_OUTSIDE_0400_0930_ET")
