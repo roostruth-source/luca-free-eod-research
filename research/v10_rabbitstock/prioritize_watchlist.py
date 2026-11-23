@@ -167,8 +167,13 @@ def prioritize(report: dict) -> dict:
             label = "PRIORITY_2_WATCH"
         else:
             label = "PRIORITY_3_LOW_EVIDENCE"
+        # Preserve positive evidence for audit, but explicitly explain why a
+        # held candidate receives zero actionable research-priority points.
+        hold_reason = LABELS[label] if label.startswith("HOLD_") else None
         row.update({
             "research_priority_score": score,
+            "research_priority_score_suppressed": hold_reason is not None,
+            "research_priority_score_suppressed_ko": hold_reason,
             "research_priority_label": label,
             "research_priority_ko": LABELS[label],
             "priority_reasons": reasons,
