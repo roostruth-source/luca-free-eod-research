@@ -389,3 +389,14 @@
 - 보류(HOLD_) 후보는 기존의 양수 근거(거래량 순위 등)를 감사 기록으로 보존하면서 `research_priority_score_suppressed=true` 및 `research_priority_score_suppressed_ko`로 **왜 최종 점수가 0인지** 명시한다. 정상 후보는 false/null이다.
 - 코드 커밋 `da6832d07e4fc28c603d46834c323e6c72f0bd4f`, 회귀검사 커밋 `103a4cb2815f9f24e9571a67e74f6c48f978b690`.
 - 신규 테스트 1개. 이 기능의 전체 CI와 실제 artifact 내부 필드 검증 전에는 완료로 표시하지 않는다. 기존 `WATCH_ONLY`, `NOT_VALIDATED`, `SEC_UNVERIFIED`, `NO_ORDERS` 유지.
+
+
+## 2026-11-24 보류 점수 설명 live artifact 검증
+
+- 검증 대상 코드 HEAD: `103a4cb2815f9f24e9571a67e74f6c48f978b690` (보류 점수 설명 회귀검사 추가).
+- Actions #45214418407의 `test-and-build` 및 안전검사·보고서·원장·성과·업로드 단계 성공: https://github.com/roostruth-source/luca-free-eod-research/actions/runs/45214418407
+- 실제 artifact #14837208595 ZIP(1,100,005바이트) 다운로드 후 SHA-256 `9051838823818d6b2176dc3613429f8055a126c9f49dd3e799216c17e1d3cf74` 일치 검증.
+- `live_watchlist.json` 실제 50개 후보: 보류 39개(범위/미확인 34, 상장상태 3, 오래된/없는 가격 2) 전부 0점·`research_priority_score_suppressed=true`·한국어 사유 표시. 보류 아닌 11개는 suppression=false. 보류 점수 불일치 0건, 주문 허용 0건.
+- `prospective_ledger.json` 원장 3,235건, 신규 50건, `CHAIN_CONTINUED`. 독립 5거래일 성숙 0건; `prediction_accuracy_verified=false` 유지.
+- 이번 실데이터는 `SEC_TICKER_MAP_HTTP_403`으로 50개 모두 SEC 원문 미검증. `WATCH_ONLY`, `NOT_VALIDATED`, `NO_ORDERS` 유지. SEC/Float 원문 실관측과 성능 검증 완료로 해석하지 않는다.
+- 본 문서 갱신 커밋의 별도 Actions 및 artifact는 아직 재확인 전이므로 문서 커밋 자체의 CI 검증은 별도 확인 필요.
