@@ -50,6 +50,7 @@ PREMARKET_GATE_KO = {
     "SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE": "검증된 장전 IEX 체결·호가가 있어 당일 정규장부터 측정",
     "NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET": "장전 관찰 상태가 아니므로 다음 거래일부터 측정",
     "NEXT_SESSION_WEEKEND_OBSERVATION": "주말 관찰이므로 다음 거래일부터 측정",
+    "NEXT_SESSION_CLOSED_EQUITY_HOLIDAY": "미국 주식시장 공식 휴장일이므로 다음 거래일부터 측정",
     "NEXT_SESSION_OUTSIDE_0400_0930_ET": "미국 동부시간 장전 구간 밖이므로 다음 거래일부터 측정",
     "NEXT_SESSION_PRICE_CONTEXT_MISSING": "저장된 장전 시세 문맥이 없어 다음 거래일부터 측정",
     "NEXT_SESSION_PRICE_CONTEXT_STATUS_MISMATCH": "장전 시세 상태가 서로 맞지 않음",
@@ -192,7 +193,8 @@ def _same_day_premarket_gate(event: dict, observed_et: datetime) -> dict:
     if event.get("observation_status") != "FRESH_PREMARKET_WATCH_ONLY":
         return blocked("NEXT_SESSION_OBSERVATION_STATUS_NOT_PREMARKET")
     if _known_closed_equity_session(observed_et.date()):
-        return blocked("NEXT_SESSION_WEEKEND_OBSERVATION")
+        return blocked("NEXT_SESSION_CLOSED_EQUITY_HOLIDAY" if observed_et.weekday() < 5
+                       else "NEXT_SESSION_WEEKEND_OBSERVATION")
     if not time(4, 0) <= observed_et.time() < time(9, 30):
         return blocked("NEXT_SESSION_OUTSIDE_0400_0930_ET")
     context = event.get("price_session_context")
