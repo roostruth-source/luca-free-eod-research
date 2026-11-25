@@ -15,31 +15,44 @@ import urllib.request
 from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
-# Exact 2026 full-day US equity closures published by NYSE. Do not extrapolate
-# these dates to other years or mistake bank holidays / early closes for closures.
+# Exact 2026-2028 full-day US equity closures published by NYSE. Do not
+# extrapolate these dates to other years or mistake bank holidays / early closes
+# for closures.
 # Source: https://www.nyse.com/trade/hours-calendars
-NYSE_FULL_CLOSURES_2026 = frozenset({
+SUPPORTED_NYSE_CALENDAR_YEARS = frozenset({2026, 2027, 2028})
+NYSE_FULL_CLOSURES = frozenset({
     date(2026, 1, 1), date(2026, 1, 19), date(2026, 2, 16),
     date(2026, 4, 3), date(2026, 5, 25), date(2026, 6, 19),
     date(2026, 7, 3), date(2026, 9, 7), date(2026, 11, 26),
     date(2026, 12, 25),
+    date(2027, 1, 1), date(2027, 1, 18), date(2027, 2, 15),
+    date(2027, 3, 26), date(2027, 5, 31), date(2027, 6, 18),
+    date(2027, 7, 5), date(2027, 9, 6), date(2027, 11, 25),
+    date(2027, 12, 24),
+    date(2028, 1, 17), date(2028, 2, 21), date(2028, 4, 14),
+    date(2028, 5, 29), date(2028, 6, 19), date(2028, 7, 4),
+    date(2028, 9, 4), date(2028, 11, 23), date(2028, 12, 25),
 })
 
 
-# NYSE published 2026 13:00 ET early equity closes; the 15-minute buffer
+# NYSE published 2026-2028 13:00 ET early equity closes; the 15-minute buffer
 # avoids treating an in-progress daily OHLC as complete. This is not an
 # assertion that every data provider has finalized its daily bar by 13:15.
-NYSE_EARLY_EQUITY_CLOSES_2026 = frozenset({date(2026, 11, 27), date(2026, 12, 24)})
+NYSE_EARLY_EQUITY_CLOSES = frozenset({
+    date(2026, 11, 27), date(2026, 12, 24),
+    date(2027, 11, 26),
+    date(2028, 7, 3), date(2028, 11, 24),
+})
 
 
 def _daily_bar_completed_at(evaluated_et: datetime) -> bool:
-    cutoff = time(13, 15) if evaluated_et.date() in NYSE_EARLY_EQUITY_CLOSES_2026 else time(16, 15)
+    cutoff = time(13, 15) if evaluated_et.date() in NYSE_EARLY_EQUITY_CLOSES else time(16, 15)
     return evaluated_et.time() >= cutoff
 
 
 def _known_closed_equity_session(day: date) -> bool:
     """Only reject positively documented closures, never infer an open day."""
-    return day.weekday() >= 5 or day in NYSE_FULL_CLOSURES_2026
+    return day.weekday() >= 5 or day in NYSE_FULL_CLOSURES
 
 HORIZONS = (1, 3, 5, 10)
 MFE_THRESHOLDS_PCT = (5.0, 10.0, 20.0)
@@ -56,6 +69,7 @@ BLOCKER_KO = {
     "IEX_SINGLE_FEED_REFERENCE_ONLY": "IEX 한 거래소 자료뿐이며 미국 전체 통합시세가 아님",
     "REAL_FILL_AND_SLIPPAGE_NOT_MEASURED": "실제 체결가격과 Slippage(주문 미끄러짐)를 측정하지 않음",
     "OUTCOME_SOURCE_UNAVAILABLE": "후속 일봉 자료를 가져오지 못함",
+    "MISSING_TRADING_SESSIONS_DETECTED": "중간 거래일 일봉이 빠져 해당 구간 성과를 제외함",
 }
 PREMARKET_GATE_KO = {
     "SAME_DAY_ALLOWED_FROZEN_IEX_PREMARKET_EVIDENCE": "검증된 장전 IEX 체결·호가가 있어 당일 정규장부터 측정",
@@ -278,6 +292,63 @@ def _eligible_sessions(event: dict, bars: list[dict], evaluated_at: datetime) ->
             continue
         output.append(bar)
     return output
+
+
+def _expected_completed_sessions(event: dict, evaluated_at: datetime) -> list[date]:
+    """Return the exact supported NYSE sessions an outcome window may consume.
+
+    The calendar is intentionally bounded to the official 2026 dates frozen
+    above. Extending it by weekday inference into another year would silently
+    treat an unknown holiday as an open session.
+    """
+    observed = _time(event["observed_at"]).astimezone(ET)
+    include_observation_day = _same_day_premarket_eligible(event, observed)
+    first_day = observed.date() if include_observation_day else observed.date() + timedelta(days=1)
+    evaluated_et = evaluated_at.astimezone(ET)
+    last_day = evaluated_et.date()
+    if not _daily_bar_completed_at(evaluated_et):
+        last_day -= timedelta(days=1)
+    if first_day > last_day:
+        return []
+    covered_years = set(range(first_day.year, last_day.year + 1))
+    if not covered_years.issubset(SUPPORTED_NYSE_CALENDAR_YEARS):
+        raise ValueError("trading_calendar_coverage_unavailable")
+    sessions = []
+    day = first_day
+    while day <= last_day:
+        if not _known_closed_equity_session(day):
+            sessions.append(day)
+            if len(sessions) == max(HORIZONS):
+                break
+        day += timedelta(days=1)
+    return sessions
+
+
+def _trading_session_continuity(event: dict, sessions: list[dict],
+                                evaluated_at: datetime) -> dict:
+    """Expose and quarantine gaps instead of compressing later bars together."""
+    expected = _expected_completed_sessions(event, evaluated_at)
+    by_date = {date.fromisoformat(bar["session_date"]): bar for bar in sessions}
+    expected_set = set(expected)
+    unexpected = sorted(day for day in by_date if day not in expected_set)
+    if unexpected:
+        raise ValueError("daily_bar_outside_expected_outcome_sessions")
+    missing = [day for day in expected if day not in by_date]
+    contiguous = []
+    for day in expected:
+        bar = by_date.get(day)
+        if bar is None:
+            break
+        contiguous.append(bar)
+    return {
+        "status": ("CONTIGUOUS_COMPLETED_TRADING_SESSIONS" if not missing
+                   else "MISSING_TRADING_SESSIONS_QUARANTINED"),
+        "expected_session_dates": [day.isoformat() for day in expected],
+        "observed_session_dates": [bar["session_date"] for bar in sessions],
+        "missing_session_dates": [day.isoformat() for day in missing],
+        "contiguous_completed_sessions": len(contiguous),
+        "contiguous_bars": contiguous,
+    }
 
 
 def _basis_check_sessions(event: dict, bars: list[dict], evaluated_at: datetime) -> list[dict]:
@@ -697,6 +768,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         symbol = event["ticker"]
         entry = event.get("iex_reference_price")
         sessions = _eligible_sessions(event, verified_bars[symbol], now)
+        session_continuity = _trading_session_continuity(event, sessions, now)
         basis_sessions = _basis_check_sessions(event, verified_bars[symbol], now)
         adjusted_basis_sessions = None if verified_split_bars is None else _basis_check_sessions(
             event, verified_split_bars[symbol], now)
@@ -710,10 +782,25 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
             "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         outcomes = {}
         for horizon in HORIZONS:
-            if not _valid_price(entry) or len(sessions) < horizon:
+            expected_dates = session_continuity["expected_session_dates"][:horizon]
+            observed_dates = set(session_continuity["observed_session_dates"])
+            missing_for_horizon = [day for day in expected_dates if day not in observed_dates]
+            if len(expected_dates) >= horizon and missing_for_horizon:
                 outcomes[str(horizon)] = {
-                    "status": "NOT_MATURE", "completed_sessions": len(sessions),
-                    "completed_session_dates": [bar["session_date"] for bar in sessions],
+                    "status": "MISSING_TRADING_SESSIONS_BLOCKED",
+                    "completed_sessions": session_continuity["contiguous_completed_sessions"],
+                    "completed_session_dates": [
+                        bar["session_date"] for bar in session_continuity["contiguous_bars"]],
+                    "missing_session_dates": missing_for_horizon,
+                }
+                continue
+            if (not _valid_price(entry)
+                    or session_continuity["contiguous_completed_sessions"] < horizon):
+                outcomes[str(horizon)] = {
+                    "status": "NOT_MATURE",
+                    "completed_sessions": session_continuity["contiguous_completed_sessions"],
+                    "completed_session_dates": [
+                        bar["session_date"] for bar in session_continuity["contiguous_bars"]],
                 }
                 continue
             if basis_guard["safe_for_descriptive_scorecard"] is not True:
@@ -724,7 +811,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
                     "basis_guard_status": basis_guard["status"],
                 }
                 continue
-            window = sessions[:horizon]
+            window = session_continuity["contiguous_bars"][:horizon]
             outcomes[str(horizon)] = {
                 "status": "COMPLETE_IEX_REFERENCE_ONLY",
                 "close_return_pct": (window[-1]["c"] / entry - 1.0) * 100.0,
@@ -764,6 +851,10 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
             "candidate_scope_guard": scope_guard,
             "outcome_session_anchor": outcome_session_anchor,
             "same_day_premarket_gate": same_day_gate,
+            "trading_session_continuity": {
+                key: value for key, value in session_continuity.items()
+                if key != "contiguous_bars"
+            },
             "fresh_price_observation": fresh_price_observation,
             "eligible_for_model_validation": eligible_for_model,
             "outcomes": outcomes,
@@ -806,6 +897,9 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         record["corporate_action_basis_guard"]["status"] ==
         "PROVIDER_RAW_SPLIT_PARITY_OBSERVED_NOT_OFFICIAL_VERIFICATION"
         for record in records)
+    missing_session_records = sum(
+        bool(record["trading_session_continuity"]["missing_session_dates"])
+        for record in records)
     anchor_counts = {}
     gate_reason_counts = {}
     for record in records:
@@ -822,6 +916,8 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         readiness_blockers.append("INDEPENDENT_OBSERVATION_DATES_BELOW_5")
     if not corporate_action_basis_verified:
         readiness_blockers.append("CORPORATE_ACTION_BASIS_UNVERIFIED")
+    if missing_session_records:
+        readiness_blockers.append("MISSING_TRADING_SESSIONS_DETECTED")
     readiness_blockers.extend([
         "IEX_SINGLE_FEED_REFERENCE_ONLY",
         "REAL_FILL_AND_SLIPPAGE_NOT_MEASURED",
@@ -853,10 +949,14 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         "mfe_thresholds_pct_predeclared": list(MFE_THRESHOLDS_PCT),
         "records": records,
         "daily_bar_integrity_guard": {
-            "status": "PASSED_STRICT_ASCENDING_UNIQUE_COMPLETE_OHLC",
+            "status": ("PASSED_ROW_INTEGRITY_MISSING_SESSIONS_QUARANTINED"
+                       if missing_session_records else
+                       "PASSED_STRICT_ASCENDING_UNIQUE_COMPLETE_OHLC_AND_SESSION_CONTINUITY"),
             "verified_symbol_count": len(symbols),
             "future_session_rejected": True,
             "duplicate_or_reordered_session_rejected": True,
+            "missing_trading_sessions_quarantined": True,
+            "missing_trading_session_record_count": missing_session_records,
         },
         "outcome_session_anchor_counts": dict(sorted(anchor_counts.items())),
         "same_day_premarket_gate_reason_counts": dict(sorted(gate_reason_counts.items())),
@@ -900,6 +1000,8 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
             "verified_symbol_count": 0,
             "future_session_rejected": True,
             "duplicate_or_reordered_session_rejected": True,
+            "missing_trading_sessions_quarantined": True,
+            "missing_trading_session_record_count": 0,
         },
         "temporal_diversity_gate_met": False,
         "temporal_diversity_rule": "AT_LEAST_5_DISTINCT_ET_OBSERVATION_DATES",
@@ -973,8 +1075,9 @@ main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;bo
 <small>정규장·야간 관찰은 정상적으로 다음 거래일부터 계산됩니다. 장전 당일 허용은 저장된 IEX 체결·호가 문맥까지 서로 맞는 경우뿐입니다.</small></section>
 <section class="card"><h2>일봉 순서 무결성</h2><div class="grid">
 <div class="metric"><b>검증 종목</b><span>{esc(bar_guard.get('verified_symbol_count', 0))}개</span></div>
-<div class="metric"><b>검사 상태</b><span>{esc(bar_guard.get('status', '미확인'))}</span></div></div>
-<small>거래일 중복·역순·미래 날짜·비정상 OHLC를 차단합니다. 각 기간 계산에 실제 사용한 거래일 목록도 JSON에 남깁니다.</small></section>
+<div class="metric"><b>검사 상태</b><span>{esc(bar_guard.get('status', '미확인'))}</span></div>
+<div class="metric"><b>장날 누락 격리</b><span>{esc(bar_guard.get('missing_trading_session_record_count', 0))}건</span></div></div>
+<small>거래일 중복·역순·미래 날짜·비정상 OHLC와 중간 장날 누락을 차단합니다. 빠진 장날 뒤의 일봉을 붙여서 연속 성과로 세지 않으며, 실제 사용한 거래일 목록도 JSON에 남깁니다.</small></section>
 <section class="card"><h2>Spread stress (호가 차이 부담 가정)</h2><div class="grid">
 <div class="metric"><b>호가 기록</b><span>{esc(friction.get('spread_recorded_ticker_count', 0))}/{esc(friction.get('independent_ticker_count', 0))}</span></div>
 <div class="metric"><b>중앙 Spread</b><span>{esc(pct(spread_distribution.get('median')))}</span></div>

@@ -62,6 +62,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("Outlier check (한 종목 대박 의존도)", page)
         self.assertIn("장전 성과 시작 근거", page)
         self.assertIn("일봉 순서 무결성", page)
+        self.assertIn("장날 누락 격리", page)
         self.assertIn("NO_ORDERS", page)
         self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
         self.assertNotIn("<script>x</script>", page)
@@ -108,7 +109,7 @@ class ProspectiveOutcomesTests(unittest.TestCase):
                          "NEXT_SESSION_REQUIRED_REGULAR_OR_LATER_OBSERVATION")
         self.assertFalse(result["prediction_accuracy_verified"])
         self.assertEqual(result["daily_bar_integrity_guard"]["status"],
-                         "PASSED_STRICT_ASCENDING_UNIQUE_COMPLETE_OHLC")
+                         "PASSED_STRICT_ASCENDING_UNIQUE_COMPLETE_OHLC_AND_SESSION_CONTINUITY")
 
     def test_out_of_order_or_duplicate_daily_sessions_fail_closed(self):
         reversed_bars = {"ABC": list(reversed(BARS["ABC"]))}
@@ -119,6 +120,56 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,
                                     "daily_bars_not_strictly_ascending_unique"):
             build_outcomes(ledger(event()), duplicate, "2026-11-19T22:00:00Z")
+
+    def test_missing_trading_session_is_quarantined_not_compressed(self):
+        missing_monday = {"ABC": [
+            {"session_date": "2026-11-17", "o": 1.0, "h": 1.2, "l": .9, "c": 1.1},
+            {"session_date": "2026-11-18", "o": 1.1, "h": 1.3, "l": 1.0, "c": 1.2},
+        ]}
+        observed = event("2026-11-13T15:00:00Z")
+        result = build_outcomes(ledger(observed), missing_monday,
+                                "2026-11-18T22:00:00Z")
+        record = result["records"][0]
+        self.assertEqual(record["trading_session_continuity"]["missing_session_dates"],
+                         ["2026-11-16"])
+        self.assertEqual(record["outcomes"]["1"]["status"],
+                         "MISSING_TRADING_SESSIONS_BLOCKED")
+        self.assertEqual(record["outcomes"]["1"]["completed_sessions"], 0)
+        self.assertEqual(result["daily_bar_integrity_guard"]
+                         ["missing_trading_session_record_count"], 1)
+        self.assertIn("MISSING_TRADING_SESSIONS_DETECTED",
+                      result["readiness_blockers"])
+
+    def test_weekend_and_official_holiday_are_not_reported_as_missing_sessions(self):
+        before_thanksgiving = event("2026-11-25T15:00:00Z")
+        bars = {"ABC": [
+            {"session_date": "2026-11-27", "o": 1.0, "h": 1.2, "l": .9, "c": 1.1},
+            {"session_date": "2026-11-30", "o": 1.1, "h": 1.3, "l": 1.0, "c": 1.2},
+        ]}
+        result = build_outcomes(ledger(before_thanksgiving), bars,
+                                "2026-11-30T22:00:00Z")
+        record = result["records"][0]
+        self.assertEqual(record["trading_session_continuity"]["expected_session_dates"],
+                         ["2026-11-27", "2026-11-30"])
+        self.assertEqual(record["trading_session_continuity"]["missing_session_dates"], [])
+        self.assertEqual(record["outcomes"]["1"]["status"],
+                         "COMPLETE_IEX_REFERENCE_ONLY")
+
+    def test_supported_calendar_crosses_2026_to_2027_without_weekday_guessing(self):
+        future = event("2026-12-31T15:00:00Z")
+        bars = {"ABC": [
+            {"session_date": "2027-01-04", "o": 1.0, "h": 1.2, "l": .9, "c": 1.1},
+        ]}
+        result = build_outcomes(ledger(future), bars, "2027-01-04T22:00:00Z")
+        self.assertEqual(result["records"][0]["trading_session_continuity"]
+                         ["expected_session_dates"], ["2027-01-04"])
+        self.assertEqual(result["records"][0]["outcomes"]["1"]["status"],
+                         "COMPLETE_IEX_REFERENCE_ONLY")
+
+    def test_unknown_calendar_year_fails_closed(self):
+        future = event("2028-12-29T15:00:00Z")
+        with self.assertRaisesRegex(ValueError, "trading_calendar_coverage_unavailable"):
+            build_outcomes(ledger(future), {}, "2029-01-02T22:00:00Z")
 
     def test_future_or_invalid_ohlc_daily_bar_fails_closed(self):
         future = {"ABC": [{"session_date": "2026-11-20", "o": 1.0,
