@@ -897,9 +897,19 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         record["corporate_action_basis_guard"]["status"] ==
         "PROVIDER_RAW_SPLIT_PARITY_OBSERVED_NOT_OFFICIAL_VERIFICATION"
         for record in records)
-    missing_session_records = sum(
-        bool(record["trading_session_continuity"]["missing_session_dates"])
-        for record in records)
+    missing_session_rows = [
+        record for record in records
+        if record["trading_session_continuity"]["missing_session_dates"]
+    ]
+    missing_session_records = len(missing_session_rows)
+    missing_session_tickers = {record["ticker"] for record in missing_session_rows}
+    eligible_missing_session_rows = [
+        record for record in missing_session_rows
+        if record["eligible_for_model_validation"] is True
+    ]
+    eligible_missing_session_tickers = {
+        record["ticker"] for record in eligible_missing_session_rows
+    }
     anchor_counts = {}
     gate_reason_counts = {}
     for record in records:
@@ -916,7 +926,7 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
         readiness_blockers.append("INDEPENDENT_OBSERVATION_DATES_BELOW_5")
     if not corporate_action_basis_verified:
         readiness_blockers.append("CORPORATE_ACTION_BASIS_UNVERIFIED")
-    if missing_session_records:
+    if eligible_missing_session_rows:
         readiness_blockers.append("MISSING_TRADING_SESSIONS_DETECTED")
     readiness_blockers.extend([
         "IEX_SINGLE_FEED_REFERENCE_ONLY",
@@ -957,6 +967,11 @@ def build_outcomes(ledger: dict, bars: dict[str, list[dict]], evaluated_at: str,
             "duplicate_or_reordered_session_rejected": True,
             "missing_trading_sessions_quarantined": True,
             "missing_trading_session_record_count": missing_session_records,
+            "missing_trading_session_unique_ticker_count": len(missing_session_tickers),
+            "model_eligible_missing_trading_session_record_count": (
+                len(eligible_missing_session_rows)),
+            "model_eligible_missing_trading_session_unique_ticker_count": (
+                len(eligible_missing_session_tickers)),
         },
         "outcome_session_anchor_counts": dict(sorted(anchor_counts.items())),
         "same_day_premarket_gate_reason_counts": dict(sorted(gate_reason_counts.items())),
@@ -1002,6 +1017,9 @@ def unavailable(ledger: dict, evaluated_at: str, reason: str) -> dict:
             "duplicate_or_reordered_session_rejected": True,
             "missing_trading_sessions_quarantined": True,
             "missing_trading_session_record_count": 0,
+            "missing_trading_session_unique_ticker_count": 0,
+            "model_eligible_missing_trading_session_record_count": 0,
+            "model_eligible_missing_trading_session_unique_ticker_count": 0,
         },
         "temporal_diversity_gate_met": False,
         "temporal_diversity_rule": "AT_LEAST_5_DISTINCT_ET_OBSERVATION_DATES",
@@ -1076,7 +1094,9 @@ main{{max-width:760px;margin:auto;padding:16px}}.hero,.card{{background:white;bo
 <section class="card"><h2>일봉 순서 무결성</h2><div class="grid">
 <div class="metric"><b>검증 종목</b><span>{esc(bar_guard.get('verified_symbol_count', 0))}개</span></div>
 <div class="metric"><b>검사 상태</b><span>{esc(bar_guard.get('status', '미확인'))}</span></div>
-<div class="metric"><b>장날 누락 격리</b><span>{esc(bar_guard.get('missing_trading_session_record_count', 0))}건</span></div></div>
+<div class="metric"><b>누락 기록</b><span>{esc(bar_guard.get('missing_trading_session_record_count', 0))}건</span></div>
+<div class="metric"><b>누락 고유 종목</b><span>{esc(bar_guard.get('missing_trading_session_unique_ticker_count', 0))}개</span></div>
+<div class="metric"><b>모델 대상 누락</b><span>{esc(bar_guard.get('model_eligible_missing_trading_session_unique_ticker_count', 0))}개</span></div></div>
 <small>거래일 중복·역순·미래 날짜·비정상 OHLC와 중간 장날 누락을 차단합니다. 빠진 장날 뒤의 일봉을 붙여서 연속 성과로 세지 않으며, 실제 사용한 거래일 목록도 JSON에 남깁니다.</small></section>
 <section class="card"><h2>Spread stress (호가 차이 부담 가정)</h2><div class="grid">
 <div class="metric"><b>호가 기록</b><span>{esc(friction.get('spread_recorded_ticker_count', 0))}/{esc(friction.get('independent_ticker_count', 0))}</span></div>

@@ -62,7 +62,9 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertIn("Outlier check (한 종목 대박 의존도)", page)
         self.assertIn("장전 성과 시작 근거", page)
         self.assertIn("일봉 순서 무결성", page)
-        self.assertIn("장날 누락 격리", page)
+        self.assertIn("누락 기록", page)
+        self.assertIn("누락 고유 종목", page)
+        self.assertIn("모델 대상 누락", page)
         self.assertIn("NO_ORDERS", page)
         self.assertIn("&lt;script&gt;x&lt;/script&gt;", page)
         self.assertNotIn("<script>x</script>", page)
@@ -137,8 +139,36 @@ class ProspectiveOutcomesTests(unittest.TestCase):
         self.assertEqual(record["outcomes"]["1"]["completed_sessions"], 0)
         self.assertEqual(result["daily_bar_integrity_guard"]
                          ["missing_trading_session_record_count"], 1)
+        self.assertEqual(result["daily_bar_integrity_guard"]
+                         ["missing_trading_session_unique_ticker_count"], 1)
+        self.assertEqual(result["daily_bar_integrity_guard"]
+                         ["model_eligible_missing_trading_session_unique_ticker_count"], 1)
         self.assertIn("MISSING_TRADING_SESSIONS_DETECTED",
                       result["readiness_blockers"])
+
+    def test_repeated_missing_rows_report_records_and_unique_tickers_separately(self):
+        first = event("2026-11-13T15:00:00Z")
+        repeat = event("2026-11-13T16:00:00Z")
+        repeat["chain_hash"] = "b" * 64
+        result = build_outcomes(ledger_many(first, repeat), {},
+                                "2026-11-18T22:00:00Z")
+        guard = result["daily_bar_integrity_guard"]
+        self.assertEqual(guard["missing_trading_session_record_count"], 2)
+        self.assertEqual(guard["missing_trading_session_unique_ticker_count"], 1)
+        self.assertEqual(guard["model_eligible_missing_trading_session_record_count"], 2)
+        self.assertEqual(
+            guard["model_eligible_missing_trading_session_unique_ticker_count"], 1)
+
+    def test_audit_only_missing_rows_do_not_block_model_readiness_for_missing_data(self):
+        excluded = event("2026-11-13T15:00:00Z")
+        excluded["security_scope"] = {
+            "status": "EXCLUDED_ETF_OR_ETP", "financial_status": "NOT_AVAILABLE"}
+        result = build_outcomes(ledger(excluded), {}, "2026-11-18T22:00:00Z")
+        guard = result["daily_bar_integrity_guard"]
+        self.assertEqual(guard["missing_trading_session_record_count"], 1)
+        self.assertEqual(guard["model_eligible_missing_trading_session_record_count"], 0)
+        self.assertNotIn("MISSING_TRADING_SESSIONS_DETECTED",
+                         result["readiness_blockers"])
 
     def test_weekend_and_official_holiday_are_not_reported_as_missing_sessions(self):
         before_thanksgiving = event("2026-11-25T15:00:00Z")
