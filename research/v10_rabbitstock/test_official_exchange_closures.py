@@ -11,10 +11,23 @@ class OfficialClosureTests(unittest.TestCase):
         self.assertFalse(_known_closed_equity_session(date(2026, 11, 27)))
         self.assertFalse(_known_closed_equity_session(date(2026, 11, 11)))
 
+    def test_nyse_2027_and_2028_official_closures_are_frozen(self):
+        for day in (date(2027, 1, 1), date(2027, 3, 26), date(2027, 12, 24),
+                    date(2028, 4, 14), date(2028, 7, 4), date(2028, 12, 25)):
+            self.assertTrue(_known_closed_equity_session(day))
+        self.assertFalse(_known_closed_equity_session(date(2027, 11, 26)))
+        self.assertFalse(_known_closed_equity_session(date(2028, 7, 3)))
+
     def test_2026_official_early_closes_use_1315_et_buffer(self):
         et = ZoneInfo("America/New_York")
         for day in (date(2026, 11, 27), date(2026, 12, 24)):
             self.assertFalse(_known_closed_equity_session(day))
+            self.assertFalse(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 14, tzinfo=et)))
+            self.assertTrue(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 15, tzinfo=et)))
+
+    def test_2027_and_2028_official_early_closes_use_1315_et_buffer(self):
+        et = ZoneInfo("America/New_York")
+        for day in (date(2027, 11, 26), date(2028, 7, 3), date(2028, 11, 24)):
             self.assertFalse(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 14, tzinfo=et)))
             self.assertTrue(_daily_bar_completed_at(datetime(day.year, day.month, day.day, 13, 15, tzinfo=et)))
 
