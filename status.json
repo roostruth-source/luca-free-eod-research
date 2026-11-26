@@ -1,29 +1,24 @@
 {
   "version": 1,
-  "status": "FAILED_LAST_SUCCESS_RETAINED",
-  "outcome": "CANNOT_DETERMINE_ZERO",
-  "checked_at_utc": "2026-11-25T15:36:21+00:00",
-  "started_at_utc": "2026-11-25T15:36:16+00:00",
-  "success_this_run": false,
-  "real_trades_allowed": false,
-  "validation_status": "NOT_VALIDATED",
-  "reason": "RuntimeError: 수집 종료 코드 1 · 감독/자료/시간 검증 로그 확인 필요",
+  "status": "SUCCESS_RESEARCH_OBSERVATION",
+  "outcome": "OBSERVATIONS_FOUND",
+  "checked_at_utc": "2026-11-26T15:16:36+00:00",
+  "started_at_utc": "2026-11-26T15:16:06+00:00",
+  "success_this_run": true,
   "last_success": {
-    "collected_at_utc": "2026-11-20T14:00:49+00:00",
-    "session": "2026-11-19",
-    "attempt_id": "2026-11-20T14-00-25.233904Z-68bc3e92",
-    "dated": 87,
+    "collected_at_utc": "2026-11-26T15:16:36+00:00",
+    "session": "2026-11-25",
+    "attempt_id": "2026-11-26T15-16-07.511506Z-7d49a9eb",
+    "dated": 95,
     "details": 25,
-    "formal": 5,
+    "formal": 6,
     "scope_partial": true,
     "outcome": "OBSERVATIONS_FOUND",
     "source_type": "COMPLETED_DAILY_BARS",
     "url": "./latest.html"
   },
-  "research_only": true,
+  "real_trades_allowed": false,
+  "validation_status": "NOT_VALIDATED",
   "realtime": false,
-  "diagnostic": {
-    "supervisor_status": "FINISHED_FAILED",
-    "supervisor_outcome": "CANNOT_DETERMINE_ZERO"
-  }
+  "research_only": true
 }
