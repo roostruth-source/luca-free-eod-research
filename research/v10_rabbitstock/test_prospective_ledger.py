@@ -75,6 +75,29 @@ class ProspectiveLedgerTests(unittest.TestCase):
         self.assertEqual(second["events"][0], first["events"][0])
         self.assertNotEqual(second["last_chain_hash"], first["last_chain_hash"])
 
+    def test_daily_cap_freezes_only_predeclared_top_rows(self):
+        item = watchlist()
+        rows = []
+        for index in range(15):
+            row = copy.deepcopy(item["rows"][0])
+            row["ticker"] = f"A{index:02d}"
+            row["research_priority_rank"] = index + 1
+            rows.append(row)
+        item["rows"] = rows
+        result = append_observations(item, "2026-11-18T10:01:00Z",
+                                     max_new_events=12)
+        self.assertEqual(result["input_candidate_count"], 15)
+        self.assertEqual(result["selected_candidate_count"], 12)
+        self.assertEqual(result["new_event_count"], 12)
+        self.assertEqual([event["ticker"] for event in result["events"]],
+                         [f"A{index:02d}" for index in range(12)])
+        self.assertEqual(result["new_event_cap"], 12)
+
+    def test_daily_cap_must_be_bounded(self):
+        with self.assertRaisesRegex(ValueError, "invalid_new_event_cap"):
+            append_observations(watchlist(), "2026-11-18T10:01:00Z",
+                                max_new_events=0)
+
     def test_same_timestamp_revision_is_not_silently_ignored(self):
         first = append_observations(watchlist(), "2026-11-18T10:01:00Z")
         changed = watchlist()

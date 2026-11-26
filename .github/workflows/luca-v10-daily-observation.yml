@@ -1,0 +1,135 @@
+name: LUCA V10 Manual Daily Observation
+
+on:
+  workflow_dispatch:
+    inputs:
+      approval:
+        description: "Type RUN_V10_WATCH_ONLY between 09:36 and 10:30 New York time"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: luca-v10-daily-observation
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: research/v10_rabbitstock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run offline safety tests before any market request
+        run: |
+          python -m unittest discover -v
+          python ../v03_stage24/test_auto_enrich_iex.py
+      - name: Restore preceding manual daily ledger
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LUCA_LEDGER_WORKFLOW: luca-v10-daily-observation.yml
+          LUCA_LEDGER_BRANCH: research/v10-rabbitstock-eval
+        run: |
+          python restore_previous_ledger.py \
+            --output build_outputs/previous_ledger.json \
+            --status-output build_outputs/daily_restore_status.json
+          restore_status=$(python -c 'import json; print(json.load(open("build_outputs/daily_restore_status.json"))["restore_status"])')
+          if [ "$restore_status" = "NO_PREVIOUS_SUCCESSFUL_RUN" ]; then
+            LUCA_LEDGER_WORKFLOW=luca-v10-research-build-ci.yml \
+              python restore_previous_ledger.py \
+                --output build_outputs/previous_ledger.json \
+                --status-output build_outputs/restore_status.json
+          else
+            mv build_outputs/daily_restore_status.json build_outputs/restore_status.json
+          fi
+      - name: Block wrong branch, date, time, duplicate, or lost ledger
+        run: |
+          previous_args=()
+          if [ -f build_outputs/previous_ledger.json ]; then
+            previous_args=(--previous-ledger build_outputs/previous_ledger.json)
+          fi
+          python daily_observation_guard.py \
+            --event-name "${{ github.event_name }}" \
+            --ref-name "${{ github.ref_name }}" \
+            --approval "${{ inputs.approval }}" \
+            --restore-status build_outputs/restore_status.json \
+            "${previous_args[@]}" \
+            --output build_outputs/daily_guard.json
+      - name: Collect one read-only IEX watchlist
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          bundle_args=()
+          if [ -f build_inputs/sec_official_bundle.json ]; then
+            bundle_args=(--sec-bundle build_inputs/sec_official_bundle.json)
+          fi
+          python run_live_research.py "${bundle_args[@]}" \
+            --output build_outputs/live_watchlist.json \
+            --html-output build_outputs/live_watchlist.html
+      - name: Append at most twelve predeclared research candidates
+        run: |
+          previous_args=()
+          if [ -f build_outputs/previous_ledger.json ]; then
+            previous_args=(--previous build_outputs/previous_ledger.json)
+          fi
+          python prospective_ledger.py build_outputs/live_watchlist.json \
+            "${previous_args[@]}" \
+            --max-new-events 12 \
+            --output build_outputs/prospective_ledger.json \
+            --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+      - name: Measure completed IEX daily reference outcomes
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python prospective_outcomes.py build_outputs/prospective_ledger.json \
+            --output build_outputs/prospective_outcomes.json \
+            --html-output build_outputs/prospective_outcomes.html \
+            --evaluated-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+      - name: Verify two-provider frozen reference outcomes
+        run: |
+          python validate_frozen_signals.py validation_manifest.json \
+            --output build_outputs/validation_readiness.json
+      - name: Build one-file Korean observation report
+        run: |
+          python unified_observer_report.py \
+            --live build_outputs/live_watchlist.json \
+            --outcomes build_outputs/prospective_outcomes.json \
+            --validation build_outputs/validation_readiness.json \
+            --output build_outputs/luca_v10_observer_report.html
+      - name: Verify final safety flags
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("daily_guard", "live_watchlist", "prospective_ledger",
+                       "prospective_outcomes", "validation_readiness"):
+              data = json.loads(Path(f"build_outputs/{name}.json").read_text())
+              assert data["WATCH_ONLY"] is True
+              assert data["NO_ORDERS"] is True
+              assert data["validation_status"] == "NOT_VALIDATED"
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: luca-v10-executable-research-build
+          path: |
+            research/v10_rabbitstock/build_outputs/daily_guard.json
+            research/v10_rabbitstock/build_outputs/restore_status.json
+            research/v10_rabbitstock/build_outputs/live_watchlist.json
+            research/v10_rabbitstock/build_outputs/live_watchlist.html
+            research/v10_rabbitstock/build_outputs/prospective_ledger.json
+            research/v10_rabbitstock/build_outputs/prospective_outcomes.json
+            research/v10_rabbitstock/build_outputs/prospective_outcomes.html
+            research/v10_rabbitstock/build_outputs/validation_readiness.json
+            research/v10_rabbitstock/build_outputs/luca_v10_observer_report.html
+          retention-days: 90

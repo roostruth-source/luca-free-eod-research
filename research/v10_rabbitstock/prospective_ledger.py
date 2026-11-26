@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 from sec_companyfacts_os import MAX_CURRENT_RATIO_AGE_DAYS
 
 ZERO = "0" * 64
-MAX_EVENTS = 5000
+MAX_EVENTS = 10_000
 SCREENER_GROUPS = {"active_volume", "active_trades", "gainers", "losers"}
 PRIORITY_LABELS = {"PRIORITY_1_RESEARCH", "PRIORITY_2_WATCH",
                    "PRIORITY_3_LOW_EVIDENCE", "HOLD_STALE_OR_MISSING_PRICE",
@@ -428,7 +428,8 @@ def _issuer_region_context(row: dict, observed_at: datetime) -> dict:
     }
 
 
-def append_observations(report: dict, built_at: str, previous: dict | None = None) -> dict:
+def append_observations(report: dict, built_at: str, previous: dict | None = None,
+                        max_new_events: int | None = None) -> dict:
     now = _time(built_at)
     observed_at = _time(report["collected_at"])
     if observed_at > now:
@@ -456,11 +457,13 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         if (observed_at == _time(previous["source_collected_at"])
                 and _hash(report) != previous["input_report_hash"]):
             raise ValueError("same_time_report_revision_not_allowed")
-    if len(events) + len(report["rows"]) > MAX_EVENTS:
-        raise ValueError("prospective_ledger_capacity_exceeded")
+    if (max_new_events is not None
+            and (type(max_new_events) is not int or not 1 <= max_new_events <= 50)):
+        raise ValueError("invalid_new_event_cap")
+    selected_rows = report["rows"][:max_new_events]
     known = {(e["ticker"], e["observed_at"]) for e in events}
     new_count = 0
-    for row in report["rows"]:
+    for row in selected_rows:
         identity = (row["ticker"], observed_at.isoformat())
         if identity in known:
             continue
@@ -500,6 +503,8 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         chain = hashlib.sha256((chain + _hash(item)).encode()).hexdigest()
         events.append({**item, "chain_hash": chain})
         new_count += 1
+        if len(events) > MAX_EVENTS:
+            raise ValueError("prospective_ledger_capacity_exceeded")
     return {
         "schema_version": "LUCA_V10_PROSPECTIVE_LEDGER_1",
         "built_at": now.isoformat(),
@@ -508,6 +513,9 @@ def append_observations(report: dict, built_at: str, previous: dict | None = Non
         "previous_event_count": len(events) - new_count,
         "new_event_count": new_count,
         "event_count": len(events),
+        "input_candidate_count": len(report["rows"]),
+        "selected_candidate_count": len(selected_rows),
+        "new_event_cap": max_new_events,
         "continuity_status": "CHAIN_CONTINUED" if previous else "NEW_SERIES_PREVIOUS_UNAVAILABLE",
         "last_chain_hash": chain,
         "events": events,
@@ -521,10 +529,12 @@ def main() -> int:
     parser.add_argument("--previous", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--built-at", required=True)
+    parser.add_argument("--max-new-events", type=int)
     args = parser.parse_args()
     report = json.loads(args.watchlist.read_text(encoding="utf-8"))
     previous = json.loads(args.previous.read_text(encoding="utf-8")) if args.previous else None
-    result = append_observations(report, args.built_at, previous)
+    result = append_observations(report, args.built_at, previous,
+                                 args.max_new_events)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"new": result["new_event_count"], "total": result["event_count"],

@@ -3,7 +3,7 @@ import json
 import unittest
 from zipfile import ZipFile
 
-from restore_previous_ledger import restore
+from restore_previous_ledger import restore, restore_with_status
 
 
 class Response:
@@ -49,6 +49,21 @@ class RestoreTests(unittest.TestCase):
                                   workflow="luca-v10-daily-observation.yml", branch="main"))
         self.assertIn("luca-v10-daily-observation.yml", seen[0])
         self.assertIn("branch=main", seen[0])
+
+    def test_distinguishes_first_run_from_lost_prior_artifact(self):
+        def first_run(request, timeout):
+            return Response(json.dumps({"workflow_runs": []}).encode())
+        ledger, status = restore_with_status("owner/repo", 1, "token", first_run)
+        self.assertIsNone(ledger)
+        self.assertEqual(status, "NO_PREVIOUS_SUCCESSFUL_RUN")
+
+        def lost(request, timeout):
+            if "/runs?" in request.full_url:
+                return Response(json.dumps({"workflow_runs": [{"id": 8}]}).encode())
+            return Response(json.dumps({"artifacts": []}).encode())
+        ledger, status = restore_with_status("owner/repo", 9, "token", lost)
+        self.assertIsNone(ledger)
+        self.assertEqual(status, "PREVIOUS_SUCCESS_ARTIFACT_UNAVAILABLE")
 
     def test_repo_path_must_be_safe(self):
         with self.assertRaisesRegex(ValueError, "github_repo_and_token_required"):

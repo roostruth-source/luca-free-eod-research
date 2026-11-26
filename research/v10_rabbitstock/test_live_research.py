@@ -126,6 +126,15 @@ def volume_report():
     }
 
 
+def outside_volume_report():
+    return {
+        "schema_version": "LUCA_V10_VOLUME_FIRST_ASOF_1",
+        "status": "OUTSIDE_US_REGULAR_CONTEXT_WINDOW",
+        "studied_symbols": 0, "rows": [],
+        "NO_ORDERS": True, "validation_status": "NOT_VALIDATED",
+    }
+
+
 def symbol_scope_report(symbols):
     return {
         "schema_version": "LUCA_V10_SYMBOL_SCOPE_1",
@@ -264,7 +273,9 @@ class LiveResearchTests(unittest.TestCase):
             raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
         result = collect("key", "secret", now=ASOF,
                          enrichment_runner=lambda *a, **kw: enrichment,
-                         sec_json=forbidden, delay=0)
+                         sec_json=forbidden, delay=0,
+                         volume_context_runner=lambda *a, **kw:
+                             outside_volume_report())
         self.assertEqual(result["candidate_count"], 50)
         self.assertEqual(result["truncated_candidates"], 5)
         self.assertEqual(result["source_status"], "SEC_TICKER_MAP_HTTP_403")
@@ -278,7 +289,9 @@ class LiveResearchTests(unittest.TestCase):
             {"symbol": "ABC", "price_band_0_20_to_20": True,
              "iex_last_trade_price": 1.0, "research_status": "WATCH_ONLY_FRESH_IEX"}]}
         result = collect("key", "secret", now=ASOF,
-                         enrichment_runner=lambda *a, **kw: enrichment, delay=0)
+                         enrichment_runner=lambda *a, **kw: enrichment, delay=0,
+                         volume_context_runner=lambda *a, **kw:
+                             outside_volume_report())
         self.assertEqual(result["source_status"], "SEC_CONTACT_NOT_CONFIGURED")
         self.assertEqual(result["candidate_count"], 1)
         self.assertEqual(result["rows"][0]["sec_status"], "SEC_NOT_CHECKED_CONTACT_REQUIRED")
@@ -429,7 +442,9 @@ class LiveResearchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_screener_context"):
             collect("key", "secret", now=ASOF,
                     enrichment_runner=lambda *a, **kw: enrichment,
-                    sec_json=blocked, delay=0)
+                    sec_json=blocked, delay=0,
+                    volume_context_runner=lambda *a, **kw:
+                        outside_volume_report())
 
     def test_official_bundle_hash_tampering_fails_closed(self):
         bundle = official_bundle()
@@ -438,7 +453,9 @@ class LiveResearchTests(unittest.TestCase):
             raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
         result = collect("key", "secret", now=ASOF,
                          enrichment_runner=lambda *a, **kw: bundle_enrichment(),
-                         sec_json=blocked, delay=0, sec_bundle=bundle)
+                         sec_json=blocked, delay=0, sec_bundle=bundle,
+                         volume_context_runner=lambda *a, **kw:
+                             outside_volume_report())
         self.assertEqual(result["source_status"],
                          "SEC_TICKER_MAP_HTTP_403_BUNDLE_VALUEERROR")
         self.assertEqual(result["rows"][0]["sec_status"],
