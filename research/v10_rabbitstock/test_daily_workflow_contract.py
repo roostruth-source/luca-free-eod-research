@@ -31,6 +31,11 @@ class DailyWorkflowContractTests(unittest.TestCase):
         self.assertIn("retention-days: 90", text)
         self.assertIn("luca-v10-research-build-ci.yml", text)
         self.assertIn("NO_PREVIOUS_SUCCESSFUL_RUN", text)
+        self.assertIn("archive_bundle.py build", text)
+        self.assertIn("archive_bundle.py verify", text)
+        self.assertIn("luca_v10_archive_bundle.zip", text)
+        self.assertLess(text.index("Verify final safety flags"),
+                        text.index("archive_bundle.py build"))
 
     def test_push_and_pr_ci_have_no_live_market_or_secret_steps(self):
         text = OFFLINE.read_text()

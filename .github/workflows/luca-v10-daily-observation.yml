@@ -119,6 +119,15 @@ jobs:
               assert data["NO_ORDERS"] is True
               assert data["validation_status"] == "NOT_VALIDATED"
           PY
+      - name: Build and verify immutable recovery bundle
+        run: |
+          python archive_bundle.py build \
+            --input-dir build_outputs \
+            --output build_outputs/luca_v10_archive_bundle.zip \
+            --source-commit "${{ github.sha }}" \
+            --source-run-id "${{ github.run_id }}" \
+            --created-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python archive_bundle.py verify build_outputs/luca_v10_archive_bundle.zip
       - uses: actions/upload-artifact@v4
         with:
           name: luca-v10-executable-research-build
@@ -132,4 +141,5 @@ jobs:
             research/v10_rabbitstock/build_outputs/prospective_outcomes.html
             research/v10_rabbitstock/build_outputs/validation_readiness.json
             research/v10_rabbitstock/build_outputs/luca_v10_observer_report.html
+            research/v10_rabbitstock/build_outputs/luca_v10_archive_bundle.zip
           retention-days: 90
