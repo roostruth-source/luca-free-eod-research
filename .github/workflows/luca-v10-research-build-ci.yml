@@ -1,7 +1,6 @@
-name: LUCA V10 Executable Research Build
+name: LUCA V10 Offline Research Build CI
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - research/v10-rabbitstock-eval
@@ -50,51 +49,6 @@ jobs:
         run: |
           python validate_frozen_signals.py validation_manifest.json \
             --output build_outputs/validation_readiness.json
-      - name: Collect new watchlist and SEC review when sources permit
-        env:
-          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
-          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
-          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
-        run: |
-          bundle_args=()
-          if [ -f build_inputs/sec_official_bundle.json ]; then
-            bundle_args=(--sec-bundle build_inputs/sec_official_bundle.json)
-          fi
-          python run_live_research.py "${bundle_args[@]}" \
-            --output build_outputs/live_watchlist.json \
-            --html-output build_outputs/live_watchlist.html
-      - name: Restore preceding prospective ledger
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python restore_previous_ledger.py --output build_outputs/previous_ledger.json
-      - name: Freeze today's observations in append-only ledger
-        run: |
-          if [ -f build_outputs/previous_ledger.json ]; then
-            python prospective_ledger.py build_outputs/live_watchlist.json \
-              --previous build_outputs/previous_ledger.json \
-              --output build_outputs/prospective_ledger.json \
-              --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          else
-            python prospective_ledger.py build_outputs/live_watchlist.json \
-              --output build_outputs/prospective_ledger.json \
-              --built-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          fi
-      - name: Measure mature IEX daily reference outcomes
-        env:
-          ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID }}
-          ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY }}
-        run: |
-          python prospective_outcomes.py build_outputs/prospective_ledger.json \
-            --output build_outputs/prospective_outcomes.json \
-            --html-output build_outputs/prospective_outcomes.html \
-            --evaluated-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-      - name: Build one-file Korean observation report
-        run: |
-          python unified_observer_report.py \
-            --live build_outputs/live_watchlist.json \
-            --outcomes build_outputs/prospective_outcomes.json \
-            --validation build_outputs/validation_readiness.json \
-            --output build_outputs/luca_v10_observer_report.html
       - name: Verify order safety flags
         run: |
           python - <<'PY'
@@ -113,10 +67,4 @@ jobs:
             research/v10_rabbitstock/build_outputs/latest_research_build.json
             research/v10_rabbitstock/build_outputs/latest_research_build.html
             research/v10_rabbitstock/build_outputs/validation_readiness.json
-            research/v10_rabbitstock/build_outputs/live_watchlist.json
-            research/v10_rabbitstock/build_outputs/live_watchlist.html
-            research/v10_rabbitstock/build_outputs/prospective_ledger.json
-            research/v10_rabbitstock/build_outputs/prospective_outcomes.json
-            research/v10_rabbitstock/build_outputs/prospective_outcomes.html
-            research/v10_rabbitstock/build_outputs/luca_v10_observer_report.html
-          retention-days: 14
+          retention-days: 30
