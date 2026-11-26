@@ -88,6 +88,13 @@ jobs:
             --output build_outputs/prospective_outcomes.json \
             --html-output build_outputs/prospective_outcomes.html \
             --evaluated-at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+      - name: Build one-file Korean observation report
+        run: |
+          python unified_observer_report.py \
+            --live build_outputs/live_watchlist.json \
+            --outcomes build_outputs/prospective_outcomes.json \
+            --validation build_outputs/validation_readiness.json \
+            --output build_outputs/luca_v10_observer_report.html
       - name: Verify order safety flags
         run: |
           python - <<'PY'
@@ -111,4 +118,5 @@ jobs:
             research/v10_rabbitstock/build_outputs/prospective_ledger.json
             research/v10_rabbitstock/build_outputs/prospective_outcomes.json
             research/v10_rabbitstock/build_outputs/prospective_outcomes.html
+            research/v10_rabbitstock/build_outputs/luca_v10_observer_report.html
           retention-days: 14
