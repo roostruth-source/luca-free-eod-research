@@ -245,6 +245,18 @@ GitHub Actions는 위 두 결과와 기존 동결 보고서를 함께 아카이�
 
 `prospective_outcomes.py --html-output`은 아이폰에서 바로 읽을 수 있는 성과 준비도 HTML을 만든다. 정상 신선 관찰·독립 티커·1/3/5/10거래일 성숙 수·관찰 날짜 분산·종목범위 차단 수를 큰 글씨로 보여주고, 영문 `readiness_blockers` 옆에 쉬운 한국어 뜻을 함께 표시한다. 화면에는 매수 추천·주문 버튼이 없으며 `WATCH_ONLY · NOT_VALIDATED · NO_ORDERS`를 상단에 고정한다.
 
+`unified_observer_report.py`는 후보표·전향 성과표·독립 검증표를 하나의 휴대전화용 HTML로 합친다. 종목, 관찰 시각, 관찰 이유, 위험, 5%·10% 도달률, Spread(매수·매도 호가 차이) 부담 가정, 누락 거래일과 성능 차단 사유를 한 파일에서 확인할 수 있다. 세 입력 파일의 SHA-256 지문도 함께 기록한다. 입력에 주문 허용 또는 검증 완료라는 모순된 표시가 있으면 보고서 생성을 중단한다.
+
+```bash
+python unified_observer_report.py \
+  --live build_outputs/live_watchlist.json \
+  --outcomes build_outputs/prospective_outcomes.json \
+  --validation build_outputs/validation_readiness.json \
+  --output build_outputs/luca_v10_observer_report.html
+```
+
+이 통합 화면은 기존 탐지 계산식과 성과 계산식을 바꾸지 않는다. 실제 Fill(체결), Slippage(주문 미끄러짐), 수수료와 시장충격을 측정하지 않았으므로 거래 수익 검증 자료가 아니다.
+
 ## 후속 수익률 평가
 
 `evaluate_followups.py`는 신호 뒤 완료된 1·3·5·10거래일 일봉만 사용한다. 모든 가격은 신호 시점 기준으로 역분할·분할 조정됐다는 `SPLIT_ADJUSTED_TO_SIGNAL` 표시가 있어야 한다. 장중 미완성 일봉, 평가시각 뒤의 미래 일봉, 신호 이전 일봉은 거부한다.
