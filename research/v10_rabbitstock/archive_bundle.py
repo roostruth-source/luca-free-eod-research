@@ -158,7 +158,12 @@ def _verify_evidence(payloads: dict[str, bytes]) -> dict:
             text = payloads[name].decode("utf-8")
         except UnicodeDecodeError as exc:
             raise ValueError(f"html_utf8_required:{name}") from exc
-        if not all(marker in text for marker in ("WATCH_ONLY", "NOT_VALIDATED", "NO_ORDERS")):
+        korean_watchlist_banner = (
+            name == "live_watchlist.html" and
+            "<p>관찰 전용 · 주문 없음 · 예측 미검증 · SEC 안전 판정 없음</p>" in text
+        )
+        if not korean_watchlist_banner and not all(
+                marker in text for marker in ("WATCH_ONLY", "NOT_VALIDATED", "NO_ORDERS")):
             raise ValueError(f"html_safety_markers_missing:{name}")
     ledger_summary = _verify_ledger(parsed["prospective_ledger.json"])
     new_york_time = parsed["daily_guard.json"].get("new_york_time")
