@@ -1,0 +1,139 @@
+name: LUCA frozen no-signal comparison
+on:
+  push:
+    branches: ['research/v10-control-15m-20261128-once']
+    paths: ['.github/workflows/luca-v10-control-15m-20261128.yml']
+permissions: {}
+jobs:
+  archive:
+    if: github.event.before == 'db43b1fe1f4b1889b1de55c1af8a6f2265a36764' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the frozen 15-minute control windows
+        env:
+          APCA_API_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID }}
+          APCA_API_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: |
+          python - <<'PYTHON'
+          """Read-only collection of the fixed Alpaca IEX requests. No external libraries."""
+          import json
+          import os
+          from datetime import datetime, timezone
+          from hashlib import sha256
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.request import HTTPRedirectHandler, Request, build_opener
+          from urllib.parse import urlencode
+
+
+
+
+          class RejectRedirect(HTTPRedirectHandler):
+              def redirect_request(self, *args):
+                  return None
+
+
+          def fetch(requests, folder):
+              key = os.getenv("APCA_API_KEY_ID") or os.getenv("ALPACA_API_KEY_ID")
+              secret = os.getenv("APCA_API_SECRET_KEY") or os.getenv("ALPACA_API_SECRET_KEY")
+              if not key or not secret:
+                  raise SystemExit("현재 환경에 Alpaca 조회 인증이 없습니다.")
+              folder.mkdir(exist_ok=False)
+              opener = build_opener(RejectRedirect())
+              index = {"source": "Alpaca IEX", "status": "INCOMPLETE", "pages": []}
+              manifest = folder / "manifest.json"
+
+              def save():
+                  temp = manifest.with_suffix(".tmp")
+                  temp.write_text(json.dumps(index, indent=2), encoding="utf-8")
+                  temp.replace(manifest)
+
+              save()
+              try:
+                  for task in requests:
+                      params = dict(task["params"])
+                      tokens = set()
+                      for number in range(1, 101):
+                          url = "https://data.alpaca.markets/v2/stocks/bars?" + urlencode(params)
+                          req = Request(url, headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
+                          with opener.open(req, timeout=30) as response:
+                              raw = response.read()
+                          name = f"batch_{task['batch']}_{number}.json"
+                          (folder / name).write_bytes(raw)
+                          index["pages"].append(dict(file=name, url=url, received_utc=datetime.now(timezone.utc).isoformat(),
+                                                     sha256=sha256(raw).hexdigest()))
+                          save()
+                          data = json.loads(raw)
+                          if "bars" not in data or not isinstance(data["bars"], dict):
+                              raise ValueError("Missing bars object")
+                          if set(data["bars"]) - set(params["symbols"].split(",")):
+                              raise ValueError("Unexpected symbol")
+                          if not (token := data.get("next_page_token")):
+                              break
+                          if token in tokens:
+                              raise ValueError("Repeated page token")
+                          tokens.add(token)
+                          params["page_token"] = token
+                      else:
+                          raise ValueError("Pagination incomplete")
+                  index["status"] = "RESPONSES_ARCHIVED"
+              except Exception as exc:
+                  index["error"] = f"HTTP {exc.code}" if isinstance(exc, HTTPError) else type(exc).__name__
+                  raise
+              finally:
+                  save()
+
+
+
+          requests = [
+              {'batch': 1, 'first_seen_utc': '2026-11-20T15:18:22.331389+00:00', 'params': {'symbols': 'CCC,CIGL,IREN,LABT,MEDS,NXAT,RAYA,VIVS', 'timeframe': '1Min', 'feed': 'iex', 'adjustment': 'raw', 'asof': '-', 'start': '2026-11-20T15:18:00+00:00', 'end': '2026-11-20T15:33:00+00:00', 'limit': 1000, 'sort': 'asc'}},
+              {'batch': 2, 'first_seen_utc': '2026-11-20T19:29:10.057393+00:00', 'params': {'symbols': 'CIGL,GRAB,IREN,MSS,OPEN,PLUG,VIVS', 'timeframe': '1Min', 'feed': 'iex', 'adjustment': 'raw', 'asof': '-', 'start': '2026-11-20T19:29:00+00:00', 'end': '2026-11-20T19:44:00+00:00', 'limit': 1000, 'sort': 'asc'}},
+              {'batch': 3, 'first_seen_utc': '2026-11-20T19:45:24.131679+00:00', 'params': {'symbols': 'CIGL,GRAB,IREN,MSS,NOK,OPEN,PLUG,VIVS', 'timeframe': '1Min', 'feed': 'iex', 'adjustment': 'raw', 'asof': '-', 'start': '2026-11-20T19:45:00+00:00', 'end': '2026-11-20T20:00:00+00:00', 'limit': 1000, 'sort': 'asc'}},
+              {'batch': 4, 'first_seen_utc': '2026-11-23T17:19:33.197668+00:00', 'params': {'symbols': 'DCGO,GMEX,IREN,IVVD,MEDS,SOAR', 'timeframe': '1Min', 'feed': 'iex', 'adjustment': 'raw', 'asof': '-', 'start': '2026-11-23T17:19:00+00:00', 'end': '2026-11-23T17:34:00+00:00', 'limit': 1000, 'sort': 'asc'}},
+              {'batch': 5, 'first_seen_utc': '2026-11-23T20:20:33.436269+00:00', 'params': {'symbols': 'KORU,NVD,NVDL,SNXX,SPDN', 'timeframe': '1Min', 'feed': 'iex', 'adjustment': 'raw', 'asof': '-', 'start': '2026-11-23T20:20:00+00:00', 'end': '2026-11-23T20:35:00+00:00', 'limit': 1000, 'sort': 'asc'}},
+              {'batch': 6, 'first_seen_utc': '2026-11-25T14:41:56.304273+00:00', 'params': {'symbols': 'KORU,MUU,SNXX', 'timeframe': '1Min', 'feed': 'iex', 'adjustment': 'raw', 'asof': '-', 'start': '2026-11-25T14:41:00+00:00', 'end': '2026-11-25T14:56:00+00:00', 'limit': 1000, 'sort': 'asc'}},
+          ]
+          fetch(requests, Path("responses"))
+          PYTHON
+      - name: Seal available responses for the research owner
+        if: always()
+        run: |
+          if [ ! -f responses/manifest.json ]; then exit 1; fi
+          cat > recipient.pem <<'CERTIFICATE'
+          -----BEGIN CERTIFICATE-----
+          MIIEKTCCApGgAwIBAgIUWA0accpzGosJ02Ioootp7OiQuv8wDQYJKoZIhvcNAQEL
+          BQAwJDEiMCAGA1UEAwwZTFVDQSBjb250cm9sIG9ic2VydmF0aW9uczAeFw0yNjEx
+          MjcxNzQwNTBaFw0yNjEyMjcxNzQwNTBaMCQxIjAgBgNVBAMMGUxVQ0EgY29udHJv
+          bCBvYnNlcnZhdGlvbnMwggGiMA0GCSqGSIb3DQEBAQUAA4IBjwAwggGKAoIBgQC1
+          YgtCZWoeWmDrr5yG+1GFVZclJH7wbGBYOJjHEoCiP/WD5qZJhGBhild8YLR3xHsr
+          t8p0mbOKJekF74p09dQMr8oO7EkhK0yIdt9kikLZeIHpuIC8rgHIheo8OTKBZ7+7
+          VLY7alSmYGV3gcQWiAm7vMwI181dCsZ0sEGEVNOHacIoWLM8jfwrKVrLrKUr+tPy
+          ZHVvEKLh5LxlArA9tVrPAoje7yZcFbZleAKYDBIKRlXb9YJKJKdAboLK3gkTlfhK
+          vs5CuFNoYvzMMAFzRN/IScrix/IexP6iS2VfgDH2eoge/LBUiirAGmBkWIj4YG1H
+          ouKy3VpFy3ED/P/2wLEsVvvaDeVngynxsgmAb9+L4T1E8d5IjzMUgrwcy9qNp7k4
+          ilmuNmZLAK2coLS+zr0xjKjB7bSHIicoeqTQZEE4d5dafkc2fduifDjzxfSlKl6b
+          UNQ4db/l13QILFUfBJKx72YHAZc8rCH8zIW3FnWYokXQXOX39QzOqSH8QWJAo2MC
+          AwEAAaNTMFEwHQYDVR0OBBYEFH10qfPokwe0J8fZ4DYAI1ZpudpCMB8GA1UdIwQY
+          MBaAFH10qfPokwe0J8fZ4DYAI1ZpudpCMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZI
+          hvcNAQELBQADggGBAJbNSgPiCkfNXVC+BuotWXCiXwtuPyjNwUJi7oCat1rgyIOS
+          JE25MzXeM5x1rXpyxJrkb6tAP9A6UNzkzWcNkhYXPsHhdAAz88ujgHBwACEOOcAS
+          Pia1R043Z4uLCyCIrM+8Zkv4dbeDCEAN2c7ERR+PhxliHBm457qJLVSds/mjQaIk
+          GUPq1OYzUACPKbrDpo7PX5TZY+4w/g5NwZpKLEMSluLZ3ySO3aDoqpoBL++vqtu7
+          ASDnhHv5rOLs3dQ+2fWnRtVfmSHmzJGjBcSczpc5oWJs0dyWz8hbUTmkv5W6B9MJ
+          AcAIu4ZMstNywoS2XdNR6v9OI7JYjoBFWwVfg4PmLo520R20OC2NVntAPjR3spd2
+          LvjApb3TxjVavbmWlWv2Cg4JfPPB8SNIakTeBmWQGSicMXjgWKDwjx5OnGtHgUiw
+          LSrDKcWIzQxoU5CF2pT0rHbPlSHj0Ai4EvvSV5KxJes0zE+j4FZRoBeq1R9JVDvW
+          agqdCPdPPMl+uYO6Hg==
+          -----END CERTIFICATE-----
+          CERTIFICATE
+          python -m zipfile -c responses.zip responses/
+          openssl cms -encrypt -aes-256-cbc -binary -in responses.zip -outform DER -out historical.cms recipient.pem
+      - name: Retain encrypted original responses
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: luca-iex-control-37
+          path: historical.cms
+          if-no-files-found: error
+          retention-days: 7
