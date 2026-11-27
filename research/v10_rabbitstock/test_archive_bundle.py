@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 import tempfile
 import unittest
@@ -72,6 +73,41 @@ def rewrite(path: Path, transform):
 
 
 class ArchiveBundleTests(unittest.TestCase):
+    def test_recover_reports_from_production_renderers_without_market_access(self):
+        from prospective_ledger import append_observations
+        from prospective_outcomes import build_outcomes, render_html as outcomes_html
+        from run_live_research import assemble, render_html as watchlist_html
+        from unified_observer_report import render_html as unified_html
+        from validate_frozen_signals import validate
+
+        live = assemble({"status": "SYNTHETIC_EMPTY_TEST", "rows": []},
+                        datetime.fromisoformat("2026-11-27T09:45:00-05:00"))
+        ledger = append_observations(live, CREATED)
+        outcomes = build_outcomes(ledger, {}, CREATED)
+        directory = Path(__file__).resolve().parent
+        validation = validate(json.loads((directory / "validation_manifest.json").read_text()),
+                              directory)
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            write_inputs(root)
+            for name, data in (("live_watchlist", live), ("prospective_ledger", ledger),
+                               ("prospective_outcomes", outcomes), ("validation_readiness", validation)):
+                (root / (name + ".json")).write_text(json.dumps(data))
+            for name, html in (("live_watchlist.html", watchlist_html(live)),
+                               ("prospective_outcomes.html", outcomes_html(outcomes)),
+                               ("luca_v10_observer_report.html", unified_html(live, outcomes, validation))):
+                (root / name).write_text(html)
+            archive = root / "test.zip"
+            build_bundle(root, archive, COMMIT, "1", CREATED)
+            recovered = root / "recovered"
+            self.assertEqual(recover_bundle(archive, recovered)["event_count"], 0)
+            for name in REQUIRED_FILES:
+                self.assertEqual((root / name).read_bytes(), (recovered / name).read_bytes())
+            page = root / "live_watchlist.html"
+            page.write_text(page.read_text().replace("주문 없음", ""))
+            with self.assertRaisesRegex(ValueError, "safety_markers_missing:live_watchlist"):
+                build_bundle(root, root / "invalid.zip", COMMIT, "1", CREATED)
+
     def test_build_is_deterministic_and_verifies(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
